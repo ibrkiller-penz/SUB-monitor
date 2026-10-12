@@ -35,16 +35,13 @@
   /* 시계 — 패널 없이 배경 위에 */
   #clock { background: none; border: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none;
     justify-content: center; padding-left: 10px; text-shadow: 0 2px 18px rgba(0,0,0,.55); }
-  #season { font-size: 19px; color: var(--accent); letter-spacing: .2em; margin: 6px 0 4px; }
-  #time { font-size: 112px; font-weight: 300; line-height: .95; letter-spacing: -1px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #time b { font-weight: 400; }
-  #sub { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
+  #ampm { font-size: 22px; color: var(--accent); font-weight: 500; letter-spacing: .12em; margin: 4px 0 2px 4px; }
+  #time { font-size: 112px; font-weight: 400; line-height: .95; letter-spacing: -1px; white-space: nowrap; font-variant-numeric: tabular-nums; text-shadow: 0 3px 24px rgba(0,0,0,.75), 0 1px 2px rgba(0,0,0,.6); }
+  #time span { font-size: 30px; font-weight: 400; color: var(--accent); margin-left: 8px; letter-spacing: 0; }
   #dayBar { margin-top: 10px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.14); overflow: hidden; width: 86%; }
   #dayBar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), #fff3); transition: width 1s linear; }
   #dayTxt { font-size: 15px; color: var(--muted); margin-top: 5px; }
-  #ampm { font-size: 25px; color: var(--muted); }
-  #sec { font-size: 25px; color: var(--accent); font-variant-numeric: tabular-nums; }
-  #date { font-size: 30px; margin-top: 14px; font-weight: 500; }
+  #date { font-size: 30px; margin-top: 12px; font-weight: 500; }
   #dday { font-size: 18px; color: var(--muted); margin-top: 6px; }
 
   /* 날씨 */
@@ -70,10 +67,11 @@
 
   /* 시간표 */
   #ttHead { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-  #ttName { font-size: 23px; font-weight: 600; }
+  #ttName { font-size: 23px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
   #ttNav { display: flex; align-items: center; gap: 2px; }
   #ttNav button { all: unset; cursor: pointer; font-size: 14px; color: var(--muted); width: 30px; height: 30px; text-align: center; line-height: 30px; border-radius: 8px; }
   #ttNav button:hover { background: rgba(255,255,255,.12); color: var(--text); }
+  #ttNav button[hidden] { display: none; }
   #ttNav #ttToday { width: auto; padding: 0 10px; font-size: 15px; color: #1a120c; background: var(--accent); font-weight: 500; margin-left: 4px; }
   #ttWeek { font-size: 17px; color: var(--muted); white-space: nowrap; }
   #ttWeek.other { color: var(--accent); }
@@ -91,7 +89,7 @@
   .slot.free .sj { color: var(--muted); font-weight: 400; font-size: 20px; }
   .slot.class { background: rgba(255,255,255,.10); }
   .slot.class .sj { color: var(--text); }
-  .slot.event { background: rgba(255,255,255,.07); } .slot.event .sj { font-size: 20px; color: #f3d8b5; } .slot.event .rm { color: var(--accent); }
+  .slot.event { background: rgba(243,216,181,.08); } .slot.event .sj { color: #f3d8b5; } .slot.event .rm { color: var(--accent); }
   .slot.holiday .sj { font-size: 19px; color: #f3b5a5; }
   .slot.duty, .slot.dangyeo, .slot.sub { background: rgba(244,162,89,.16); }
   .slot.absent { background: rgba(239,123,107,.16); } .slot.absent .sj { font-size: 18px; }
@@ -105,7 +103,8 @@
   .slot.class::before, .slot.sub::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: var(--accent); opacity: .8; }
   .slot.class, .slot.sub { padding-left: 16px; }
   .slot.past { opacity: .62; }
-  #ttFoot { margin-top: 10px; font-size: 17px; align-items: center; color: var(--muted); display: flex; gap: 12px; min-height: 18px; }
+  #ttFoot span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #ttFoot { margin-top: 10px; font-size: 17px; align-items: center; overflow: hidden; color: var(--muted); display: flex; gap: 12px; min-height: 18px; }
   #ttFoot .live { color: var(--accent); font-weight: 600; }
   #ttPick { flex: 1; display: flex; flex-direction: column; gap: 10px; justify-content: center; align-items: center; }
   #ttPick select { font-size: 20px; padding: 6px 10px; border-radius: 8px; background: rgba(0,0,0,.4); color: var(--text); border: 1px solid var(--line); }
@@ -121,6 +120,7 @@
   .ev .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ev.now .n { color: var(--accent); font-weight: 600; }
   .ev.past { opacity: .55; }
+  .ev.local .n::before { content: '✎ '; color: var(--accent); font-size: 13px; }
 
   /* PC */
   .ring-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 4px; justify-items: center; }
@@ -183,9 +183,8 @@
 <div id="detail"><div class="dhead"><button id="dback">← 허브로</button><span id="dtitle"></span><span id="dclock"></span></div><div id="dbody"></div></div>
 <div id="root">
   <section class="panel" id="clock">
-    <div id="season"></div>
+    <div id="ampm"></div>
     <div id="time">--:--</div>
-    <div id="sub"><span id="ampm"></span><span id="sec"></span></div>
     <div id="date"></div>
     <div id="dday"></div>
     <div id="dayBar"><i></i></div><div id="dayTxt"></div>
@@ -245,7 +244,6 @@ function applyMonth() {
   r.setProperty('--accent', accent);
   r.setProperty('--glass', glass);
   $('bg').style.backgroundImage = `url("bg/${pad(m)}.jpg")`;
-  $('season').textContent = name.split('').join(' ');
 }
 
 /* ---------- 시계 ---------- */
@@ -256,9 +254,8 @@ const PERIODS = [
 const toMin = s => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
 function tickClock() {
   const d = new Date(), h = d.getHours();
-  $('time').innerHTML = `<b>${pad(h % 12 || 12)}</b>:${pad(d.getMinutes())}`;
+  $('time').innerHTML = `${pad(h % 12 || 12)}:${pad(d.getMinutes())}<span>${pad(d.getSeconds())}</span>`;
   $('ampm').textContent = h < 12 ? '오전' : '오후';
-  $('sec').textContent = `${pad(d.getSeconds())}초`;
   $('date').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일`;
   const doy = Math.floor((d - new Date(d.getFullYear(), 0, 1)) / 864e5) + 1;
   $('dday').textContent = `${d.getFullYear()} · ${doy}일째 · 올해 ${Math.round(doy / (d.getFullYear() % 4 ? 365 : 366) * 100)}%`;
@@ -284,7 +281,7 @@ const grade = (v, cut) => v == null ? '-' : v <= cut[0] ? '좋음' : v <= cut[1]
 let weatherData = null, weatherName = '';
 async function loadWeather() {
   const d = await pywebview.api.get_weather();
-  weatherData = d; if (window.onDataChange) onDataChange();
+  weatherData = d; if (window.onDataChange) onDataChange('weather');
   if (d.error) { $('wbody').innerHTML = `<div class="err">날씨 오류: ${esc(d.error)}</div>`; return; }
   const c = d.current, [ic, desc] = wmo(c.weather_code, c.is_day), air = d.air || {};
   const nowH = new Date(); nowH.setMinutes(0, 0, 0);
@@ -345,7 +342,7 @@ function renderTimetable() {
   const isCurWeek = tt.week === tt.currentWeek;
   const isToday = isCurWeek && day === tt.today && WD[new Date().getDay()] === tt.today;
   $('ttName').textContent = tt.teacher;
-  $('ttWeek').textContent = `${tt.week}주차 (${tt.range})`;
+  $('ttWeek').textContent = `${tt.week}주차`;
   $('ttWeek').className = isCurWeek ? '' : 'other';
   $('ttToday').hidden = isCurWeek;
   $('ttDays').innerHTML = ['월', '화', '수', '목', '금'].map(d =>
@@ -365,9 +362,8 @@ function renderTimetable() {
     const jido = data.jido.find(j => Number(j.period) === p);
     const asDuty = jido && c.type === 'free';
     const st = state(s, e);
-    const isEv = (c.type === 'event' || c.type === 'holiday') && c.room;
-    const main = asDuty ? '공강지도' : isEv ? c.room : c.subject;
-    const sub = jido ? `공강지도 · ${jido.target}` : isEv ? c.subject : c.room;
+    const main = asDuty ? '공강지도' : c.subject;
+    const sub = jido ? `공강지도 · ${jido.target}` : c.room;
     const prog = st === 'now' ? `<div class="prog"><i style="width:${Math.round((nowMin - toMin(s)) / (toMin(e) - toMin(s)) * 100)}%"></i></div>` : '';
     html += `<div class="slot ${asDuty ? 'duty' : c.type} ${st}"><div class="no"><span>${p}교시 · ${s}</span></div>
       <div class="sj">${esc(main)}</div><div class="rm">${esc(sub)}</div>${prog}</div>`;
@@ -382,8 +378,8 @@ function renderTimetable() {
       if (nowMin < toMin(s)) { live = `다음 ${p === '점심' ? '점심' : p + '교시'}까지 ${toMin(s) - nowMin}분`; break; }
     }
   }
-  if (window.onDataChange) onDataChange();
-  $('ttFoot').innerHTML = `<span class="live">${live}</span><span>수업 ${classes}시간</span>${data.title ? `<span>· ${esc(data.title)}</span>` : ''}`;
+  if (window.onDataChange) onDataChange('timetable');
+  $('ttFoot').innerHTML = `<span class="live">${live}</span><span>${tt.range}</span>${data.title ? `<span>· ${esc(data.title)}</span>` : `<span>· 수업 ${classes}시간</span>`}`;
   renderTodayBox();
 }
 function renderTodayBox() {
@@ -430,13 +426,13 @@ function renderEvents() {
       lastDay = key;
     }
     const cls = e.all_day ? '' : (now >= s && now < en ? 'now' : now >= en ? 'past' : '');
-    html += `<div class="ev ${cls}"><span class="t">${e.all_day ? '종일' : `${pad(s.getHours())}:${pad(s.getMinutes())}`}</span>
+    html += `<div class="ev ${cls} ${e.local ? 'local' : ''}"><span class="t">${e.all_day ? '종일' : `${pad(s.getHours())}:${pad(s.getMinutes())}`}</span>
       <span class="n">${esc(e.title)}</span></div>`;
   }
   if (eventsErr) html += `<div class="err" style="margin-top:8px;font-size:15px">일부 캘린더 오류</div>`;
   $('events').innerHTML = html;
   renderCal();
-  if (window.onDataChange) onDataChange();
+  if (window.onDataChange) onDataChange('events');
 }
 function renderCal() {
   const now = new Date(), y = now.getFullYear(), m = now.getMonth();
@@ -487,7 +483,7 @@ async function loadSystem() {
   const up = s.uptime, ud = Math.floor(up / 86400), uh = Math.floor(up % 86400 / 3600), um = Math.floor(up % 3600 / 60);
   h += `<div class="net"><span>가동 <b>${ud ? ud + '일 ' : ''}${uh}시간 ${um}분</b></span><span>RAM <b>${s.ram_used}/${s.ram_total}GB</b></span></div>`;
   $('pcbody').innerHTML = h;
-  if (window.onDataChange) onDataChange();
+  if (window.onDataChange) onDataChange('system');
 }
 
 /* ---------- 넘치는 글자 자동 축소 ---------- */
@@ -497,18 +493,19 @@ function fitAll() {
     let fs = parseFloat(getComputedStyle(el).fontSize), min = el.classList.contains('rm') ? 13 : fs * 0.6;
     while (el.scrollWidth > el.clientWidth && fs > min) { fs -= 1; el.style.fontSize = fs + 'px'; }
   });
-  // 패널 세로 넘침: 일정 목록은 스크롤 대신 아래 항목을 숨김
-  const ev = $('events');
-  if (ev) [...ev.children].forEach(c => c.style.display = '');
-  if (ev && ev.scrollHeight > ev.clientHeight) {
-    const kids = [...ev.children];
-    for (let i = kids.length - 1; i > 0 && ev.scrollHeight > ev.clientHeight; i--) kids[i].style.display = 'none';
-  }
+  // 세로 넘침: 목록은 스크롤 대신 아래 항목을 숨김 (허브 일정, 상세 목록)
+  document.querySelectorAll('#events, .dlist').forEach(ev => {
+    [...ev.children].forEach(c => c.style.display = '');
+    if (ev.scrollHeight > ev.clientHeight) {
+      const kids = [...ev.children];
+      for (let i = kids.length - 1; i > 0 && ev.scrollHeight > ev.clientHeight; i--) kids[i].style.display = 'none';
+    }
+  });
 }
 if (document.fonts) document.fonts.ready.then(fitAll);
 window.addEventListener('resize', fitAll);
 new MutationObserver(() => { clearTimeout(window._fitT); window._fitT = setTimeout(fitAll, 50); })
-  .observe(document.getElementById('root'), { childList: true, subtree: true });
+  .observe(document.body, { childList: true, subtree: true });
 
 /* ---------- 시작 ---------- */
 tickClock(); setInterval(tickClock, 1000);

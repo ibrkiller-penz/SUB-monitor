@@ -145,17 +145,66 @@ class Api:
             data["air"] = None
         return data
 
+    # ---- 화면에서 직접 입력한 일정 (~/.lesown_dashboard/local_events.json) ----
+    LOCAL_EVENTS = Path.home() / ".lesown_dashboard" / "local_events.json"
+
+    def _load_local(self):
+        try:
+            return json.loads(self.LOCAL_EVENTS.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+
+    def _save_local(self, items):
+        self.LOCAL_EVENTS.parent.mkdir(parents=True, exist_ok=True)
+        self.LOCAL_EVENTS.write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    def add_event(self, ev):
+        """ev: {title, date 'YYYY-MM-DD', time 'HH:MM' | '', all_day}"""
+        items = self._load_local()
+        import uuid
+        ev = {"id": uuid.uuid4().hex[:12], "title": str(ev.get("title", "")).strip()[:80],
+              "date": ev.get("date", ""), "time": ev.get("time", "") or "", "all_day": bool(ev.get("all_day")) or not ev.get("time")}
+        if not ev["title"] or not ev["date"]:
+            return False
+        items.append(ev)
+        self._save_local(items)
+        return True
+
+    def delete_event(self, ev_id):
+        items = [x for x in self._load_local() if x.get("id") != ev_id]
+        self._save_local(items)
+        return True
+
+    def _local_events(self, start, end):
+        out = []
+        for x in self._load_local():
+            try:
+                d = date.fromisoformat(x["date"])
+            except Exception:
+                continue
+            if not (start - timedelta(days=1) <= d <= end):
+                continue
+            if x.get("all_day") or not x.get("time"):
+                out.append({"title": x["title"], "start": d.isoformat(), "end": (d + timedelta(days=1)).isoformat(),
+                            "all_day": True, "location": "", "local": True, "id": x["id"]})
+            else:
+                s = datetime.combine(d, datetime.strptime(x["time"], "%H:%M").time())
+                out.append({"title": x["title"], "start": s.isoformat(), "end": (s + timedelta(hours=1)).isoformat(),
+                            "all_day": False, "location": "", "local": True, "id": x["id"]})
+        return out
+
     def get_events(self):
         urls = [u for u in self.cfg.get("ical_urls", []) if u.strip()]
+        start = date.today()
+        end = start + timedelta(days=int(self.cfg.get("calendar_days", 7)))
+        events = self._local_events(start, end)
+        errors = []
         if not urls:
-            return {"error": "config.json 의 ical_urls 에 구글 캘린더 iCal 주소를 넣어주세요."}
+            events.sort(key=lambda x: (x["start"][:10], not x["all_day"], x["start"]))
+            return {"events": events, "error": None if events else "config.json 의 ical_urls 에 구글 캘린더 iCal 주소를 넣거나, 일정 상세에서 직접 입력하세요."}
         import icalendar
         import recurring_ical_events
 
-        start = date.today()
-        end = start + timedelta(days=int(self.cfg.get("calendar_days", 7)))
-        events = []
-        errors = []
         for url in urls:
             try:
                 r = requests.get(url.strip(), timeout=15)

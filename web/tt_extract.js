@@ -34,10 +34,12 @@
             } else if (cell && typeof cell === 'object') {
                 subject = cell.displaySubject || '공강'; room = cell.room || '';
                 // 시험·행사일에도 원래 수업명을 보조 정보로 남긴다
-                const orig = (cell.originalVal || '').split('\n').filter(Boolean).reverse().join(' · ');
+                const op = (cell.originalVal || '').split('\n').filter(Boolean);   // ["309(선택1)", "N_창경"]
+                const oSub = op[1] || '', oRoom = op[0] || '';
+                const ev = () => { const label = cell.badgeText || subject;
+                    if (oSub) { subject = oSub; room = [oRoom, label].filter(Boolean).join(' · '); } else { subject = label; room = ''; } };
                 if (cell.isHoliday) { type = 'holiday'; subject = cell.badgeText || subject; room = ''; }
-                else if (cell.isFestival) { type = 'event'; subject = cell.badgeText || subject; room = orig; }
-                else if (cell.isFieldTrip || cell.isGradeExam) { type = 'event'; subject = cell.badgeText || subject; room = orig; }
+                else if (cell.isFestival || cell.isFieldTrip || cell.isGradeExam) { type = 'event'; ev(); }
                 else if (cell.isGonggangJido) { type = 'duty'; }
                 else if (cell.isDangyeo) { type = 'dangyeo'; }
                 else if (cell.isAbsent) { type = 'absent'; subject = `결강 (대강: ${cell.substituteTeacher})`; room = cell.modReason || ''; }

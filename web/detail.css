@@ -17,6 +17,17 @@ body.detail #root { visibility: hidden; }
 .dgrid.pc { grid-template-columns: repeat(4, 1fr); grid-template-rows: 1.1fr 1fr; }
 .dgrid.today { grid-template-columns: 1fr 2.4fr; }
 .dcol { display: grid; grid-template-rows: auto 1fr; gap: 14px; min-height: 0; }
+.dcol.ev3 { grid-template-rows: minmax(0, .9fr) minmax(0, 1.5fr) auto; height: 100%; overflow: hidden; }
+.dli .del { all: unset; cursor: pointer; margin-left: auto; width: 34px; height: 30px; text-align: center; line-height: 30px; border-radius: 8px; color: var(--muted); font-size: 15px; flex: none; }
+.dli .del:hover { background: rgba(239,123,107,.25); color: #fff; }
+.dli.local .n::before { content: '✎ '; color: var(--accent); font-size: 13px; }
+.evform { display: grid; grid-template-columns: 1fr 150px 110px auto auto; gap: 8px; align-items: center; flex: none; }
+.evform input, .evform button { font: inherit; font-size: 16px; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(0,0,0,.35); color: var(--text); min-width: 0; }
+.evform input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+.evform input[type=date], .evform input[type=time] { color-scheme: dark; }
+.evform label { font-size: 15px; color: var(--muted); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.evform label input { width: 18px; height: 18px; accent-color: var(--accent); }
+.evform button { background: var(--accent); color: #1a120c; border-color: transparent; font-weight: 500; padding: 0 16px; cursor: pointer; }
 .dside { display: grid; grid-template-rows: 1fr 1.25fr; gap: 14px; min-height: 0; }
 .dgrid.tt .dli { padding: 3px 0; font-size: 17px; }
 .dcard { background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: 20px;
@@ -45,16 +56,18 @@ body.detail #root { visibility: hidden; }
 .wt-h small { font-size: 14px; color: var(--muted); font-weight: 400; }
 .wt-h em { font-style: normal; font-size: 14px; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wt-h.td { color: var(--accent); }
-.wt-p { font-size: 16px; color: var(--muted); display: flex; align-items: baseline; gap: 6px; padding-left: 6px; white-space: nowrap; }
+.wt-p { font-size: 16px; color: var(--muted); display: flex; align-items: baseline; gap: 6px; padding-left: 6px; white-space: nowrap; overflow: hidden; }
 .wt-p small { font-size: 12px; }
-.wt-c { border-radius: 10px; background: rgba(255,255,255,.05); padding: 2px 10px; display: flex; align-items: baseline; gap: 10px; min-width: 0; overflow: hidden; line-height: 1.15; }
-.wt-c b { font-size: 20px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; max-width: 75%; }
-.wt-c small { font-size: 15px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wt-c { position: relative; border-radius: 10px; background: rgba(255,255,255,.05); padding: 2px 10px; display: flex; align-items: baseline; gap: 10px; min-width: 0; overflow: hidden; line-height: 1.15; }
+.wt-c.class::before, .wt-c.evc::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 2px; background: var(--accent); }
+.wt-c.class, .wt-c.evc { padding-left: 14px; }
+.wt-c b { font-size: 18px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; max-width: 100%; }
+.wt-c small { font-size: 14px; flex: 0 1 auto; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wt-c.td { background: rgba(255,255,255,.09); }
-.wt-c.class { border-left: 3px solid var(--accent); background: rgba(255,255,255,.12); }
+.wt-c.class { background: rgba(255,255,255,.12); }
 .wt-c.free b { color: var(--muted); font-weight: 400; font-size: 14px; }
 .wt-c.event b { color: #f3d8b5; font-size: 15px; }
-.wt-c.evc { background: rgba(243,216,181,.10); border-left: 3px solid #f3d8b5; } .wt-c.evc b { color: var(--text); font-size: 20px; }
+.wt-c.evc { background: rgba(243,216,181,.10); } .wt-c.evc::before { background: #f3d8b5; } .wt-c.evc b { color: var(--text); font-size: 18px; } .wt-c.evc small { color: var(--accent); }
 .wt-c.holiday b { color: #f3b5a5; font-size: 14px; }
 .wt-c.duty, .wt-c.sub, .wt-c.dangyeo, .wt-c.lunch.dutyon { background: rgba(244,162,89,.18); }
 .wt-c.absent { background: rgba(239,123,107,.18); }

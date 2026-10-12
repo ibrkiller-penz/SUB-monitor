@@ -11,7 +11,9 @@ function openDetail(kind) {
 }
 function closeDetail() { detailKind = null; document.body.classList.remove('detail'); $('detail').classList.remove('on'); clearTimeout(idleT); }
 function bumpIdle() { clearTimeout(idleT); if (detailKind) idleT = setTimeout(closeDetail, DETAIL_IDLE); }
-function onDataChange() { if (detailKind) renderDetail(); }
+const VIEW_DEPS = { today: ['timetable', 'events'], weather: ['weather'], timetable: ['timetable'], events: ['events'], pc: ['system'] };
+function onDataChange(kind) { if (detailKind && (!kind || VIEW_DEPS[detailKind].includes(kind))) renderDetail(); }
+let evDraft = { title: '', date: '', time: '', all_day: false }, evMsg = '';
 
 function renderDetail() {
   const views = { today: viewToday, weather: viewWeather, timetable: viewTimetable, events: viewEvents, pc: viewPC };
@@ -126,15 +128,15 @@ function viewTimetable() {
   const nav = `<div class="wnav"><button data-wk="-1">◀</button><span class="${isCurWeek ? '' : 'other'}">${tt.week}주차 (${tt.range})</span><button data-wk="1">▶</button>${isCurWeek ? '' : '<button data-wk="0" class="today">오늘</button>'}<em>${isCurWeek ? '이번 주' : ''}</em></div>`;
   let h = '<div class="wt"><div class="wt-h"></div>' + days.map(d => `<div class="wt-h ${d === tt.today ? 'td' : ''}">${d}<small>${tt.days[d].date.slice(5).replace('.', '/')}</small>${tt.days[d].title ? `<em>${esc(tt.days[d].title)}</em>` : ''}</div>`).join('');
   PERIODS.forEach(([p, s, e]) => {
-    h += `<div class="wt-p">${p === '점심' ? '점심' : p + '교시'}<small>${s}~${e}</small></div>`;
+    h += `<div class="wt-p">${p === '점심' ? '점심' : p + '교시'}<small>${s}</small></div>`;
     days.forEach(d => {
       const data = tt.days[d];
       const isNow = isCurWeek && d === tt.today && todayReal === tt.today && nowMin >= toMin(s) && nowMin < toMin(e);
       if (p === '점심') { h += `<div class="wt-c lunch ${data.lunchDuty ? 'dutyon' : ''} ${isNow ? 'now' : ''}">${data.lunchDuty ? '🍱 급식지도' : '·'}</div>`; return; }
       const c = data.periods[p - 1] || { type: 'free', subject: '공강', room: '' };
       const jido = data.jido.find(j => Number(j.period) === p), asDuty = jido && c.type === 'free';
-      const isEv = (c.type === 'event' || c.type === 'holiday') && c.room;
-      const main = asDuty ? '공강지도' : isEv ? c.room : c.subject, sub = jido ? jido.target : isEv ? '' : c.room;
+      const isEv = c.type === 'event' && c.room;
+      const main = asDuty ? '공강지도' : c.subject, sub = jido ? jido.target : c.room;
       h += `<div class="wt-c ${asDuty ? 'duty' : c.type} ${isEv ? 'evc' : ''} ${isNow ? 'now' : ''} ${isCurWeek && d === tt.today ? 'td' : ''}"><b>${esc(main)}</b><small>${esc(sub)}</small></div>`;
     });
   });
@@ -176,14 +178,23 @@ function viewEvents() {
   const sd = new Date(sel), diff = Math.round((new Date(sd.toDateString()) - new Date(now.toDateString())) / 864e5);
   const label = `${sd.getMonth() + 1}월 ${sd.getDate()}일 ${WD[sd.getDay()]}요일` + (diff === 0 ? ' · 오늘' : diff === 1 ? ' · 내일' : diff > 0 ? ` · D-${diff}` : '');
   const evs = byDay[sel] || [];
-  const list = evs.length ? evs.map(e => { const s = new Date(e.start), en = e.end ? new Date(e.end) : s;
-    return `<div class="dli ${!e.all_day && now >= s && now < en ? 'now' : ''}"><span class="t">${e.all_day ? '종일' : pad(s.getHours()) + ':' + pad(s.getMinutes())}</span><span class="n">${esc(e.title)}${e.location ? ` <small class="muted">· ${esc(e.location)}</small>` : ''}</span></div>`; }).join('')
-    : '<div class="dli muted">일정 없음</div>';
-  const upcoming = eventsCache.filter(e => new Date(e.start) > new Date(sd.getTime() + 864e5)).slice(0, 6).map(e => { const s = new Date(e.start);
-    return `<div class="dli"><span class="t">${s.getMonth() + 1}/${s.getDate()} ${WD[s.getDay()]}</span><span class="n">${esc(e.title)}</span></div>`; }).join('');
-  return { title: `${y}년 ${m + 1}월 일정`, html: `<div class="dgrid ev"><div class="dcard">${cal}</div><div class="dcol">
+  const row = e => { const s = new Date(e.start), en = e.end ? new Date(e.end) : s;
+    return `<div class="dli ${!e.all_day && now >= s && now < en ? 'now' : ''} ${e.local ? 'local' : ''}"><span class="t">${e.all_day ? '종일' : pad(s.getHours()) + ':' + pad(s.getMinutes())}</span>
+      <span class="n">${esc(e.title)}${e.location ? ` <small class="muted">· ${esc(e.location)}</small>` : ''}</span>${e.local ? `<button class="del" data-del="${e.id}" title="삭제">✕</button>` : ''}</div>`; };
+  const list = evs.length ? evs.map(row).join('') : '<div class="dli muted">일정 없음</div>';
+  const upcoming = eventsCache.filter(e => new Date(e.start) > new Date(sd.getTime() + 864e5)).slice(0, 8).map(e => { const s = new Date(e.start);
+    return `<div class="dli ${e.local ? 'local' : ''}"><span class="t">${s.getMonth() + 1}/${s.getDate()} ${WD[s.getDay()]}</span><span class="n">${esc(e.title)}</span></div>`; }).join('');
+  const selIso = `${sd.getFullYear()}-${pad(sd.getMonth() + 1)}-${pad(sd.getDate())}`;
+  const form = `<form id="evForm" class="evform" autocomplete="off">
+      <input id="evTitle" placeholder="일정 제목" value="${esc(evDraft.title)}" maxlength="80">
+      <input id="evDate" type="date" value="${esc(evDraft.date || selIso)}">
+      <input id="evTime" type="time" value="${esc(evDraft.time)}" ${evDraft.all_day ? 'disabled' : ''}>
+      <label><input id="evAllDay" type="checkbox" ${evDraft.all_day ? 'checked' : ''}> 종일</label>
+      <button type="submit" id="evSave">추가</button></form>`;
+  return { title: `${y}년 ${m + 1}월 일정`, html: `<div class="dgrid ev"><div class="dcard">${cal}</div><div class="dcol ev3">
     <div class="dcard"><div class="dc-t">${label}<b>${evs.length}건</b></div><div class="dlist">${list}</div></div>
-    <div class="dcard"><div class="dc-t">이후 일정</div><div class="dlist">${upcoming || '<div class="dli muted">없음</div>'}</div></div></div></div>` };
+    <div class="dcard"><div class="dc-t">이후 일정</div><div class="dlist">${upcoming || '<div class="dli muted">없음</div>'}</div></div>
+    <div class="dcard"><div class="dc-t">일정 추가<b style="font-size:15px;color:${evMsg ? 'var(--accent)' : 'var(--muted)'}">${esc(evMsg || '이 PC에 저장 · ✎ 표시')}</b></div>${form}</div></div></div>` };
 }
 
 /* ---------- PC 상세 ---------- */
@@ -201,10 +212,10 @@ function viewPC() {
     ${g('네트워크', hist.net, nmax, '#a9cdf5', `↓${speed(s.down)} ↑${speed(s.up)}`)}
     <div class="dcard span2"><div class="dc-t">상위 프로세스<b>CPU 기준</b></div><div class="proc"><span class="h">이름</span><span class="h v">CPU</span><span class="h v">RAM</span>${pr}</div></div>
     <div class="dcard"><div class="dc-t">저장 공간 · 전원</div><div class="rings">${ring(s.disk, '디스크 C:')}${s.battery != null ? ring(s.battery, '배터리') : ring(s.ram, 'RAM')}</div></div>
-    <div class="dcard"><div class="dc-t">시스템</div><div class="dli"><span class="t">가동</span><span class="n">${ud ? ud + '일 ' : ''}${uh}시간 ${um}분</span></div>
+    <div class="dcard"><div class="dc-t">시스템</div><div class="dlist"><div class="dli"><span class="t">가동</span><span class="n">${ud ? ud + '일 ' : ''}${uh}시간 ${um}분</span></div>
       <div class="dli"><span class="t">RAM</span><span class="n">${s.ram_used} / ${s.ram_total} GB (${Math.round(s.ram)}%)</span></div>
       <div class="dli"><span class="t">CPU</span><span class="n">${Math.round(s.cpu)}% 사용 중</span></div>
-      ${s.gpu ? `<div class="dli"><span class="t">GPU</span><span class="n">${esc(s.gpu.name || '')}</span></div>` : ''}</div></div>` };
+      ${s.gpu ? `<div class="dli"><span class="t">GPU</span><span class="n">${esc(s.gpu.name || '')}</span></div>` : ''}</div></div></div>` };
 }
 
 /* ---------- 바인딩 ---------- */
@@ -214,8 +225,25 @@ window.addEventListener('DOMContentLoaded', () => {
     const kind = PANEL_KIND[p.id]; if (kind) openDetail(kind);
   }));
   $('dback').onclick = closeDetail;
-  $('dbody').addEventListener('click', e => {
-    const c = e.target.closest('.bcal .c'); if (c) { calSel = c.dataset.k; renderDetail(); return; }
+  $('dbody').addEventListener('input', e => {
+    if (!e.target.closest('#evForm')) return;
+    evDraft = { title: $('evTitle').value, date: $('evDate').value, time: $('evTime').value, all_day: $('evAllDay').checked };
+    $('evTime').disabled = evDraft.all_day;
+  });
+  $('dbody').addEventListener('submit', async e => {
+    if (e.target.id !== 'evForm') return;
+    e.preventDefault();
+    evDraft = { title: $('evTitle').value.trim(), date: $('evDate').value, time: $('evTime').value, all_day: $('evAllDay').checked };
+    if (!evDraft.title || !evDraft.date) { evMsg = '제목과 날짜를 입력하세요'; renderDetail(); return; }
+    const ok = await pywebview.api.add_event(evDraft);
+    evMsg = ok ? '추가했습니다' : '저장 실패';
+    if (ok) { calSel = new Date(evDraft.date + 'T00:00:00').toDateString(); evDraft = { title: '', date: '', time: '', all_day: false }; }
+    await loadEvents(); renderDetail();
+    setTimeout(() => { evMsg = ''; if (detailKind === 'events') renderDetail(); }, 3000);
+  });
+  $('dbody').addEventListener('click', async e => {
+    const del = e.target.closest('[data-del]'); if (del) { await pywebview.api.delete_event(del.dataset.del); await loadEvents(); renderDetail(); return; }
+    const c = e.target.closest('.bcal .c'); if (c) { calSel = c.dataset.k; evDraft.date = ''; renderDetail(); return; }
     const w = e.target.closest('[data-wk]'); if (w) { const k = Number(w.dataset.wk); if (k === 0) { ttWeekSel = null; loadTimetable(); } else changeWeek(k); }
   });
   document.addEventListener('pointerdown', bumpIdle);
