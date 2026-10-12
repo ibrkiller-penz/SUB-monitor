@@ -12,6 +12,8 @@ import psutil
 import requests
 import webview
 
+from notify import MessageWatcher
+
 try:
     import GPUtil  # NVIDIA 전용, 없으면 GPU 항목 생략
 except Exception:
@@ -38,14 +40,33 @@ class Api:
         self.cfg = cfg
         self.tt_window = None  # 시간표 사이트를 띄워두는 숨김 창
         self._extract_js = (BASE / "web" / "tt_extract.js").read_text(encoding="utf-8")
+        self.watcher = MessageWatcher(cfg.get("message_apps", ["쿨메신저", "CoolMessenger"]))
         self._net = psutil.net_io_counters()
         self._net_t = time.time()
         psutil.cpu_percent(None)
 
+    DEFAULT_PANELS = ["weather", "tt", "events", "msg"]
+
     def get_config(self):
         return {
             "weather_name": self.cfg.get("weather", {}).get("name", ""),
+            "panels": self.cfg.get("panels", self.DEFAULT_PANELS),
         }
+
+    def set_panels(self, panels):
+        self.cfg["panels"] = [p for p in panels if p in ("weather", "tt", "events", "msg", "pc")]
+        save_config(self.cfg)
+        return self.cfg["panels"]
+
+    # ---- 메신저 알림 (notify.py) ----
+    def get_messages(self):
+        try:
+            return self.watcher.poll()
+        except Exception as e:
+            return {"count": 0, "items": [], "source": "none", "error": str(e)}
+
+    def clear_messages(self):
+        return self.watcher.clear()
 
     def get_timetable(self, week=-1):
         """숨김 창의 시간표 사이트 엔진에서 계산된 데이터만 가져온다. week: 0-based, -1이면 오늘 주차."""

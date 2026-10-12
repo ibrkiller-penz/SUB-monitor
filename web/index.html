@@ -20,8 +20,30 @@
   #bg { position: fixed; inset: 0; background-size: cover; background-position: center; transition: opacity 1.2s; }
   #bg::after { content: ""; position: absolute; inset: 0;
     background: linear-gradient(90deg, rgba(0,0,0,.45), rgba(0,0,0,.15) 40%, rgba(0,0,0,.15) 60%, rgba(0,0,0,.45)); }
-  #root { position: relative; display: grid; height: 100vh; padding: 14px; gap: 14px;
-    grid-template-columns: 330fr 390fr 560fr 360fr 248fr; }
+  #root { position: relative; display: flex; height: 100vh; padding: 14px; gap: 14px; }
+  #root > .panel { flex: var(--w, 1) 1 0; }
+  #clock { --w: 330; } #weather { --w: 380; } #tt { --w: 580; } #eventsPanel { --w: 340; } #msg { --w: 300; } #pc { --w: 248; }
+  #root > .panel.off { display: none; }
+  /* 우상단 고정 버튼 (설정·종료) */
+  #topbar { position: fixed; bottom: 8px; right: 8px; z-index: 6; display: flex; gap: 4px; }
+  #topbar button { all: unset; cursor: pointer; width: 34px; height: 34px; text-align: center; line-height: 34px; border-radius: 10px;
+    font-size: 17px; color: var(--text); background: rgba(0,0,0,.45); opacity: .5; }
+  #topbar button:hover { opacity: 1; background: rgba(0,0,0,.6); }
+  #topbar #closeBtn:hover { color: var(--bad); }
+  body.detail #topbar { display: none; }
+  /* 시계 아래 PC 한 줄 */
+  #pcMini { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line); font-size: 15px; color: var(--muted); display: flex; gap: 12px;
+    white-space: nowrap; cursor: pointer; font-variant-numeric: tabular-nums; }
+  #pcMini b { color: var(--text); font-weight: 500; }
+  /* 메시지 패널 */
+  #msgList { flex: 1; min-height: 0; overflow: hidden; }
+  .mi { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .mi .h { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); }
+  .mi .h b { color: var(--accent); font-weight: 500; }
+  .mi .b { font-size: 18px; margin-top: 2px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .badge { background: var(--accent); color: #1a120c; border-radius: 999px; padding: 1px 9px; font-size: 14px; font-weight: 600; }
+  .badge.zero { background: rgba(255,255,255,.14); color: var(--muted); }
+  #msgEmpty { color: var(--muted); font-size: 15px; line-height: 1.6; }
   .panel { background: var(--glass); backdrop-filter: blur(14px) saturate(120%); -webkit-backdrop-filter: blur(14px) saturate(120%);
     border: 1px solid var(--line); border-radius: 20px; padding: 16px 18px; overflow: hidden; box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 10px 32px rgba(0,0,0,.28);
     display: flex; flex-direction: column; min-width: 0; text-shadow: 0 1px 2px rgba(0,0,0,.45); }
@@ -156,26 +178,34 @@
   .spark svg { display: block; width: 100%; height: 28px; }
 
   /* 설정 */
-  #gear { all: unset; cursor: pointer; font-size: 20px; opacity: .55; margin-left: 4px; }
-  #gear:hover { opacity: 1; }
   #modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 10; }
   #modal.on { display: flex; }
-  #modal .box { width: 460px; background: rgba(30,22,16,.92); border: 1px solid var(--line); border-radius: 18px; padding: 22px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  #modal .box { width: 520px; background: rgba(30,22,16,.92); border: 1px solid var(--line); border-radius: 18px; padding: 22px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
   #modal h3 { font-size: 23px; font-weight: 600; margin-bottom: 14px; }
   #modal label { font-size: 17px; color: var(--muted); display: block; margin-bottom: 6px; }
+  #modal .chk { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 4px 0 16px; }
+  #modal .chk label { display: flex; align-items: center; gap: 6px; color: var(--text); font-size: 17px; margin: 0; cursor: pointer; }
+  #modal .chk input { width: 20px; height: 20px; accent-color: var(--accent); }
   #modal select { width: 100%; font: inherit; font-size: 20px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.4); color: var(--text); border: 1px solid var(--line); }
   #modal .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
   #modal button { font: inherit; font-size: 18px; padding: 8px 16px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--text); cursor: pointer; }
   #modal button.pri { background: var(--accent); color: #1a120c; border-color: transparent; font-weight: 600; }
-  #closeBtn { cursor: pointer; opacity: .3; font-size: 18px; }
-  #closeBtn:hover { opacity: 1; color: var(--bad); }
 </style>
 <link rel="stylesheet" href="detail.css">
 </head>
 <body>
 <div id="bg"></div>
+<div id="topbar"><button id="gear" title="설정">⚙</button><button id="closeBtn" title="종료 (Esc)">✕</button></div>
 <div id="modal"><div class="box">
   <h3>설정</h3>
+  <label>화면에 표시할 항목</label>
+  <div class="chk">
+    <label><input type="checkbox" value="weather"> 날씨</label>
+    <label><input type="checkbox" value="tt"> 시간표</label>
+    <label><input type="checkbox" value="events"> 일정</label>
+    <label><input type="checkbox" value="msg"> 메시지</label>
+    <label><input type="checkbox" value="pc"> PC 상태</label>
+  </div>
   <label for="setTeacher">교사 선택</label>
   <select id="setTeacher"></select>
   <div class="btns"><button id="setReload">시간표 새로고침</button><button id="setCancel">취소</button><button class="pri" id="setSave">저장</button></div>
@@ -189,6 +219,7 @@
     <div id="dday"></div>
     <div id="dayBar"><i></i></div><div id="dayTxt"></div>
     <div id="todayBox"></div>
+    <div id="pcMini" title="PC 상태 자세히"></div>
   </section>
 
   <section class="panel" id="weather">
@@ -201,7 +232,6 @@
       <span id="ttName">시간표</span>
       <div id="ttNav"><button data-wk="-1" title="이전 주">◀</button><span id="ttWeek"></span><button data-wk="1" title="다음 주">▶</button><button id="ttToday" hidden>오늘</button></div>
       <div id="ttDays"></div>
-      <button id="gear" title="설정">⚙</button>
     </div>
     <div id="ttList"><div class="muted" style="grid-column:1/-1;align-self:center;text-align:center">시간표 불러오는 중…</div></div>
     <div id="ttFoot"></div>
@@ -213,8 +243,13 @@
     <div id="cal"></div>
   </section>
 
+  <section class="panel" id="msg">
+    <div class="ptitle"><span class="k">메시지</span><span id="msgBadge" class="badge zero">0</span></div>
+    <div id="msgList"><div id="msgEmpty">불러오는 중…</div></div>
+  </section>
+
   <section class="panel" id="pc">
-    <div class="ptitle"><span class="k">PC</span><span id="closeBtn" title="종료 (Esc)">✕</span></div>
+    <div class="ptitle"><span class="k">PC</span><span></span></div>
     <div id="pcbody"></div>
   </section>
 </div>
@@ -327,10 +362,16 @@ function changeWeek(delta) {
   ttWeekSel = w === tt.currentWeek - 1 ? null : w; ttWeekAt = Date.now();
   loadTimetable();
 }
+let panelsOn = ['weather', 'tt', 'events', 'msg'];
+function applyPanels() {
+  ['weather', 'tt', 'eventsPanel', 'msg', 'pc'].forEach(id => $(id).classList.toggle('off', !panelsOn.includes(id === 'eventsPanel' ? 'events' : id)));
+  setTimeout(fitAll, 50);
+}
 function openSettings() {
   const list = (tt && tt.teachers) || teacherList;
   const cur = tt ? tt.teacher : '';
   $('setTeacher').innerHTML = list.map(t => `<option ${t === cur ? 'selected' : ''}>${esc(t)}</option>`).join('');
+  $('modal').querySelectorAll('.chk input').forEach(i => i.checked = panelsOn.includes(i.value));
   $('modal').classList.add('on');
 }
 function closeSettings() { $('modal').classList.remove('on'); }
@@ -483,7 +524,27 @@ async function loadSystem() {
   const up = s.uptime, ud = Math.floor(up / 86400), uh = Math.floor(up % 86400 / 3600), um = Math.floor(up % 3600 / 60);
   h += `<div class="net"><span>가동 <b>${ud ? ud + '일 ' : ''}${uh}시간 ${um}분</b></span><span>RAM <b>${s.ram_used}/${s.ram_total}GB</b></span></div>`;
   $('pcbody').innerHTML = h;
+  $('pcMini').innerHTML = `<span>CPU <b>${Math.round(s.cpu)}%</b></span><span>RAM <b>${Math.round(s.ram)}%</b></span>${s.gpu ? `<span>GPU <b>${s.gpu.load}%</b></span>` : ''}<span>↓<b>${speed(s.down)}</b></span>`;
   if (window.onDataChange) onDataChange('system');
+}
+
+/* ---------- 메시지 (쿨메신저 등 알림) ---------- */
+let msgData = { count: 0, items: [], source: 'none', error: '' };
+const timeAgo = iso => { const m = Math.round((Date.now() - new Date(iso)) / 60000); return m < 1 ? '방금' : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.floor(m / 60)}시간 전` : `${Math.floor(m / 1440)}일 전`; };
+async function loadMessages() {
+  msgData = await pywebview.api.get_messages() || msgData;
+  renderMessages();
+  if (window.onDataChange) onDataChange('messages');
+}
+function renderMessages() {
+  const b = $('msgBadge'); b.textContent = msgData.count; b.className = 'badge' + (msgData.count ? '' : ' zero');
+  if (!msgData.items.length) {
+    $('msgList').innerHTML = `<div id="msgEmpty">${msgData.source === 'none'
+      ? '새 메시지 없음<br><small>' + esc(msgData.error || '쿨메신저 알림을 기다리는 중') + '</small>' : '새 메시지 없음'}</div>`;
+    return;
+  }
+  $('msgList').innerHTML = msgData.items.map(m => `<div class="mi"><div class="h"><b>${esc(m.app || '메시지')}</b><span>${timeAgo(m.time)}</span></div>
+    <div class="b">${esc(m.title)}${m.body ? ' · ' + esc(m.body) : ''}</div></div>`).join('');
 }
 
 /* ---------- 넘치는 글자 자동 축소 ---------- */
@@ -494,7 +555,7 @@ function fitAll() {
     while (el.scrollWidth > el.clientWidth && fs > min) { fs -= 1; el.style.fontSize = fs + 'px'; }
   });
   // 세로 넘침: 목록은 스크롤 대신 아래 항목을 숨김 (허브 일정, 상세 목록)
-  document.querySelectorAll('#events, .dlist').forEach(ev => {
+  document.querySelectorAll('#events, #msgList, .dlist').forEach(ev => {
     [...ev.children].forEach(c => c.style.display = '');
     if (ev.scrollHeight > ev.clientHeight) {
       const kids = [...ev.children];
@@ -512,6 +573,7 @@ tickClock(); setInterval(tickClock, 1000);
 window.addEventListener('pywebviewready', async () => {
   const cfg = await pywebview.api.get_config();
   weatherName = cfg.weather_name; $('wname').textContent = cfg.weather_name;
+  if (Array.isArray(cfg.panels)) panelsOn = cfg.panels; applyPanels();
   $('closeBtn').onclick = () => pywebview.api.close();
   $('gear').onclick = openSettings;
   $('setCancel').onclick = closeSettings;
@@ -519,11 +581,16 @@ window.addEventListener('pywebviewready', async () => {
   $('ttNav').querySelectorAll('[data-wk]').forEach(b => b.onclick = () => changeWeek(Number(b.dataset.wk)));
   $('ttToday').onclick = () => { ttWeekSel = null; loadTimetable(); };
   $('setSave').onclick = async () => {
-    const name = $('setTeacher').value; closeSettings();
-    if (name) { await pywebview.api.set_teacher(name); ttSel = null; loadTimetable(); }
+    const name = $('setTeacher').value;
+    panelsOn = [...$('modal').querySelectorAll('.chk input:checked')].map(i => i.value);
+    closeSettings();
+    await pywebview.api.set_panels(panelsOn); applyPanels();
+    if (name && (!tt || tt.teacher !== name)) { await pywebview.api.set_teacher(name); ttSel = null; loadTimetable(); }
   };
-  loadWeather(); loadEvents(); loadSystem(); loadTimetable();
+  $('pcMini').onclick = () => { if (window.openDetail) openDetail('pc'); };
+  loadWeather(); loadEvents(); loadSystem(); loadTimetable(); loadMessages();
   setInterval(loadSystem, 2000);
+  setInterval(loadMessages, 10 * 1000);
   setInterval(loadWeather, 15 * 60 * 1000);
   setInterval(loadEvents, 10 * 60 * 1000);
   setInterval(loadTimetable, 60 * 1000);   // 사이트 변경사항(실시간 동기화) 반영

@@ -3,7 +3,7 @@
  */
 let detailKind = null, idleT = null, calSel = null, procs = [];
 const DETAIL_IDLE = 90 * 1000;
-const PANEL_KIND = { clock: 'today', weather: 'weather', tt: 'timetable', eventsPanel: 'events', pc: 'pc' };
+const PANEL_KIND = { clock: 'today', weather: 'weather', tt: 'timetable', eventsPanel: 'events', msg: 'messages', pc: 'pc' };
 
 function openDetail(kind) {
   detailKind = kind; calSel = null; document.body.classList.add('detail'); $('detail').classList.add('on'); renderDetail(); bumpIdle();
@@ -11,12 +11,12 @@ function openDetail(kind) {
 }
 function closeDetail() { detailKind = null; document.body.classList.remove('detail'); $('detail').classList.remove('on'); clearTimeout(idleT); }
 function bumpIdle() { clearTimeout(idleT); if (detailKind) idleT = setTimeout(closeDetail, DETAIL_IDLE); }
-const VIEW_DEPS = { today: ['timetable', 'events'], weather: ['weather'], timetable: ['timetable'], events: ['events'], pc: ['system'] };
+const VIEW_DEPS = { today: ['timetable', 'events'], weather: ['weather'], timetable: ['timetable'], events: ['events'], pc: ['system'], messages: ['messages'] };
 function onDataChange(kind) { if (detailKind && (!kind || VIEW_DEPS[detailKind].includes(kind))) renderDetail(); }
 let evDraft = { title: '', date: '', time: '', all_day: false }, evMsg = '';
 
 function renderDetail() {
-  const views = { today: viewToday, weather: viewWeather, timetable: viewTimetable, events: viewEvents, pc: viewPC };
+  const views = { today: viewToday, weather: viewWeather, timetable: viewTimetable, events: viewEvents, pc: viewPC, messages: viewMessages };
   const v = views[detailKind]; if (!v) return;
   const { title, html } = v();
   $('dtitle').textContent = title; $('dbody').innerHTML = html;
@@ -197,6 +197,19 @@ function viewEvents() {
     <div class="dcard"><div class="dc-t">일정 추가<b style="font-size:15px;color:${evMsg ? 'var(--accent)' : 'var(--muted)'}">${esc(evMsg || '이 PC에 저장 · ✎ 표시')}</b></div>${form}</div></div></div>` };
 }
 
+/* ---------- 메시지 상세 ---------- */
+function viewMessages() {
+  const src = { notification: 'Windows 알림 수신', title: '창 제목 감지', none: '감지된 경로 없음' }[msgData.source] || msgData.source;
+  const items = msgData.items.length ? msgData.items.map(m => `<div class="dli"><span class="t">${timeAgo(m.time)}</span>
+      <span class="n"><b style="color:var(--accent);font-weight:500">${esc(m.app || '메시지')}</b> · ${esc(m.title)}${m.body ? ` <span class="muted">${esc(m.body)}</span>` : ''}</span></div>`).join('')
+    : '<div class="dli muted">새 메시지 없음</div>';
+  return { title: `메시지 · 안읽음 ${msgData.count}건`, html: `<div class="dgrid ev one"><div class="dcard"><div class="dc-t">최근 알림<b><button class="mbtn" data-msgclear>모두 지우기</button></b></div><div class="dlist">${items}</div></div>
+    <div class="dcard"><div class="dc-t">연결 상태</div>
+      <div class="dli"><span class="t">방식</span><span class="n">${esc(src)}</span></div>
+      ${msgData.error ? `<div class="dli"><span class="t">안내</span><span class="n" style="white-space:normal">${esc(msgData.error)}</span></div>` : ''}
+      <div class="dli"><span class="t">설정</span><span class="n" style="white-space:normal">config.json 의 message_apps 에 적힌 이름이 들어간 알림·창만 수집합니다. 감지가 안 되면 tools/coolmsg_probe.py 를 실행해 결과를 확인하세요.</span></div></div></div>` };
+}
+
 /* ---------- PC 상세 ---------- */
 function viewPC() {
   const s = lastSys;
@@ -221,7 +234,7 @@ function viewPC() {
 /* ---------- 바인딩 ---------- */
 window.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#root > .panel').forEach(p => p.addEventListener('click', e => {
-    if (e.target.closest('button, select, #closeBtn, #gear, a')) return;
+    if (e.target.closest('button, select, a, #pcMini')) return;
     const kind = PANEL_KIND[p.id]; if (kind) openDetail(kind);
   }));
   $('dback').onclick = closeDetail;
@@ -242,6 +255,7 @@ window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { evMsg = ''; if (detailKind === 'events') renderDetail(); }, 3000);
   });
   $('dbody').addEventListener('click', async e => {
+    if (e.target.closest('[data-msgclear]')) { await pywebview.api.clear_messages(); await loadMessages(); return; }
     const del = e.target.closest('[data-del]'); if (del) { await pywebview.api.delete_event(del.dataset.del); await loadEvents(); renderDetail(); return; }
     const c = e.target.closest('.bcal .c'); if (c) { calSel = c.dataset.k; evDraft.date = ''; renderDetail(); return; }
     const w = e.target.closest('[data-wk]'); if (w) { const k = Number(w.dataset.wk); if (k === 0) { ttWeekSel = null; loadTimetable(); } else changeWeek(k); }

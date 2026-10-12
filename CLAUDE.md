@@ -21,6 +21,11 @@ Windows PC 옆에 두는 가로 스트립 디스플레이용 Python(pywebview) �
 - 실제 실행은 Windows에서 `run.bat`. 리눅스에서는 pywebview GUI를 못 띄우므로, `window.pywebview.api`를 가짜로 만든 뒤 Playwright(1920×440)로 스크린샷을 찍어 확인했다.
 - 브라우저 데모(https://claude.ai/artifact/YRc1FRkmoMkibk9vAHe61B)는 같은 방식의 가짜 API로 돌아간다. 데모 생성 스크립트는 저장소에 없음(세션 임시 파일).
 
+## 메시지(쿨메신저) 패널 — 진행 상태
+- 쿨메신저는 공개 API 없음. `notify.py`가 ① Windows 알림(winsdk UserNotificationListener) ② 창 제목 "(N)" 두 경로로 감지. 어느 쪽이 실제로 되는지는 **Windows에서 `tools/coolmsg_probe.py`를 실행**해 결과(`tools/coolmsg_probe_result.txt`)를 보고 확정해야 한다.
+- 사용자가 `C:\Users\pc\Desktop\안티그래비티 결과\쿨잡도리` 폴더에 쿨메신저 관련 이전 작업물이 있다고 함 → 받으면 그 방식(로컬 DB·창 구조 등)으로 바꿀 것.
+- 허브 패널 표시 여부는 설정(⚙)에서 고르고 `config.json`의 `panels`에 저장. PC 상태는 시계 아래 한 줄(`#pcMini`)로도 항상 보임.
+
 ## 아직 확인 못 한 것
 - Windows 실기기에서 숨김 창 시간표 추출, 전체화면/모니터 자동 선택, 터치 동작.
 - Open-Meteo 7일 예보 실데이터(개발 중 429 제한).

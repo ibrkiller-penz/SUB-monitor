@@ -10,6 +10,8 @@
     ""
   ],
   "calendar_days": 31,
+  "panels": ["weather", "tt", "events", "msg"],
+  "message_apps": ["쿨메신저", "CoolMessenger"],
   "display": {
     "target_width": 1920,
     "target_height": 440,
