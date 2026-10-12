@@ -7,13 +7,13 @@
   :root {
     /* 월별 테마 색은 JS가 덮어쓴다 (기본: 가을) */
     --accent: #f4a259; --accent2: #e76f51;
-    --text: #fbf6ee; --muted: rgba(251, 246, 238, .62); --line: rgba(255, 255, 255, .12);
-    --glass: rgba(24, 16, 10, .34); --glass-strong: rgba(24, 16, 10, .58);
+    --text: #ffffff; --muted: rgba(255, 255, 255, .80); --line: rgba(255, 255, 255, .16);
+    --glass: rgba(24, 16, 10, .50); --glass-strong: rgba(24, 16, 10, .58);
     --ok: #9ad37b; --warn: #f6c453; --bad: #ef7b6b;
   }
-  @font-face { font-family: "SCDream"; src: url("fonts/S-CoreDream-4Regular.woff") format("woff"); font-weight: 100 400; }
-  @font-face { font-family: "SCDream"; src: url("fonts/S-CoreDream-5Medium.woff") format("woff"); font-weight: 500; }
-  @font-face { font-family: "SCDream"; src: url("fonts/S-CoreDream-6Bold.woff") format("woff"); font-weight: 600 900; }
+  @font-face { font-family: "SCDream"; src: url("fonts/S-CoreDream-3Light.woff") format("woff"); font-weight: 100 300; }
+  @font-face { font-family: "SCDream"; src: url("fonts/S-CoreDream-4Regular.woff") format("woff"); font-weight: 400; }
+  @font-face { font-family: "SCDream"; src: url("fonts/S-CoreDream-5Medium.woff") format("woff"); font-weight: 500 900; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #1a120c; color: var(--text);
     font-family: "SCDream", "Malgun Gothic", sans-serif; user-select: none; }
@@ -24,7 +24,7 @@
     grid-template-columns: 330fr 390fr 560fr 360fr 248fr; }
   .panel { background: var(--glass); backdrop-filter: blur(14px) saturate(120%); -webkit-backdrop-filter: blur(14px) saturate(120%);
     border: 1px solid var(--line); border-radius: 20px; padding: 16px 18px; overflow: hidden; box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 10px 32px rgba(0,0,0,.28);
-    display: flex; flex-direction: column; min-width: 0; box-shadow: 0 8px 30px rgba(0,0,0,.25); }
+    display: flex; flex-direction: column; min-width: 0; text-shadow: 0 1px 2px rgba(0,0,0,.45); }
   .ptitle { font-size: 17px; color: var(--muted); letter-spacing: .08em; margin-bottom: 10px;
     display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .ptitle .k { text-transform: uppercase; color: var(--text); font-weight: 500; padding-left: 10px; position: relative; }
@@ -35,9 +35,9 @@
   /* 시계 — 패널 없이 배경 위에 */
   #clock { background: none; border: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none;
     justify-content: center; padding-left: 10px; text-shadow: 0 2px 18px rgba(0,0,0,.55); }
-  #season { font-size: 19px; color: var(--accent); letter-spacing: .2em; margin-bottom: 4px; }
-  #time { font-size: 120px; font-weight: 400; line-height: .95; letter-spacing: -3px; font-variant-numeric: tabular-nums; }
-  #time b { font-weight: 600; }
+  #season { font-size: 19px; color: var(--accent); letter-spacing: .2em; margin: 6px 0 4px; }
+  #time { font-size: 112px; font-weight: 300; line-height: .95; letter-spacing: -1px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #time b { font-weight: 400; }
   #sub { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
   #dayBar { margin-top: 10px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.14); overflow: hidden; width: 86%; }
   #dayBar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), #fff3); transition: width 1s linear; }
@@ -99,7 +99,7 @@
   .slot .prog i { display: block; height: 100%; background: var(--accent); }
   .slot.class::before, .slot.sub::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: var(--accent); opacity: .8; }
   .slot.class, .slot.sub { padding-left: 16px; }
-  .slot.past { opacity: .45; }
+  .slot.past { opacity: .62; }
   #ttFoot { margin-top: 10px; font-size: 17px; align-items: center; color: var(--muted); display: flex; gap: 12px; min-height: 18px; }
   #ttFoot .live { color: var(--accent); font-weight: 600; }
   #ttPick { flex: 1; display: flex; flex-direction: column; gap: 10px; justify-content: center; align-items: center; }
@@ -115,7 +115,7 @@
   .ev .t { color: var(--muted); font-size: 17px; min-width: 44px; font-variant-numeric: tabular-nums; }
   .ev .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ev.now .n { color: var(--accent); font-weight: 600; }
-  .ev.past { opacity: .4; }
+  .ev.past { opacity: .55; }
 
   /* PC */
   .ring-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 4px; justify-items: center; }
@@ -140,7 +140,7 @@
   #cal .g span { position: relative; line-height: 21px; color: var(--text); opacity: .85; }
   #cal .g .wk { color: var(--muted); font-size: 14px; }
   #cal .g .sun { color: #f3a5a0; } #cal .g .sat { color: #a9cdf5; }
-  #cal .g .out { opacity: .25; }
+  #cal .g .out { opacity: .4; }
   #cal .g .td { background: var(--accent); color: #1a120c; border-radius: 6px; font-weight: 600; opacity: 1; }
   #cal .g .has::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--accent); }
 
@@ -221,12 +221,12 @@ const esc = x => String(x ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 
 /* ---------- 월별 배경 & 테마 ---------- */
 const THEMES = {
-  1:  ['한겨울', '#9cc3e6', 'rgba(10,18,30,.35)'],  2:  ['늦겨울', '#e6b8d0', 'rgba(22,16,28,.32)'],
+  1:  ['한겨울', '#9cc3e6', 'rgba(10,18,30,.50)'],  2:  ['늦겨울', '#e6b8d0', 'rgba(22,16,28,.50)'],
   3:  ['초봄',   '#f2d16b', 'rgba(20,22,14,.32)'],  4:  ['봄',     '#f4a6c1', 'rgba(28,14,22,.30)'],
-  5:  ['신록',   '#a8d672', 'rgba(12,22,12,.32)'],  6:  ['초여름', '#f6b860', 'rgba(24,18,10,.32)'],
-  7:  ['한여름', '#6fd3cf', 'rgba(8,22,28,.32)'],   8:  ['늦여름', '#8fd694', 'rgba(8,20,14,.35)'],
-  9:  ['초가을', '#f2c65c', 'rgba(26,20,8,.32)'],   10: ['가을',   '#f4a259', 'rgba(26,14,8,.32)'],
-  11: ['늦가을', '#e0a66b', 'rgba(24,16,10,.35)'],  12: ['겨울밤', '#f2c879', 'rgba(10,14,26,.35)'],
+  5:  ['신록',   '#a8d672', 'rgba(12,22,12,.32)'],  6:  ['초여름', '#f6b860', 'rgba(24,18,10,.50)'],
+  7:  ['한여름', '#6fd3cf', 'rgba(8,22,28,.50)'],   8:  ['늦여름', '#8fd694', 'rgba(8,20,14,.50)'],
+  9:  ['초가을', '#f2c65c', 'rgba(26,20,8,.50)'],   10: ['가을',   '#f4a259', 'rgba(26,14,8,.32)'],
+  11: ['늦가을', '#e0a66b', 'rgba(24,16,10,.50)'],  12: ['겨울밤', '#f2c879', 'rgba(10,14,26,.50)'],
 };
 let curMonth = 0;
 function applyMonth() {
@@ -472,7 +472,7 @@ async function loadSystem() {
 
 /* ---------- 넘치는 글자 자동 축소 ---------- */
 function fitAll() {
-  document.querySelectorAll('.sj, .rm, .ev .n, .tchip, #date, #ttWeek, .wdesc b, .net, .spark .lbl span:last-child').forEach(el => {
+  document.querySelectorAll('#time, .sj, .rm, .ev .n, .tchip, #date, #ttWeek, .wdesc b, .net, .spark .lbl span:last-child').forEach(el => {
     el.style.fontSize = '';
     let fs = parseFloat(getComputedStyle(el).fontSize), min = el.classList.contains('rm') ? 13 : fs * 0.6;
     while (el.scrollWidth > el.clientWidth && fs > min) { fs -= 1; el.style.fontSize = fs + 'px'; }
