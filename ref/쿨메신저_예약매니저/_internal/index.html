@@ -1,0 +1,2376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>쿨메신저 스마트 예약 & 주소록 매니저</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="shortcut icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/app_icon.png">
+  <!-- Tailwind CSS & FontAwesome -->
+  <script src="https://cdn.tailwindcss.com">
+    function downloadSampleExcel() {
+      fetch('/api/save_sample_to_downloads')
+        .then(r => r.json())
+        .then(res => {
+          if (res.success) {
+            alert("다운로드 폴더에 '쿨메신저_당번예약_샘플양식.xlsx' 파일이 성공적으로 저장되었습니다!\n\n저장 위치:\n" + res.path);
+          } else {
+            triggerBlobDownload();
+          }
+        })
+        .catch(err => {
+          triggerBlobDownload();
+        });
+
+      function triggerBlobDownload() {
+        fetch('/api/download_sample')
+          .then(r => r.blob())
+          .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = '쿨메신저_당번예약_샘플양식.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+          })
+          .catch(e => alert("다운로드 오류: " + e));
+      }
+    }
+
+</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    * { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+    .dropzone {
+      border: 2px dashed #3B82F6;
+      transition: all 0.2s ease;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      background-color: #EFF6FF;
+      border-color: #1D4ED8;
+    }
+    .tab-active {
+      color: #2563EB;
+      border-bottom: 2px solid #2563EB;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- 1. 최상단 네비게이션 헤더 -->
+  <header class="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white shadow-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-6 py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-white/10 border border-white/20 p-0.5 flex items-center justify-center shadow-md overflow-hidden">
+          <img src="/app_icon.png" alt="쿨메신저 아이콘" class="w-full h-full object-contain">
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg md:text-xl font-bold tracking-tight">쿨메신저 스마트 예약 매니저</h1>
+            <span id="editionBadge" onclick="handleEditionClick()" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-blue-500/30 text-blue-200 border border-blue-400/40 cursor-pointer select-none transition hover:bg-blue-500/50 hover:text-white" title="happymanual 에디션">happymanual 에디션</span>
+          </div>
+          <p class="text-xs text-blue-200">엑셀 당번 일괄 예약 • UDB 실제 예약함 검증 • AI MCP 지원</p>
+        </div>
+      </div>
+
+      <!-- 상태 뱃지 그룹 -->
+      <div class="flex items-center gap-3">
+        <div id="coolStatusBadge" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-950/80 border border-blue-400/30 text-xs font-semibold">
+          <span class="w-2.5 h-2.5 rounded-full bg-yellow-400 animate-pulse" id="statusDot"></span>
+          <span id="statusText">쿨메신저 상태 확인 중...</span>
+        </div>
+        <div class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-400/30 text-emerald-300 text-xs font-medium">
+          <i class="fa-solid fa-database text-xs"></i>
+          <span id="udbStatusText">UDB 로드 중...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 상단 탭 메뉴 (단일 행 레이아웃 & 톱니바퀴 오른쪽 끝 배치) -->
+    <div class="bg-blue-950/40 border-t border-blue-800/40 px-6">
+      <div class="max-w-7xl mx-auto flex items-center justify-between text-xs sm:text-sm text-slate-300">
+        <div class="flex gap-6 overflow-x-auto items-center py-0.5 min-w-0 flex-1">
+          <button onclick="switchTab('tabAiDashboard')" id="btnTabAiDashboard" class="py-3 px-1 tab-active transition flex items-center gap-2 whitespace-nowrap">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> AI 할 일 대시보드
+          </button>
+          <button onclick="switchTab('tabScheduler')" id="btnTabScheduler" class="py-3 px-1 hover:text-white transition flex items-center gap-2 whitespace-nowrap">
+            <i class="fa-solid fa-calendar-check"></i> 월간 당번 예약 등록
+          </button>
+          <button onclick="switchTab('tabMembers')" id="btnTabMembers" class="py-3 px-1 hover:text-white transition flex items-center gap-2 whitespace-nowrap" style="display: none;">
+            <i class="fa-solid fa-users"></i> 교직원 주소록 (<span id="memberCountBadge">0</span>명)
+          </button>
+          <button onclick="switchTab('tabActualDb')" id="btnTabActualDb" class="py-3 px-1 hover:text-white transition flex items-center gap-2 whitespace-nowrap">
+            <i class="fa-solid fa-clock-rotate-left"></i> 쿨메신저 실제 예약함 검증
+          </button>
+          <button onclick="switchTab('tabInbox')" id="btnTabInbox" class="py-3 px-1 hover:text-white transition flex items-center gap-2 whitespace-nowrap">
+            <i class="fa-solid fa-inbox"></i> 수신 쪽지함 & 검색
+          </button>
+          <button onclick="switchTab('tabMcp')" id="btnTabMcp" class="py-3 px-1 hover:text-white transition flex items-center gap-2 whitespace-nowrap">
+            <i class="fa-solid fa-robot"></i> AI MCP 연동
+          </button>
+        </div>
+
+        <button onclick="openAiSettings()" class="py-1.5 px-3 bg-blue-900/60 hover:bg-blue-800 text-blue-200 hover:text-white border border-blue-700/50 rounded-lg transition text-xs font-semibold flex items-center gap-1.5 ml-auto shrink-0 cursor-pointer shadow-xs" title="AI API 키 설정">
+          <i class="fa-solid fa-gear text-sm"></i>
+          <span>AI 설정</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 2. 메인 컨텐츠 영역 -->
+  <main class="max-w-7xl mx-auto px-6 py-6 flex-1 w-full space-y-6">
+
+    <!-- ========================================================================= -->
+    
+    <!-- TAB 0: AI Dashboard -->
+    <div id="tabAiDashboard" class="space-y-6">
+      <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles text-blue-600"></i> AI 수신 쪽지 분석 &amp; 업무 대시보드
+            <span id="aiSaveStatusTime" class="text-xs font-normal text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full hidden"></span>
+          </h2>
+          <p class="text-xs text-slate-500 mt-1">쿨메신저 수신함 쪽지를 인공지능이 분석하여 '오늘 할 일', '이번 주 할 일', '차후 예정'을 자동 추출합니다.</p>
+        </div>
+        <div class="flex gap-2 flex-wrap justify-end">
+          <button onclick="exportDashboardTasks()" class="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-xs cursor-pointer" title="현재 대시보드 할 일 전체를 JSON 백업 파일로 내보냅니다">
+            <i class="fa-solid fa-file-export text-amber-600"></i> 내보내기
+          </button>
+          <button onclick="importDashboardTasks()" class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-xs cursor-pointer" title="백업 파일(JSON)을 불러와 대시보드에 적용합니다">
+            <i class="fa-solid fa-file-import text-emerald-600"></i> 불러오기
+          </button>
+          <button onclick="openAiSettings()" class="px-3 py-2 bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-200 border border-slate-300 transition flex items-center gap-1 cursor-pointer">
+            <i class="fa-solid fa-key text-slate-500"></i> API 키 설정
+          </button>
+          <button onclick="analyzeAiTasks()" id="btnAnalyzeAi" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 shadow flex items-center gap-2 transition cursor-pointer">
+            <i class="fa-solid fa-bolt"></i> 수신 쪽지 분석 시작
+          </button>
+        </div>
+      </div>
+      
+      <div id="aiLoading" class="hidden text-center py-16 bg-white rounded-xl shadow-sm border border-slate-200">
+        <i class="fa-solid fa-spinner fa-spin text-4xl text-blue-600 mb-3"></i>
+        <p class="font-medium text-slate-700">AI가 최근 수신 쪽지를 정밀 분석하고 있습니다...</p>
+        <p class="text-xs text-slate-400 mt-1">쪽지 본문의 마감일, 제출, 회신 요청 사항을 선별 중입니다 (약 5~10초 소요)</p>
+      </div>
+
+      <div id="aiResultArea" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 hidden">
+        <!-- 오늘 할 일 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="bg-red-50/70 px-4 py-3 border-b border-red-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-fire text-red-500"></i>
+              <h3 class="font-bold text-red-900 text-sm">오늘 할 일 (Today)</h3>
+            </div>
+            <span id="todayCountBadge" class="text-xs bg-red-200 text-red-800 px-2 py-0.5 rounded-full font-semibold">0건</span>
+          </div>
+          <div class="p-3 space-y-3" id="todayTasksList">
+            <!-- Items injected here -->
+          </div>
+        </div>
+
+        <!-- 이번 주 할 일 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="bg-blue-50/70 px-4 py-3 border-b border-blue-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i class="fa-regular fa-calendar-check text-blue-600"></i>
+              <h3 class="font-bold text-blue-900 text-sm">이번 주 할 일 (This Week)</h3>
+            </div>
+            <span id="weekCountBadge" class="text-xs bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full font-semibold">0건</span>
+          </div>
+          <div class="p-3 space-y-3" id="weekTasksList">
+             <!-- Items injected here -->
+          </div>
+        </div>
+
+        <!-- 차후/다음 달 예정 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="bg-purple-50/70 px-4 py-3 border-b border-purple-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-calendar-plus text-purple-600"></i>
+              <h3 class="font-bold text-purple-900 text-sm">차후/다음 달 예정 (Upcoming)</h3>
+            </div>
+            <span id="futureCountBadge" class="text-xs bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full font-semibold">0건</span>
+          </div>
+          <div class="p-3 space-y-3" id="futureTasksList">
+             <!-- Items injected here -->
+          </div>
+        </div>
+
+        <!-- 기타 / 상시 업무 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="bg-emerald-50/70 px-4 py-3 border-b border-emerald-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-emerald-600"></i>
+              <h3 class="font-bold text-emerald-900 text-sm">기타/상시 업무 (General)</h3>
+            </div>
+            <span id="generalCountBadge" class="text-xs bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full font-semibold">0건</span>
+          </div>
+          <div class="p-3 space-y-3" id="generalTasksList">
+             <!-- Items injected here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 지난 완료된 할 일 아카이브 / 히스토리 아코디언 -->
+      <div id="completedHistorySection" class="mt-6 space-y-4">
+        <button id="btnToggleCompletedHistory" onclick="toggleCompletedHistoryBox()" 
+                class="w-full py-3 px-5 bg-slate-800 hover:bg-slate-900 active:scale-[0.99] text-white font-extrabold text-xs rounded-xl shadow-md border border-slate-700 transition flex items-center justify-between cursor-pointer">
+          <span class="flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-amber-400 text-sm"></i> 
+            <span>지난 완료된 할 일 히스토리 보기</span>
+            <span id="completedBadgeCount" class="bg-amber-400/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold">0개</span>
+          </span>
+          <span class="flex items-center gap-1 text-slate-300 text-xs font-normal">
+            <span id="completedToggleLabel">펼치기</span>
+            <i id="completedToggleIcon" class="fa-solid fa-chevron-down text-xs transition-transform duration-200"></i>
+          </span>
+        </button>
+
+        <!-- 완료된 항목 전용 컨테이너 (기본 hidden) -->
+        <div id="completedHistoryBox" class="hidden bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4 shadow-inner">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+            <div class="flex items-center gap-2">
+              <h4 class="font-extrabold text-slate-800 text-sm flex items-center gap-1.5">
+                <i class="fa-solid fa-box-archive text-indigo-600"></i> 완료된 업무 보관함
+              </h4>
+              <span class="text-xs text-slate-500 font-medium">(완료 처리했던 지난 업무 기록입니다)</span>
+            </div>
+            <!-- 검색창 -->
+            <div class="relative w-full sm:w-64">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+              <input type="text" id="completedTaskSearchInput" oninput="filterCompletedHistory(this.value)" 
+                     placeholder="완료된 할 일 검색..." 
+                     class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+          </div>
+
+          <!-- 완료 항목 목록 -->
+          <div id="completedHistoryList" class="grid grid-cols-1 md:grid-cols-2 gap-3 min-h-[80px]">
+            <!-- Dynamic Rendered -->
+          </div>
+        </div>
+      </div>
+      
+      <div id="aiEmptyArea" class="text-center py-20 bg-white rounded-xl shadow-sm border border-slate-200 text-slate-400">
+        <i class="fa-solid fa-inbox text-5xl mb-4 text-slate-300"></i>
+        <p class="font-medium text-slate-600">[수신 쪽지 분석 시작] 버튼을 눌러주세요.</p>
+        <p class="text-xs text-slate-400 mt-1">처음 사용 시 우측 상단 [API 키 설정]에서 OpenAI 또는 Gemini 키를 등록해야 합니다.</p>
+      </div>
+    </div>
+
+    <!-- TAB 1: 월간 당번 예약 관리 (메인 스케줄러) -->
+    <!-- ========================================================================= -->
+    <div id="tabScheduler" class="space-y-6 hidden">
+      
+      <!-- 요약 통계 카드 -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500">탑재된 예약 일정</p>
+            <p class="text-2xl font-bold text-slate-800 mt-1" id="cardTotal">0건</p>
+          </div>
+          <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl">
+            <i class="fa-solid fa-calendar-days"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500">쿨메신저 세팅 대기</p>
+            <p class="text-2xl font-bold text-amber-600 mt-1" id="cardPending">0건</p>
+          </div>
+          <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl">
+            <i class="fa-solid fa-clock"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500">쿨메신저 등록 완료</p>
+            <p class="text-2xl font-bold text-emerald-600 mt-1" id="cardDone">0건</p>
+          </div>
+          <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500">세팅 오류 / 실패</p>
+            <p class="text-2xl font-bold text-rose-600 mt-1" id="cardFail">0건</p>
+          </div>
+          <div class="w-12 h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center text-xl">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+        </div>
+      </section>
+
+      <!-- 엑셀 탑재 및 액션 바 -->
+      <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+        <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+          
+          <!-- 드래그 앤 드롭 영역 -->
+          <div id="dropZone" class="dropzone flex-1 rounded-xl p-6 text-center cursor-pointer bg-slate-50 hover:bg-blue-50/50 transition">
+            <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="hidden">
+            <div class="flex flex-col items-center justify-center gap-2">
+              <i class="fa-solid fa-file-excel text-3xl text-emerald-600"></i>
+              <div>
+                <span class="text-sm font-bold text-slate-800">엑셀/CSV 파일을 여기로 드래그</span>하거나 
+                <span class="text-sm font-bold text-blue-600 hover:underline">클릭하여 선택</span>하세요.
+              </div>
+              <p class="text-xs text-slate-400">.xlsx, .xls, .csv 지원 • 1~5행 헤더/컬럼 지능형 자동 감지 • 당번 명단 초고속 탑재</p>
+            </div>
+          </div>
+
+          <!-- 퀵 버튼 그룹 -->
+          <div class="flex flex-wrap md:flex-col gap-2 min-w-[210px]">
+            <button onclick="downloadSampleExcel()" class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-sm transition">
+              <i class="fa-solid fa-download"></i> 샘플 양식 다운로드
+            </button>
+            <button onclick="loadDefaultSample()" class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-sm font-semibold shadow-sm transition">
+              <i class="fa-solid fa-folder-open"></i> 기본 샘플 즉시 탑재
+            </button>
+            <button onclick="openAddModal()" class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow-sm transition">
+              <i class="fa-solid fa-plus"></i> 직접 일정 추가
+            </button>
+          </div>
+        </div>
+
+        <!-- 일괄 전송 컨트롤 바 -->
+        <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <button id="btnBatchSync" onclick="startBatchSync()" class="px-6 py-3 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-bold rounded-xl shadow-md transition flex items-center gap-2 text-base">
+              <i class="fa-solid fa-bolt"></i> 쿨메신저에 전체 일괄 예약 세팅
+            </button>
+            <button onclick="clearAllSchedules()" class="px-4 py-2.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg text-sm font-medium transition">
+              <i class="fa-solid fa-trash-can"></i> 전체 비우기
+            </button>
+            <button onclick="openHistoryModal()" class="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium transition">
+              <i class="fa-solid fa-clock-rotate-left"></i> 세팅 이력 보기
+            </button>
+          </div>
+
+          <div class="text-xs text-slate-500">
+            * 쿨메신저의 <strong class="text-blue-600">[메시지 관리함 ➔ 보낸메시지]</strong>에 예약발송 상태로 저장됩니다.
+          </div>
+        </div>
+
+        <!-- 진행률 바 -->
+        <div id="progressSection" class="hidden pt-2 space-y-2">
+          <div class="flex justify-between text-xs font-semibold text-slate-700">
+            <span id="progressText">준비 중...</span>
+            <span id="progressPercent">0%</span>
+          </div>
+          <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+            <div id="progressBar" class="bg-gradient-to-r from-orange-500 to-amber-500 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-end">
+            <button onclick="stopBatchSync()" class="text-xs text-rose-600 hover:underline font-bold">
+              <i class="fa-solid fa-hand"></i> 일괄 등록 중지하기
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 예약 목록 테이블 -->
+      <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-blue-600"></i> 예약 일정 명단
+          </h2>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <div class="relative flex-1 sm:w-64">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <input type="text" id="searchInput" oninput="filterTable()" placeholder="수신자 성명, 제목 검색..." class="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500">
+            </div>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-100/75 text-slate-600 font-semibold border-b border-slate-200">
+                <th class="py-3 px-4 text-center w-24">상태</th>
+                <th class="py-3 px-4 text-center w-28">예약일자</th>
+                <th class="py-3 px-4 text-center w-20">시간</th>
+                <th class="py-3 px-4 text-center w-36">수신자(교사)</th>
+                <th class="py-3 px-4 w-48">업무구분 / 제목</th>
+                <th class="py-3 px-4">안내 메시지 본문 요약</th>
+                <th class="py-3 px-4 text-center w-24">비고</th>
+                <th class="py-3 px-4 text-center w-28">관리</th>
+              </tr>
+            </thead>
+            <tbody id="scheduleTableBody" class="divide-y divide-slate-100 font-normal">
+              <tr><td colspan="8" class="text-center py-12 text-slate-400">데이터를 불러오는 중...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 실시간 처리 콘솔 로그 -->
+      <section class="bg-slate-900 text-slate-200 rounded-xl p-4 shadow-sm font-mono text-xs space-y-2">
+        <div class="flex items-center justify-between border-b border-slate-700 pb-2">
+          <span class="font-bold text-slate-400"><i class="fa-solid fa-terminal mr-2"></i>작업 실행 로그</span>
+          <button onclick="clearConsoleLog()" class="text-[11px] text-slate-400 hover:text-white">지우기</button>
+        </div>
+        <div id="consoleLogBox" class="h-28 overflow-y-auto space-y-1 text-slate-300">
+          <div class="text-slate-500">[시스템] 쿨메신저 예약 매니저 준비 완료.</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 2: 교직원 주소록 (156명 자동완성) -->
+    <!-- ========================================================================= -->
+    <div id="tabMembers" class="hidden space-y-4">
+      <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-address-book text-blue-600"></i> 학교 전체 교직원 주소록
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">쿨메신저 UDB에서 자동으로 추출된 실시간 선생님 및 부서 명단입니다.</p>
+          </div>
+          <div class="relative w-full sm:w-80">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input type="text" id="memberSearchInput" oninput="filterMembers()" placeholder="성명, 부서, 직책 검색..." class="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[550px] overflow-y-auto p-1" id="membersGrid">
+          <div class="col-span-full text-center py-12 text-slate-400">교직원 목록을 불러오는 중...</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 3: 쿨메신저 실제 예약함 검증 (tbl_send) -->
+    <!-- ========================================================================= -->
+    <div id="tabActualDb" class="hidden space-y-4">
+      <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-shield-halved text-emerald-600"></i> 쿨메신저 실제 예약함 (UDB 검증)
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">쿨메신저 로컬 데이터베이스(`tbl_send`)에 실제로 등록되어 대기 중인 예약 메시지 내역입니다.</p>
+          </div>
+          <button onclick="loadActualScheduledDb()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition">
+            <i class="fa-solid fa-rotate mr-1"></i> 실시간 새로고침
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
+                <th class="py-3 px-4 text-center w-40">예약 발송 일시</th>
+                <th class="py-3 px-4 w-52">수신자</th>
+                <th class="py-3 px-4 w-60">제목</th>
+                <th class="py-3 px-4">메시지 본문</th>
+                <th class="py-3 px-4 text-center w-36">등록 일시</th>
+              </tr>
+            </thead>
+            <tbody id="actualDbTableBody" class="divide-y divide-slate-100">
+              <tr><td colspan="5" class="text-center py-12 text-slate-400">데이터를 불러오는 중...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 4: 수신 쪽지함 & 검색 (tbl_recv) -->
+    <!-- ========================================================================= -->
+    <div id="tabInbox" class="hidden space-y-4">
+      <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+        <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-inbox text-indigo-600"></i> 최근 수신 메시지 &amp; 전문 검색
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">쿨메신저에 수신된 쪽지를 본문 압축 해제({COMP})하여 빠르게 조회합니다.</p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <!-- 폰트 크기 조절 컨트롤 (+ / - 버튼) -->
+            <div class="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200 text-xs shadow-xs">
+              <span class="text-slate-700 font-bold text-xs flex items-center gap-1 pl-1">
+                <i class="fa-solid fa-font text-indigo-600"></i> 글자크기:
+              </span>
+              <button onclick="changeInboxFontSize(-1)" class="w-7 h-7 bg-white hover:bg-slate-200 active:scale-95 text-slate-800 font-black rounded-lg border border-slate-300 transition flex items-center justify-center cursor-pointer shadow-xs" title="글자크기 축소 (-1px)">
+                <i class="fa-solid fa-minus text-[10px]"></i>
+              </button>
+              <span id="inboxFontSizeLabel" class="font-mono font-extrabold text-indigo-700 px-1.5 min-w-[36px] text-center text-xs">13px</span>
+              <button onclick="changeInboxFontSize(1)" class="w-7 h-7 bg-white hover:bg-slate-200 active:scale-95 text-slate-800 font-black rounded-lg border border-slate-300 transition flex items-center justify-center cursor-pointer shadow-xs" title="글자크기 확대 (+1px)">
+                <i class="fa-solid fa-plus text-[10px]"></i>
+              </button>
+              <button onclick="resetInboxFontSize()" class="px-2 py-1 text-[11px] text-slate-500 hover:text-indigo-700 hover:underline font-semibold cursor-pointer" title="기본 13px로 초기화">초기화</button>
+            </div>
+
+            <!-- 검색바 -->
+            <div class="flex items-center gap-2 min-w-[220px]">
+              <input type="text" id="udbSearchInput" placeholder="메시지 내용, 발신자 검색..." class="flex-1 px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500">
+              <button onclick="searchUdbInbox()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition shrink-0">
+                검색
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-4 min-h-[400px]" id="inboxListBox">
+          <div class="text-center py-12 text-slate-400">수신 쪽지 목록을 불러오는 중...</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 5: AI MCP 연동 가이드 -->
+    <!-- ========================================================================= -->
+    <div id="tabMcp" class="hidden space-y-6">
+      <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+        <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
+          <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-robot"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-slate-800">AI 연동 (Model Context Protocol) 서버</h2>
+            <p class="text-xs text-slate-500">Claude Desktop, Antigravity 등의 AI가 쿨메신저 메시지 및 당번 일정을 직접 질의하고 요약할 수 있습니다.</p>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-700">로컬 MCP 엔드포인트 URL</span>
+            <span class="px-2.5 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-700">작동 중 (Active)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" readonly value="http://localhost:8765/mcp" class="flex-1 px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg font-mono font-semibold text-blue-700 select-all">
+            <button onclick="navigator.clipboard.writeText('http://localhost:8765/mcp'); alert('MCP URL이 복사되었습니다.');" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold">
+              복사
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <h3 class="text-sm font-bold text-slate-800">지원되는 AI 도구(Tools) 목록</h3>
+          <ul class="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
+            <li><code class="bg-slate-100 px-1.5 py-0.5 rounded text-blue-700 font-semibold">search_messages</code>: 키워드로 쿨메신저 수신 메시지 전문 검색</li>
+            <li><code class="bg-slate-100 px-1.5 py-0.5 rounded text-blue-700 font-semibold">get_school_members</code>: 학교 전체 교직원 주소록 및 부서 조회</li>
+            <li><code class="bg-slate-100 px-1.5 py-0.5 rounded text-blue-700 font-semibold">get_scheduled_messages</code>: 쿨메신저에 실제 예약된 메시지 목록 조회</li>
+            <li><code class="bg-slate-100 px-1.5 py-0.5 rounded text-blue-700 font-semibold">get_schedules</code>: 월간 당번 스케줄러 목록 조회</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+  </main>
+
+  <!-- 3. 일정 직접 추가 모달 -->
+  <div id="addModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-lg w-full p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+          <i class="fa-solid fa-plus-circle text-blue-600"></i> 예약 일정 직접 추가
+        </h3>
+        <button onclick="closeAddModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">예약 발송 일자</label>
+            <input type="date" id="modalDate" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">발송 시간</label>
+            <input type="time" id="modalTime" value="08:30" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500">
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="font-semibold text-slate-700">수신자 (교사 성명)</label>
+            <span class="text-[10px] text-blue-600 cursor-pointer hover:underline" onclick="quickSelectMemberModal()">주소록에서 찾기</span>
+          </div>
+          <input type="text" id="modalRecv" placeholder="예: 손혜영 (성명만 입력해도 자동 매칭)" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">구분 / 메시지 제목</label>
+          <input type="text" id="modalTitle" placeholder="예: [야간자율학습] 금일 1학년 자습지도 안내" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">안내 메시지 본문</label>
+          <textarea id="modalMsg" rows="4" placeholder="선생님께 전달할 상세 안내 메시지를 입력하세요..." class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 resize-none"></textarea>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">비고 (업무 구분)</label>
+          <input type="text" id="modalMemo" placeholder="예: 야간자율학습, 급식당번 등" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+        <button onclick="closeAddModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-xs font-semibold transition">취소</button>
+        <button onclick="submitAddSchedule()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition">등록하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. 발송 이력 모달 -->
+  <div id="historyModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-2xl w-full p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+          <i class="fa-solid fa-clock-rotate-left text-blue-600"></i> 쿨메신저 세팅 실행 이력
+        </h3>
+        <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <div class="max-h-96 overflow-y-auto text-xs space-y-2" id="historyList">
+        <p class="text-center py-8 text-slate-400">이력이 없습니다.</p>
+      </div>
+      <div class="flex justify-end pt-2 border-t border-slate-100">
+        <button onclick="closeHistoryModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript 애플리케이션 로직 -->
+  <script>
+    let schedulesData = [];
+    let membersData = [];
+    let isBatchRunning = false;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initDropzone();
+      loadSchedules();
+      loadMembers();
+      checkStatus();
+      loadCachedAiTasks();
+      setInterval(checkStatus, 3000);
+
+      // 모달 기본 날짜 내일로 세팅
+      const tmrw = new Date();
+      tmrw.setDate(tmrw.getDate() + 1);
+      document.getElementById('modalDate').value = tmrw.toISOString().split('T')[0];
+    });
+
+    // 탭 전환
+    function switchTab(tabId) {
+      ['tabAiDashboard', 'tabScheduler', 'tabMembers', 'tabActualDb', 'tabInbox', 'tabMcp'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+      });
+      ['btnTabAiDashboard', 'btnTabScheduler', 'btnTabMembers', 'btnTabActualDb', 'btnTabInbox', 'btnTabMcp'].forEach(id => {
+        document.getElementById(id).classList.remove('tab-active');
+      });
+
+      document.getElementById(tabId).classList.remove('hidden');
+      const btnMap = {
+        tabAiDashboard: 'btnTabAiDashboard',
+        tabScheduler: 'btnTabScheduler',
+        tabMembers: 'btnTabMembers',
+        tabActualDb: 'btnTabActualDb',
+        tabInbox: 'btnTabInbox',
+        tabMcp: 'btnTabMcp'
+      };
+      if (btnMap[tabId]) document.getElementById(btnMap[tabId]).classList.add('tab-active');
+
+      if (tabId === 'tabAiDashboard') loadCachedAiTasks();
+      if (tabId === 'tabActualDb') loadActualScheduledDb();
+      if (tabId === 'tabInbox') loadInboxMessages();
+    }
+
+    // 상태 체크
+    async function checkStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        const dot = document.getElementById('statusDot');
+        const txt = document.getElementById('statusText');
+        const udbTxt = document.getElementById('udbStatusText');
+
+        if (data.cool_running) {
+          dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]";
+          txt.innerText = "쿨메신저 실행 중 (연동 완료)";
+          txt.className = "text-emerald-300";
+        } else {
+          dot.className = "w-2.5 h-2.5 rounded-full bg-rose-400";
+          txt.innerText = "쿨메신저 미실행 (자동 실행 지원)";
+          txt.className = "text-rose-300";
+        }
+
+        if (data.udb_found) {
+          udbTxt.innerText = "로컬 UDB 연동됨";
+        }
+      } catch (e) {}
+    }
+
+    // 스케줄 목록 로드
+    async function loadSchedules() {
+      try {
+        const res = await fetch('/api/schedules');
+        const data = await res.json();
+        schedulesData = data.schedules || [];
+        renderTable(schedulesData);
+        updateCards(schedulesData);
+      } catch (e) {
+        logToConsole("목록 로드 실패: " + e.message);
+      }
+    }
+
+    function updateCards(items) {
+      const total = items.length;
+      const done = items.filter(s => s.status === "쿨 세팅완료").length;
+      const fail = items.filter(s => s.status === "오류").length;
+      const pending = total - done - fail;
+
+      document.getElementById('cardTotal').innerText = `${total}건`;
+      document.getElementById('cardPending').innerText = `${pending}건`;
+      document.getElementById('cardDone').innerText = `${done}건`;
+      document.getElementById('cardFail').innerText = `${fail}건`;
+    }
+
+    function renderTable(items) {
+      const tbody = document.getElementById('scheduleTableBody');
+      if (!items || items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-slate-400"><i class="fa-regular fa-folder-open text-3xl mb-2"></i><p>등록된 예약 일정이 없습니다. 엑셀 파일을 업로드하세요.</p></td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = items.map((s, idx) => {
+        let statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">대기</span>`;
+        if (s.status === "쿨 세팅완료") {
+          statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 inline-flex items-center gap-1"><i class="fa-solid fa-check text-[9px]"></i> 세팅완료</span>`;
+        } else if (s.status === "세팅 중...") {
+          statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 inline-flex items-center gap-1 animate-pulse"><i class="fa-solid fa-spinner fa-spin text-[9px]"></i> 세팅 중...</span>`;
+        } else if (s.status === "오류") {
+          statusBadge = `
+            <div class="flex flex-col items-center justify-center gap-1 py-0.5">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">오류</span>
+              <button onclick="syncSingle(${s.id})" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-md text-[11px] font-bold shadow-sm transition flex items-center justify-center gap-1 cursor-pointer" title="이 사람만 새로 쿨메신저에 단독 재시도">
+                <i class="fa-solid fa-rotate-right text-[10px]"></i> 재시도
+              </button>
+            </div>
+          `;
+        }
+
+        const msgPrev = (s.message || "").replace(/\\n/g, " ");
+        const shortMsg = msgPrev.length > 35 ? msgPrev.substring(0, 35) + "..." : msgPrev;
+
+        return `
+          <tr class="hover:bg-blue-50/50 transition">
+            <td class="py-3 px-4 text-center align-middle">${statusBadge}</td>
+            <td class="py-3 px-4 text-center font-semibold text-slate-800 align-middle">${s.date || ""}</td>
+            <td class="py-3 px-4 text-center text-slate-600 align-middle">${s.time || "09:00"}</td>
+            <td class="py-3 px-4 text-center font-bold text-blue-700 align-middle">${escapeHtml(s.receivers || "")}</td>
+            <td class="py-3 px-4 font-medium text-slate-800 align-middle">${escapeHtml(s.title || "")}</td>
+            <td class="py-3 px-4 text-slate-600 align-middle" title="${escapeHtml(s.message || '')}">${escapeHtml(shortMsg)}</td>
+            <td class="py-3 px-4 text-center text-slate-400 align-middle">${escapeHtml(s.memo || "")}</td>
+            <td class="py-3 px-4 text-center space-x-1 align-middle">
+              <button onclick="syncSingle(${s.id})" class="px-2 py-1 ${s.status === '오류' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-amber-500 hover:bg-amber-600'} text-white rounded font-semibold text-[11px] shadow-sm transition" title="${s.status === '오류' ? '이 사람만 새로 재시도' : '이 항목만 쿨메신저에 세팅'}">
+                <i class="fa-solid ${s.status === '오류' ? 'fa-rotate-right' : 'fa-bolt'}"></i> ${s.status === '오류' ? '재시도' : '세팅'}
+              </button>
+              <button onclick="deleteSchedule(${s.id})" class="px-2 py-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition" title="삭제">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function filterTable() {
+      const query = document.getElementById('searchInput').value.toLowerCase();
+      const filtered = schedulesData.filter(s => 
+        (s.receivers || "").toLowerCase().includes(query) ||
+        (s.title || "").toLowerCase().includes(query) ||
+        (s.date || "").includes(query)
+      );
+      renderTable(filtered);
+    }
+
+    // 교직원 주소록 로드 & 렌더
+    async function loadMembers() {
+      try {
+        const res = await fetch('/api/members');
+        const data = await res.json();
+        membersData = data.members || [];
+        document.getElementById('memberCountBadge').innerText = membersData.length;
+        renderMembers(membersData);
+      } catch (e) {
+        logToConsole("교직원 목록 로드 실패: " + e.message);
+      }
+    }
+
+    function renderMembers(list) {
+      const grid = document.getElementById('membersGrid');
+      if (!list || list.length === 0) {
+        grid.innerHTML = `<div class="col-span-full text-center py-8 text-slate-400">교직원 데이터가 없습니다.</div>`;
+        return;
+      }
+
+      grid.innerHTML = list.map(m => `
+        <div class="p-3 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-xl transition flex items-center justify-between">
+          <div class="truncate">
+            <p class="font-bold text-slate-800 text-xs truncate">${escapeHtml(m.full_name)}</p>
+            <p class="text-[10px] text-slate-400">${escapeHtml(m.member_id)}</p>
+          </div>
+          <button onclick="quickScheduleForMember('${escapeHtml(m.name)}')" class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-semibold whitespace-nowrap shadow-sm">
+            예약 추가
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function filterMembers() {
+      const q = document.getElementById('memberSearchInput').value.toLowerCase();
+      const filtered = membersData.filter(m => 
+        (m.full_name || "").toLowerCase().includes(q) ||
+        (m.member_id || "").toLowerCase().includes(q)
+      );
+      renderMembers(filtered);
+    }
+
+    function quickScheduleForMember(name) {
+      switchTab('tabScheduler');
+      openAddModal();
+      document.getElementById('modalRecv').value = name;
+    }
+
+    // 쿨메신저 실제 DB 예약 내역 로드
+    async function loadActualScheduledDb() {
+      const tbody = document.getElementById('actualDbTableBody');
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-400">쿨메신저 UDB 쿼리 중...</td></tr>`;
+      try {
+        const res = await fetch('/api/cool_scheduled_actual?limit=50');
+        const data = await res.json();
+        const list = data.scheduled || [];
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-400">쿨메신저 실제 DB에 대기 중인 예약 메시지가 없습니다.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = list.map(s => `
+          <tr class="hover:bg-emerald-50/50 transition">
+            <td class="py-3 px-4 font-bold text-emerald-700">${escapeHtml(s.scheduled_date)}</td>
+            <td class="py-3 px-4 font-medium text-slate-800">${escapeHtml(s.receiver)}</td>
+            <td class="py-3 px-4 font-semibold text-slate-900">${escapeHtml(s.title)}</td>
+            <td class="py-3 px-4 text-slate-600 text-[11px]">${escapeHtml(s.content)}</td>
+            <td class="py-3 px-4 text-slate-400 text-center">${escapeHtml(s.send_date)}</td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-rose-500">조회 실패: ${e.message}</td></tr>`;
+      }
+    }
+
+    let currentInboxLimit = 30;
+    let inboxFontSize = parseInt(localStorage.getItem('inbox_font_size') || '13');
+
+    function updateInboxFontSize() {
+      const label = document.getElementById('inboxFontSizeLabel');
+      if (label) label.innerText = `${inboxFontSize}px`;
+
+      const elements = document.querySelectorAll('.inbox-content-text');
+      elements.forEach(el => {
+        el.style.fontSize = `${inboxFontSize}px`;
+        el.style.lineHeight = `${Math.round(inboxFontSize * 1.65)}px`;
+        el.style.paddingBottom = '1rem';
+      });
+      localStorage.setItem('inbox_font_size', inboxFontSize.toString());
+    }
+
+    function changeInboxFontSize(delta) {
+      inboxFontSize = Math.min(Math.max(inboxFontSize + delta, 10), 28);
+      updateInboxFontSize();
+    }
+
+    function resetInboxFontSize() {
+      inboxFontSize = 13;
+      updateInboxFontSize();
+    }
+
+    // 최근 수신 쪽지 로드
+    async function loadInboxMessages(limit = 30) {
+      currentInboxLimit = limit;
+      const box = document.getElementById('inboxListBox');
+      if (limit === 30) {
+        box.innerHTML = `<div class="text-center py-8 text-slate-400"><i class="fa-solid fa-spinner fa-spin text-2xl text-indigo-600 mb-2"></i><p>수신 쪽지 로드 중...</p></div>`;
+      }
+      try {
+        const res = await fetch(`/api/inbox_messages?limit=${limit}`);
+        const data = await res.json();
+        renderInbox(data.messages || []);
+      } catch (e) {
+        box.innerHTML = `<div class="text-center py-8 text-rose-500">로드 실패: ${e.message}</div>`;
+      }
+    }
+
+    async function loadMoreInboxMessages() {
+      currentInboxLimit += 30;
+      await loadInboxMessages(currentInboxLimit);
+    }
+
+    async function searchUdbInbox() {
+      const q = document.getElementById('udbSearchInput').value.trim();
+      if (!q) {
+        loadInboxMessages(30);
+        return;
+      }
+      const box = document.getElementById('inboxListBox');
+      box.innerHTML = `<div class="text-center py-8 text-slate-400"><i class="fa-solid fa-spinner fa-spin text-2xl text-indigo-600 mb-2"></i><p>검색 중...</p></div>`;
+      try {
+        const res = await fetch(`/api/search_udb?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        renderInbox(data.results || [], true);
+      } catch (e) {
+        box.innerHTML = `<div class="text-center py-8 text-rose-500">검색 실패: ${e.message}</div>`;
+      }
+    }
+
+    function renderInbox(msgs, isSearch = false) {
+      const box = document.getElementById('inboxListBox');
+      if (!msgs || msgs.length === 0) {
+        box.innerHTML = `<div class="text-center py-8 text-slate-400">메시지가 없습니다.</div>`;
+        return;
+      }
+
+      window.inboxMessagesMap = window.inboxMessagesMap || {};
+      msgs.forEach((m, idx) => {
+        const k = String(m.key || idx);
+        window.inboxMessagesMap[k] = m;
+      });
+
+      let html = msgs.map((m, idx) => {
+        const contentStr = m.content || m.snippet || '';
+        const isLong = contentStr.length > 120;
+        const shortContent = isLong ? contentStr.substring(0, 120) + '...' : contentStr;
+        const safeKey = String(m.key || idx);
+        const msgId = `inbox_msg_${safeKey}`;
+
+        return `
+          <div id="${msgId}" class="p-4.5 bg-white hover:bg-indigo-50/30 border border-slate-200 rounded-xl shadow-sm transition-all space-y-3">
+            <!-- 상단 헤더: 발신자 및 수신 날짜/시간 (가독성 높은 고대비 뱃지) -->
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-1 rounded-md font-bold text-xs bg-indigo-100 text-indigo-950 border border-indigo-200 shadow-xs flex items-center gap-1">
+                  <i class="fa-solid fa-user text-indigo-600 text-xs"></i> 보낸이: ${escapeHtml(m.sender || '발신자 미상')}
+                </span>
+              </div>
+              <div class="flex items-center gap-1 px-2.5 py-1 rounded-md font-bold text-xs bg-slate-800 text-amber-300 border border-slate-700 font-mono shadow-xs">
+                <i class="fa-regular fa-clock text-amber-400 text-xs"></i> ${escapeHtml(m.date || '일시 미상')}
+              </div>
+            </div>
+
+            <!-- 쪽지 제목 -->
+            ${m.title ? `<h4 class="font-bold text-slate-900 text-sm leading-snug flex items-center gap-1.5"><i class="fa-solid fa-envelope-open text-indigo-500 text-xs"></i> ${escapeHtml(m.title)}</h4>` : ''}
+
+            <!-- 쪽지 본문 내용 (동적 폰트 조절 & 하단 잘림 방지 넉넉한 패딩 적용) -->
+            <div class="inbox-content-text text-slate-800 whitespace-pre-line break-all bg-slate-50/90 p-4 pb-4 rounded-xl border border-slate-200/80 transition-all font-sans overflow-visible" style="font-size: ${inboxFontSize}px; line-height: ${Math.round(inboxFontSize * 1.65)}px;">
+              <span id="summary_${msgId}">${escapeHtml(shortContent)}</span>
+              ${isLong ? `<span id="full_${msgId}" class="hidden">${escapeHtml(contentStr)}</span>` : ''}
+            </div>
+
+            <!-- 하단 툴바: 더보기 버튼 & 할 일 등록 버튼 -->
+            <div class="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 mt-2">
+              ${isLong ? `
+                <button onclick="toggleInboxText('${msgId}')" id="btn_${msgId}" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-xs">
+                  <i class="fa-solid fa-chevron-down text-[10px]" id="icon_${msgId}"></i> 
+                  <span id="label_${msgId}">전체 본문 더보기 (${contentStr.length}자)</span>
+                </button>
+              ` : '<div></div>'}
+
+              <button onclick="openAddTaskModalFromMsgKey('${safeKey}')" 
+                      class="text-xs font-extrabold text-emerald-800 hover:text-emerald-950 bg-emerald-100/90 hover:bg-emerald-200 active:scale-95 border border-emerald-300 px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-xs ml-auto">
+                <i class="fa-solid fa-calendar-plus text-emerald-600"></i> 📌 이 쪽지로 할 일 등록
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      if (!isSearch) {
+        html += `
+          <div class="text-center py-4">
+            <button onclick="loadMoreInboxMessages()" class="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 active:scale-95 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2 mx-auto cursor-pointer border border-slate-700">
+              <i class="fa-solid fa-circle-chevron-down text-amber-400"></i> 쪽지 더 가져오기 (현재 ${msgs.length}개 표시 중)
+            </button>
+          </div>
+        `;
+      }
+      box.innerHTML = html;
+      updateInboxFontSize();
+    }
+
+    function toggleInboxText(msgId) {
+      const summary = document.getElementById(`summary_${msgId}`);
+      const full = document.getElementById(`full_${msgId}`);
+      const icon = document.getElementById(`icon_${msgId}`);
+      const label = document.getElementById(`label_${msgId}`);
+
+      if (!full) return;
+
+      if (full.classList.contains('hidden')) {
+        summary.classList.add('hidden');
+        full.classList.remove('hidden');
+        if (icon) icon.className = "fa-solid fa-chevron-up text-[10px]";
+        if (label) label.innerText = "본문 접기";
+      } else {
+        summary.classList.remove('hidden');
+        full.classList.add('hidden');
+        if (icon) icon.className = "fa-solid fa-chevron-down text-[10px]";
+        if (label) label.innerText = "전체 본문 더보기";
+      }
+    }
+
+    // 엑셀 드래그 앤 드롭
+    function initDropzone() {
+      const dropZone = document.getElementById('dropZone');
+      const fileInput = document.getElementById('excelFileInput');
+
+      dropZone.addEventListener('click', () => fileInput.click());
+
+      ['dragenter', 'dragover'].forEach(name => {
+        dropZone.addEventListener(name, (e) => {
+          e.preventDefault();
+          dropZone.classList.add('dragover');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach(name => {
+        dropZone.addEventListener(name, (e) => {
+          e.preventDefault();
+          dropZone.classList.remove('dragover');
+        });
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) uploadExcel(files[0]);
+      });
+
+      fileInput.addEventListener('change', (e) => {
+        if (fileInput.files.length > 0) uploadExcel(fileInput.files[0]);
+      });
+    }
+
+    // Base64 기반 100% 안전한 엑셀 업로드
+    function uploadExcel(file) {
+      if (!file) return;
+      logToConsole(`엑셀 파일 읽기 시작: ${file.name} (${Math.round(file.size / 1024)} KB)`);
+      const reader = new FileReader();
+
+      reader.onload = async function(e) {
+        const base64Data = e.target.result;
+        try {
+          const res = await fetch('/api/upload_excel_base64', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_name: file.name, file_data: base64Data })
+          });
+          const data = await res.json();
+          if (data.success) {
+            logToConsole(`✔ 엑셀 파싱 성공: 총 ${data.count}건 탑재 완료!`);
+            schedulesData = data.schedules;
+            renderTable(schedulesData);
+            updateCards(schedulesData);
+            
+            if (data.error_count && data.error_count > 0) {
+              const errDetails = data.errors.slice(0, 5).map(e => `• ${e.row || ''}행: ${e.errors || e}`).join('\n');
+              alert(`총 ${data.count}건의 예약 일정이 성공적으로 탑재되었습니다!\n\n(참고: ${data.error_count}건의 누락/오류 행은 건너뛰었습니다)\n\n[건너뛴 행 요약]:\n${errDetails}`);
+            } else {
+              alert(`총 ${data.count}건의 예약 일정이 성공적으로 탑재되었습니다!\n\n이제 [⚡ 쿨메신저에 전체 일괄 예약 세팅]을 누르시면 자동 등록됩니다.`);
+            }
+          } else {
+            let errMsg = data.error || "파일 형식을 확인해주세요.";
+            if (data.errors && data.errors.length > 0) {
+              errMsg += "\n\n[오류 원인]:\n" + data.errors.map(e => typeof e === 'object' ? `• ${e.row || ''}행: ${e.errors || JSON.stringify(e)}` : `• ${e}`).join('\n');
+            }
+            alert("엑셀 파일 탑재 실패:\n\n" + errMsg);
+            logToConsole("엑셀 파싱 오류: " + errMsg);
+          }
+        } catch (err) {
+          logToConsole("업로드 전송 실패: " + err.message);
+          alert("서버 연결 실패 또는 파일 전송 중 오류가 발생했습니다: " + err.message);
+        } finally {
+          const fileInput = document.getElementById('excelFileInput');
+          if (fileInput) fileInput.value = '';
+        }
+      };
+
+      reader.onerror = function() {
+        alert("브라우저에서 파일을 읽는데 실패했습니다.");
+        logToConsole("FileReader 오류 발생");
+      };
+
+      reader.readAsDataURL(file);
+    }
+
+    async function loadDefaultSample() {
+      logToConsole("기본 샘플 파일 탑재 요청...");
+      try {
+        const res = await fetch('/api/load_default_sample', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          logToConsole(`✔ 기본 샘플 ${data.count}건 탑재 완료!`);
+          schedulesData = data.schedules;
+          renderTable(schedulesData);
+          updateCards(schedulesData);
+          alert(`기본 샘플 당번 일정 ${data.count}건이 등록되었습니다!`);
+        }
+      } catch (e) {
+        logToConsole("샘플 로드 실패: " + e.message);
+      }
+    }
+
+    async function syncSingle(id) {
+      const item = schedulesData.find(s => s.id === id);
+      const name = item ? item.receivers : `ID ${id}`;
+
+      // UI에 즉시 '세팅 중...' 반영
+      if (item) {
+        item.status = "세팅 중...";
+        renderTable(schedulesData);
+      }
+
+      logToConsole(`[${name}] 쿨메신저 단독 예약 세팅(재시도) 요청 시작...`);
+      try {
+        const res = await fetch('/api/sync_single', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        const data = await res.json();
+        if (data.success) {
+          logToConsole(`✔ [${name}] 단독 세팅 작업 진행 중...`);
+          setTimeout(loadSchedules, 2000);
+          setTimeout(loadSchedules, 4000);
+          setTimeout(loadSchedules, 6500);
+        } else {
+          alert(`재시도 실패: ${data.message}`);
+          loadSchedules();
+        }
+      } catch (e) {
+        logToConsole(`✖ [${name}] 세팅 실패: ` + e.message);
+        loadSchedules();
+      }
+    }
+
+    async function startBatchSync() {
+      const pendingCount = schedulesData.filter(s => s.status !== "쿨 세팅완료").length;
+      const targetCount = pendingCount > 0 ? pendingCount : schedulesData.length;
+
+      if (targetCount === 0) {
+        alert("등록할 예약 일정이 없습니다. 엑셀을 먼저 업로드하세요.");
+        return;
+      }
+
+      if (!confirm(`총 ${targetCount}건의 일정을 쿨메신저에 순차적으로 자동 예약 세팅하시겠습니까?\n\n쿨메신저 쪽지 창이 열리며 각 날짜별로 예약이 자동 등록됩니다.`)) {
+        return;
+      }
+
+      logToConsole("★ 쿨메신저 일괄 예약 세팅 작업 시작...");
+      document.getElementById('progressSection').classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/sync_batch', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          pollBatchProgress();
+        } else {
+          alert(data.message);
+        }
+      } catch (e) {
+        logToConsole("일괄 세팅 시작 실패: " + e.message);
+      }
+    }
+
+    async function pollBatchProgress() {
+      const pollTimer = setInterval(async () => {
+        try {
+          const res = await fetch('/api/batch_progress');
+          const data = await res.json();
+          
+          document.getElementById('progressPercent').innerText = `${data.percent}% (${data.current}/${data.total})`;
+          document.getElementById('progressBar').style.width = `${data.percent}%`;
+          document.getElementById('progressText').innerText = `[진행 중] ${data.current_name || '처리 중...'}`;
+
+          if (data.logs && data.logs.length > 0) {
+            const lastLog = data.logs[data.logs.length - 1];
+            logToConsole(lastLog);
+          }
+
+          if (!data.running) {
+            clearInterval(pollTimer);
+            document.getElementById('progressSection').classList.add('hidden');
+            loadSchedules();
+            alert(`🎉 쿨메신저 일괄 예약 등록이 완료되었습니다!\n\n성공: ${data.success_cnt}건\n실패: ${data.fail_cnt}건`);
+          }
+        } catch (e) {
+          clearInterval(pollTimer);
+        }
+      }, 1000);
+    }
+
+    async function stopBatchSync() {
+      await fetch('/api/stop_batch', { method: 'POST' });
+      logToConsole("일괄 예약 중지 요청됨.");
+    }
+
+    async function deleteSchedule(id) {
+      if (!confirm("이 예약 항목을 삭제하시겠습니까?")) return;
+      try {
+        const res = await fetch('/api/delete_schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        const data = await res.json();
+        schedulesData = data.schedules;
+        renderTable(schedulesData);
+        updateCards(schedulesData);
+      } catch (e) {}
+    }
+
+    async function clearAllSchedules() {
+      if (!confirm("모든 예약 목록을 비우시겠습니까?")) return;
+      try {
+        const res = await fetch('/api/clear_all', { method: 'POST' });
+        const data = await res.json();
+        schedulesData = [];
+        renderTable([]);
+        updateCards([]);
+      } catch (e) {}
+    }
+
+    // 모달 관리
+    function openAddModal() { document.getElementById('addModal').classList.remove('hidden'); }
+    function closeAddModal() { document.getElementById('addModal').classList.add('hidden'); }
+
+    async function submitAddSchedule() {
+      const date = document.getElementById('modalDate').value;
+      const time = document.getElementById('modalTime').value;
+      const receivers = document.getElementById('modalRecv').value.trim();
+      const title = document.getElementById('modalTitle').value.trim();
+      const message = document.getElementById('modalMsg').value.trim();
+      const memo = document.getElementById('modalMemo').value.trim();
+
+      if (!date || !receivers || !message) {
+        alert("날짜, 수신자, 메시지 본문은 필수 입력 사항입니다.");
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/add_schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date, time, receivers, title, message, memo })
+        });
+        const data = await res.json();
+        if (data.success) {
+          schedulesData = data.schedules;
+          renderTable(schedulesData);
+          updateCards(schedulesData);
+          closeAddModal();
+          logToConsole(`✔ 직접 예약 등록 성공: [${date} ${time}] ${receivers}`);
+        }
+      } catch (e) {
+        alert("등록 실패: " + e.message);
+      }
+    }
+
+    async function openHistoryModal() {
+      document.getElementById('historyModal').classList.remove('hidden');
+      try {
+        const res = await fetch('/api/history');
+        const data = await res.json();
+        const list = data.history || [];
+        const container = document.getElementById('historyList');
+        if (list.length === 0) {
+          container.innerHTML = `<p class="text-center py-8 text-slate-400">발송 이력이 없습니다.</p>`;
+          return;
+        }
+        container.innerHTML = list.map(h => `
+          <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+            <div class="flex justify-between items-center text-[11px] mb-1">
+              <span class="font-bold ${h.success ? 'text-emerald-600' : 'text-rose-600'}">
+                <i class="fa-solid ${h.success ? 'fa-circle-check' : 'fa-triangle-exclamation'} mr-1"></i>
+                ${h.success ? '성공' : '실패'}
+              </span>
+              <span class="text-slate-400 font-mono">${h.timestamp}</span>
+            </div>
+            <p class="font-semibold text-slate-800">${escapeHtml(h.title)} (수신: ${escapeHtml(h.receivers)})</p>
+            <p class="text-slate-500 text-[11px] mt-1 truncate">${escapeHtml(h.message_preview)}</p>
+            <p class="text-[10px] text-slate-400 mt-1">결과: ${escapeHtml(h.result)}</p>
+          </div>
+        `).join('');
+      } catch (e) {}
+    }
+
+    function closeHistoryModal() { document.getElementById('historyModal').classList.add('hidden'); }
+
+    function logToConsole(text) {
+      const box = document.getElementById('consoleLogBox');
+      const item = document.createElement('div');
+      item.innerText = text;
+      box.appendChild(item);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function clearConsoleLog() {
+      document.getElementById('consoleLogBox').innerHTML = '<div class="text-slate-500">[시스템] 로그 초기화됨.</div>';
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  
+    function downloadSampleExcel() {
+      fetch('/api/save_sample_to_downloads')
+        .then(r => r.json())
+        .then(res => {
+          if (res.success) {
+            alert("다운로드 폴더에 '쿨메신저_당번예약_샘플양식.xlsx' 파일이 성공적으로 저장되었습니다!\n\n저장 위치:\n" + res.path);
+          } else {
+            triggerBlobDownload();
+          }
+        })
+        .catch(err => {
+          triggerBlobDownload();
+        });
+
+      function triggerBlobDownload() {
+        fetch('/api/download_sample')
+          .then(r => r.blob())
+          .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = '쿨메신저_당번예약_샘플양식.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+          })
+          .catch(e => alert("다운로드 오류: " + e));
+      }
+    }
+
+    // ==========================================
+    // AI API 설정 및 업무 분석 로직
+    // ==========================================
+    async function openAiSettings() {
+      try {
+        const res = await fetch('/api/load_ai_config');
+        const data = await res.json();
+        if (data.success && data.config) {
+          if (data.config.vendor) {
+            document.getElementById('aiVendor').value = data.config.vendor;
+          }
+          if (data.config.api_key) {
+            document.getElementById('aiApiKey').value = data.config.api_key;
+          }
+        }
+      } catch (e) {
+        console.error("AI 설정 불러오기 실패:", e);
+      }
+      const modal = document.getElementById('aiSettingsModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeAiSettings() {
+      const modal = document.getElementById('aiSettingsModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    async function saveAiSettings() {
+      const vendor = document.getElementById('aiVendor').value;
+      const api_key = document.getElementById('aiApiKey').value.trim();
+
+      if (!api_key) {
+        alert("API 키를 입력해주세요.");
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/save_ai_config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vendor, api_key })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert("AI 설정(API 키)이 성공적으로 저장되었습니다!");
+          closeAiSettings();
+        } else {
+          alert("저장 실패: " + (data.error || "알 수 없는 오류"));
+        }
+      } catch (e) {
+        alert("저장 중 네트워크 오류 발생: " + e.message);
+      }
+    }
+
+    let globalAiTasksData = null;
+
+    function renderAiTaskData(data) {
+      if (!data) return;
+      globalAiTasksData = data;
+      try {
+        localStorage.setItem('cached_ai_tasks_json', JSON.stringify(data));
+      } catch(e) {}
+
+      const timeBadge = document.getElementById('aiSaveStatusTime');
+      if (data.saved_at) {
+        timeBadge.innerText = `최종 저장: ${data.saved_at}`;
+        timeBadge.classList.remove('hidden');
+      }
+
+      const emptyArea = document.getElementById('aiEmptyArea');
+      const resultArea = document.getElementById('aiResultArea');
+
+      const todayTasks = data.today_tasks || data.today || [];
+      const weekTasks = data.week_tasks || data.week || [];
+      const futureTasks = data.future_tasks || data.future || [];
+      const generalTasks = data.general_tasks || data.general || [];
+
+      document.getElementById('todayCountBadge').innerText = `${todayTasks.length}건`;
+      document.getElementById('weekCountBadge').innerText = `${weekTasks.length}건`;
+      document.getElementById('futureCountBadge').innerText = `${futureTasks.length}건`;
+      document.getElementById('generalCountBadge').innerText = `${generalTasks.length}건`;
+
+      const renderTaskList = (tasks, containerId, categoryKey) => {
+        const container = document.getElementById(containerId);
+        if (!tasks || tasks.length === 0) {
+          container.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs"><i class="fa-solid fa-circle-check text-2xl text-emerald-400 mb-2"></i><p>추출된 할 일 항목이 없습니다.</p></div>`;
+          return;
+        }
+
+        // 완료된 항목을 아래쪽으로 정렬 (원본 인덱스 보존)
+        const indexedTasks = tasks.map((t, origIdx) => ({ task: t, origIdx }));
+        indexedTasks.sort((a, b) => (Boolean(a.task.completed) ? 1 : 0) - (Boolean(b.task.completed) ? 1 : 0));
+
+        container.innerHTML = indexedTasks.map(({ task: t, origIdx }) => {
+          const isDone = Boolean(t.completed);
+
+          let rawTitle = t.title || t.task || '';
+          let taskSummary = t.summary || t.detail || t.content || '';
+          
+          if (!taskSummary && rawTitle.length > 12) {
+            taskSummary = rawTitle;
+            const firstLine = rawTitle.replace(/\r\n/g, ' ').replace(/\n/g, ' ').trim();
+            rawTitle = firstLine.length > 10 ? firstLine.substring(0, 10) + '...' : firstLine;
+          } else if (rawTitle.length > 12) {
+            const firstLine = rawTitle.replace(/\r\n/g, ' ').replace(/\n/g, ' ').trim();
+            rawTitle = firstLine.length > 10 ? firstLine.substring(0, 10) + '...' : firstLine;
+          }
+          const taskTitle = rawTitle;
+
+          const taskSender = t.sender || '발신자 미상';
+          const taskDue = t.due_time || t.due_date || t.deadline || t.date || '';
+          const isLong = taskSummary.length > 80;
+          const shortSummary = isLong ? taskSummary.substring(0, 80) + '...' : taskSummary;
+          const cardId = `task_${categoryKey}_${origIdx}`;
+
+          const cardClass = isDone 
+            ? "p-3.5 bg-slate-100/90 border border-slate-200/80 rounded-xl transition space-y-2 opacity-50 grayscale"
+            : "p-3.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-sm transition space-y-2";
+
+          const titleClass = isDone
+            ? "font-normal text-slate-400 text-sm leading-snug line-through"
+            : "font-bold text-slate-900 text-sm leading-snug";
+
+          const summaryClass = isDone
+            ? "text-xs text-slate-400 bg-slate-100 p-2.5 rounded-lg border border-slate-200/60 whitespace-pre-line leading-relaxed line-through"
+            : "text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100 whitespace-pre-line leading-relaxed";
+
+          return `
+            <div class="${cardClass}">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                  ${t.is_manual ? `
+                    <i class="fa-solid fa-note-sticky text-amber-500 text-xs shrink-0" title="수신쪽지 기반 수동 등록 할 일"></i>
+                  ` : `
+                    <i class="fa-solid fa-robot text-indigo-500 text-xs shrink-0" title="AI 자동 분석 추출 할 일"></i>
+                  `}
+                  <h4 class="${titleClass} truncate">${escapeHtml(taskTitle)}</h4>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded font-bold ${isDone ? 'bg-slate-200 text-slate-500' : 'bg-slate-100 border border-slate-300 text-slate-700'} shrink-0">${escapeHtml(taskSender)}</span>
+              </div>
+
+              ${taskDue ? `
+                <div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md font-bold text-xs ${isDone ? 'bg-slate-200 text-slate-500 border border-slate-300' : 'bg-rose-100 text-rose-950 border border-rose-300'} w-fit">
+                  <i class="fa-solid fa-clock text-xs"></i> 기한: ${escapeHtml(taskDue)}
+                </div>
+              ` : ''}
+
+              ${taskSummary ? `
+                <div class="${summaryClass}">
+                  <span id="sum_summary_${cardId}">${escapeHtml(shortSummary)}</span>
+                  ${isLong ? `<span id="sum_full_${cardId}" class="hidden">${escapeHtml(taskSummary)}</span>` : ''}
+                </div>
+                ${isLong ? `
+                  <button onclick="toggleTaskSummary('${cardId}')" id="sum_btn_${cardId}" class="text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded transition flex items-center gap-1 cursor-pointer">
+                    <i class="fa-solid fa-chevron-down text-[9px]" id="sum_icon_${cardId}"></i> <span id="sum_label_${cardId}">상세 내용 더보기</span>
+                  </button>
+                ` : ''}
+              ` : ''}
+
+              <!-- 하단 액션 버튼 그룹: 쪽지 이동 & 휴지통(즉시 삭제) & 완료 처리 -->
+              <div class="pt-2 flex items-center justify-between gap-2 border-t border-slate-200/60">
+                <button onclick="goToRelatedInboxMessage('${t.msg_key || ''}', '${escapeHtml(taskTitle)}', '${escapeHtml(taskSender)}')" class="px-2.5 py-1 rounded text-xs font-bold bg-indigo-50 hover:bg-indigo-100 active:scale-95 text-indigo-700 border border-indigo-200 shadow-xs flex items-center gap-1 cursor-pointer transition" title="이 할 일의 원본 수신 쪽지로 바로 이동합니다">
+                  <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> 쪽지 이동
+                </button>
+
+                <div class="flex items-center gap-1.5">
+                  <button onclick="deleteActiveTask('${categoryKey}', ${origIdx})" class="px-2 py-1 rounded text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 shadow-xs cursor-pointer transition" title="이 할 일을 즉시 삭제합니다 (화면에서 제거)">
+                    <i class="fa-solid fa-trash text-[11px]"></i>
+                  </button>
+                  <button onclick="toggleTaskCompleted('${categoryKey}', ${origIdx})" class="px-2.5 py-1 rounded text-xs font-bold transition flex items-center gap-1 cursor-pointer ${isDone ? 'bg-slate-200 hover:bg-slate-300 text-slate-700' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 shadow-xs'}">
+                    <i class="fa-solid ${isDone ? 'fa-arrow-rotate-left' : 'fa-check'} text-xs"></i>
+                    ${isDone ? '완료 취소' : '완료'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      };
+
+      renderTaskList(todayTasks, 'todayTasksList', 'today_tasks');
+      renderTaskList(weekTasks, 'weekTasksList', 'week_tasks');
+      renderTaskList(futureTasks, 'futureTasksList', 'future_tasks');
+      renderTaskList(generalTasks, 'generalTasksList', 'general_tasks');
+
+      renderCompletedHistory();
+
+      emptyArea.classList.add('hidden');
+      resultArea.classList.remove('hidden');
+    }
+
+    let allCompletedTasksCache = [];
+
+    function renderCompletedHistory(filterText = '') {
+      const container = document.getElementById('completedHistoryList');
+      const badge = document.getElementById('completedBadgeCount');
+      if (!container) return;
+
+      allCompletedTasksCache = [];
+      const catNames = {
+        'today_tasks': { label: '오늘', bg: 'bg-red-100 text-red-900 border-red-200' },
+        'week_tasks': { label: '이번 주', bg: 'bg-blue-100 text-blue-900 border-blue-200' },
+        'future_tasks': { label: '향후', bg: 'bg-purple-100 text-purple-900 border-purple-200' },
+        'general_tasks': { label: '기타/상시', bg: 'bg-emerald-100 text-emerald-900 border-emerald-200' }
+      };
+
+      if (globalAiTasksData) {
+        ['today_tasks', 'week_tasks', 'future_tasks', 'general_tasks'].forEach(catKey => {
+          const list = globalAiTasksData[catKey] || [];
+          list.forEach((t, origIdx) => {
+            if (t.completed) {
+              allCompletedTasksCache.push({ task: t, catKey, origIdx });
+            }
+          });
+        });
+      }
+
+      if (badge) badge.innerText = `${allCompletedTasksCache.length}개`;
+
+      let filtered = allCompletedTasksCache;
+      if (filterText.trim()) {
+        const q = filterText.trim().toLowerCase();
+        filtered = allCompletedTasksCache.filter(item => {
+          const t = item.task;
+          const titleStr = (t.title || t.task || '').toLowerCase();
+          const senderStr = (t.sender || '').toLowerCase();
+          const dateStr = (t.date || t.due_time || '').toLowerCase();
+          return titleStr.includes(q) || senderStr.includes(q) || dateStr.includes(q);
+        });
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-400 text-xs"><i class="fa-solid fa-box-open text-2xl text-slate-300 mb-2 block"></i>완료된 지난 할 일이 없거나 검색 결과가 없습니다.</div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(item => {
+        const t = item.task;
+        const catInfo = catNames[item.catKey] || catNames['general_tasks'];
+        const taskTitle = t.title || t.task || '';
+        const taskSender = t.sender || '발신자 미상';
+        const taskDue = t.date || t.due_time || t.due_date || '';
+
+        return `
+          <div class="p-3.5 bg-white border border-slate-200 rounded-xl shadow-xs space-y-2.5 hover:border-slate-300 transition">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-[10px] px-2 py-0.5 rounded font-bold border ${catInfo.bg}">${catInfo.label}</span>
+                ${t.is_manual ? `
+                  <i class="fa-solid fa-note-sticky text-amber-500 text-xs shrink-0" title="수신쪽지 기반 수동 등록 할 일"></i>
+                ` : `
+                  <i class="fa-solid fa-robot text-indigo-500 text-xs shrink-0" title="AI 자동 분석 추출 할 일"></i>
+                `}
+                <h5 class="font-bold text-slate-800 text-xs leading-snug line-through opacity-85">${escapeHtml(taskTitle)}</h5>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600 shrink-0 font-medium">${escapeHtml(taskSender)}</span>
+            </div>
+            
+            ${taskDue ? `
+              <div class="text-[11px] text-slate-500 font-mono flex items-center gap-1">
+                <i class="fa-regular fa-clock text-slate-400"></i> 기한: ${escapeHtml(taskDue)}
+              </div>
+            ` : ''}
+
+            <div class="pt-2 flex items-center justify-between gap-1 border-t border-slate-100">
+              <button onclick="goToRelatedInboxMessage('${t.msg_key || ''}', '${escapeHtml(taskTitle)}', '${escapeHtml(taskSender)}')" class="px-2.5 py-1 rounded text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer transition">
+                <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i> 쪽지 이동
+              </button>
+
+              <div class="flex items-center gap-1.5">
+                <button onclick="toggleTaskCompleted('${item.catKey}', ${item.origIdx})" class="px-2.5 py-1 rounded text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 cursor-pointer transition" title="다시 진행 중 할 일 목록으로 되돌립니다">
+                  <i class="fa-solid fa-arrow-rotate-left text-[10px]"></i> 복원 (완료 취소)
+                </button>
+                <button onclick="deleteCompletedTaskFromHistory('${item.catKey}', ${item.origIdx})" class="px-2 py-1 rounded text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 cursor-pointer transition" title="히스토리에서 영구 삭제합니다">
+                  <i class="fa-solid fa-trash text-[10px]"></i> 삭제
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleCompletedHistoryBox() {
+      const box = document.getElementById('completedHistoryBox');
+      const label = document.getElementById('completedToggleLabel');
+      const icon = document.getElementById('completedToggleIcon');
+      if (!box) return;
+
+      if (box.classList.contains('hidden')) {
+        box.classList.remove('hidden');
+        if (label) label.innerText = '접기';
+        if (icon) icon.className = 'fa-solid fa-chevron-up text-xs transition-transform duration-200';
+        renderCompletedHistory();
+      } else {
+        box.classList.add('hidden');
+        if (label) label.innerText = '펼치기';
+        if (icon) icon.className = 'fa-solid fa-chevron-down text-xs transition-transform duration-200';
+      }
+    }
+
+    function filterCompletedHistory(val) {
+      renderCompletedHistory(val);
+    }
+
+    async function deleteActiveTask(catKey, origIdx) {
+      if (!confirm("이 할 일 항목을 삭제하시겠습니까?")) return;
+      if (!globalAiTasksData || !globalAiTasksData[catKey]) return;
+
+      globalAiTasksData[catKey].splice(origIdx, 1);
+      renderAiTaskData(globalAiTasksData);
+
+      try {
+        localStorage.setItem('cached_ai_tasks_json', JSON.stringify(globalAiTasksData));
+        await fetch('/api/save_cached_ai_tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: globalAiTasksData })
+        });
+      } catch(e) {
+        console.error("Task delete save error:", e);
+      }
+    }
+
+    async function deleteCompletedTaskFromHistory(catKey, origIdx) {
+      if (!confirm("이 완료된 할 일을 히스토리에서 정말 삭제하시겠습니까?")) return;
+      if (!globalAiTasksData || !globalAiTasksData[catKey]) return;
+
+      globalAiTasksData[catKey].splice(origIdx, 1);
+      renderAiTaskData(globalAiTasksData);
+
+      try {
+        localStorage.setItem('cached_ai_tasks_json', JSON.stringify(globalAiTasksData));
+        await fetch('/api/save_cached_ai_tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: globalAiTasksData })
+        });
+      } catch(e) {}
+    }
+
+    async function exportDashboardTasks() {
+      if (!globalAiTasksData) {
+        alert("내보낼 대시보드 데이터가 없습니다.");
+        return;
+      }
+      
+      try {
+        const res = await fetch('/api/export_dashboard_txt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: globalAiTasksData })
+        });
+        const resData = await res.json();
+        
+        if (resData.success) {
+          alert(`🎉 '${resData.filename}' 파일이 다운로드 폴더에 성공적으로 저장되었습니다!\n\n저장 위치:\n${resData.path}`);
+        } else {
+          alert("내보내기 실패: " + (resData.error || "알 수 없는 오류"));
+        }
+      } catch (e) {
+        alert("내보내기 중 오류 발생: " + e.message);
+      }
+    }
+
+    function parseTxtToDashboardData(txtContent) {
+      const result = {
+        today_tasks: [],
+        week_tasks: [],
+        future_tasks: [],
+        general_tasks: []
+      };
+
+      if (!txtContent || typeof txtContent !== 'string') return result;
+
+      const lines = txtContent.split(/\r?\n/);
+      let currentCategory = 'general_tasks';
+      let currentTask = null;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line || line.startsWith('=')) continue;
+
+        if (line.includes('오늘 할 일') || line.includes('Today')) {
+          currentCategory = 'today_tasks';
+          currentTask = null;
+          continue;
+        } else if (line.includes('이번 주 할 일') || line.includes('This Week')) {
+          currentCategory = 'week_tasks';
+          currentTask = null;
+          continue;
+        } else if (line.includes('향후') || line.includes('다음 달 예정') || line.includes('Upcoming')) {
+          currentCategory = 'future_tasks';
+          currentTask = null;
+          continue;
+        } else if (line.includes('기타/상시') || line.includes('General')) {
+          currentCategory = 'general_tasks';
+          currentTask = null;
+          continue;
+        }
+
+        if (line.startsWith('- 상세내용:') && currentTask) {
+          currentTask.summary = line.replace('- 상세내용:', '').trim();
+          continue;
+        } else if (line.startsWith('- 구분:') && currentTask) {
+          const src = line.replace('- 구분:', '').trim();
+          currentTask.is_manual = src.includes('수동등록') || src.includes('노트');
+          continue;
+        }
+
+        const isTaskHeader = line.match(/^(?:\d+\.|\•)\s*(?:\[(완료됨|진행중)\])/);
+
+        if (isTaskHeader) {
+          const taskMatch = line.match(/^(?:\d+\.|\•)?\s*(?:\[(완료됨|진행중)\])?\s*(?:\[(.*?)\])?\s*(.*?)(?:\(기한:\s*(.*?)\))?$/);
+          if (taskMatch && taskMatch[3] && !line.includes('등록된 할 일 항목 없음')) {
+            const isDone = taskMatch[1] === '완료됨';
+            const sender = taskMatch[2] ? taskMatch[2].trim() : '발신자 미상';
+            let title = taskMatch[3] ? taskMatch[3].trim() : '';
+            const due = taskMatch[4] ? taskMatch[4].trim() : '';
+
+            if (title.includes('(기한:')) {
+              title = title.split('(기한:')[0].trim();
+            }
+
+            if (title && title !== '(등록된 할 일 항목 없음)') {
+              currentTask = {
+                title: title,
+                summary: title,
+                date: due || '상시/미정',
+                sender: sender,
+                completed: isDone,
+                is_manual: false
+              };
+              result[currentCategory].push(currentTask);
+            }
+          }
+        } else if (currentTask && !line.startsWith('-') && !line.startsWith('생성 일시:') && !line.startsWith('스마트')) {
+          currentTask.summary = currentTask.summary ? (currentTask.summary + ' ' + line) : line;
+        }
+      }
+
+      return result;
+    }
+
+    function importDashboardTasks() {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = '.json,.txt,text/plain,application/json';
+      fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          try {
+            const rawContent = event.target.result;
+            let importedData = null;
+            
+            try {
+              importedData = JSON.parse(rawContent);
+            } catch(jsonErr) {
+              importedData = parseTxtToDashboardData(rawContent);
+            }
+
+            if (!importedData || typeof importedData !== 'object') {
+              throw new Error("올바른 백업 데이터 형식이 아닙니다.");
+            }
+            
+            importedData.today_tasks = importedData.today_tasks || importedData.today || [];
+            importedData.week_tasks = importedData.week_tasks || importedData.week || [];
+            importedData.future_tasks = importedData.future_tasks || importedData.future || [];
+            importedData.general_tasks = importedData.general_tasks || importedData.general || [];
+
+            renderAiTaskData(importedData);
+
+            localStorage.setItem('cached_ai_tasks_json', JSON.stringify(importedData));
+            await fetch('/api/save_cached_ai_tasks', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ data: importedData })
+            });
+
+            alert(`🎉 백업 파일('${file.name}')이 성공적으로 불러와져 대시보드에 즉시 반영되었습니다!`);
+          } catch (err) {
+            alert("파일 불러오기 오류: " + err.message);
+          }
+        };
+        reader.readAsText(file, 'UTF-8');
+      };
+      fileInput.click();
+    }
+
+    function toggleTaskCompleted(categoryKey, origIdx) {
+      if (!globalAiTasksData) return;
+      if (!globalAiTasksData[categoryKey]) globalAiTasksData[categoryKey] = [];
+      const item = globalAiTasksData[categoryKey][origIdx];
+      if (item) {
+        item.completed = !item.completed;
+        renderAiTaskData(globalAiTasksData);
+
+        // 로컬 브라우저 저장 및 백엔드 실시간 동기화
+        try {
+          localStorage.setItem('cached_ai_tasks_json', JSON.stringify(globalAiTasksData));
+          fetch('/api/save_cached_ai_tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: globalAiTasksData })
+          });
+        } catch(e) {}
+      }
+    }
+
+    async function goToRelatedInboxMessage(msgKey, title, sender) {
+      switchTab('tabInbox');
+
+      let targetEl = (msgKey && msgKey !== 'undefined') ? document.getElementById(`inbox_msg_${msgKey}`) : null;
+
+      if (!targetEl) {
+        const query = sender || title || '';
+        if (query) {
+          const inputEl = document.getElementById('udbSearchInput');
+          if (inputEl) inputEl.value = query;
+          await searchUdbInbox();
+          targetEl = (msgKey && msgKey !== 'undefined') ? document.getElementById(`inbox_msg_${msgKey}`) : null;
+          if (!targetEl) {
+            const inboxBox = document.getElementById('inboxListBox');
+            targetEl = inboxBox.querySelector('.inbox-content-text')?.closest('.p-4');
+          }
+        }
+      }
+
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetEl.classList.add('ring-4', 'ring-indigo-500', 'bg-amber-100', 'transition-all', 'duration-500');
+        setTimeout(() => {
+          targetEl.classList.remove('ring-4', 'ring-indigo-500', 'bg-amber-100');
+        }, 3000);
+      } else {
+        alert(`관련 수신 쪽지를 수신함에서 찾을 수 없습니다.\n(발신자: ${sender || '미상'}, 제목: ${title || '없음'})`);
+      }
+    }
+
+    function toggleTaskSummary(cardId) {
+      const summary = document.getElementById(`sum_summary_${cardId}`);
+      const full = document.getElementById(`sum_full_${cardId}`);
+      const icon = document.getElementById(`sum_icon_${cardId}`);
+      const label = document.getElementById(`sum_label_${cardId}`);
+
+      if (!full) return;
+
+      if (full.classList.contains('hidden')) {
+        summary.classList.add('hidden');
+        full.classList.remove('hidden');
+        if (icon) icon.className = "fa-solid fa-chevron-up text-[9px]";
+        if (label) label.innerText = "접기";
+      } else {
+        summary.classList.remove('hidden');
+        full.classList.add('hidden');
+        if (icon) icon.className = "fa-solid fa-chevron-down text-[9px]";
+        if (label) label.innerText = "상세 내용 더보기";
+      }
+    }
+
+    async function saveAiTasksResultManual() {
+      if (!globalAiTasksData) {
+        alert("저장할 AI 분석 결과가 없습니다. 먼저 [수신 쪽지 분석 시작]을 실행해주세요.");
+        return;
+      }
+      const btn = document.getElementById('btnSaveAiResult');
+      const origHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...';
+
+      try {
+        const res = await fetch('/api/save_cached_ai_tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: globalAiTasksData })
+        });
+        const resData = await res.json();
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+
+        if (resData.success) {
+          if (resData.saved_at) {
+            globalAiTasksData.saved_at = resData.saved_at;
+            const timeBadge = document.getElementById('aiSaveStatusTime');
+            timeBadge.innerText = `최종 저장: ${resData.saved_at}`;
+            timeBadge.classList.remove('hidden');
+          }
+          localStorage.setItem('cached_ai_tasks_json', JSON.stringify(globalAiTasksData));
+          alert("🎉 AI 분석 결과가 로컬 컴퓨터에 안전하게 저장되었습니다!\n앱을 종료하거나 재부팅하더라도 항상 보존됩니다.");
+        } else {
+          alert("저장 실패: " + (resData.error || "알 수 없는 오류"));
+        }
+      } catch (e) {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        alert("저장 오류: " + e.message);
+      }
+    }
+
+    async function loadCachedAiTasks() {
+      // 1. Instant restore from browser localStorage
+      try {
+        const localStr = localStorage.getItem('cached_ai_tasks_json');
+        if (localStr) {
+          const localData = JSON.parse(localStr);
+          if (localData && (localData.today_tasks || localData.week_tasks || localData.future_tasks)) {
+            renderAiTaskData(localData);
+          }
+        }
+      } catch (e) {}
+
+      // 2. Local disk file restore from backend
+      try {
+        const res = await fetch('/api/get_cached_ai_tasks');
+        const resData = await res.json();
+        if (resData.success && resData.data) {
+          renderAiTaskData(resData.data);
+        }
+      } catch (e) {
+        console.error("캐시된 AI 할 일 로드 실패:", e);
+      }
+    }
+
+    async function analyzeAiTasks() {
+      const loading = document.getElementById('aiLoading');
+      const emptyArea = document.getElementById('aiEmptyArea');
+      const resultArea = document.getElementById('aiResultArea');
+      const btn = document.getElementById('btnAnalyzeAi');
+
+      loading.classList.remove('hidden');
+      emptyArea.classList.add('hidden');
+      resultArea.classList.add('hidden');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 분석 진행 중...';
+
+      try {
+        const res = await fetch('/api/analyze_tasks', { method: 'POST' });
+        const resData = await res.json();
+
+        loading.classList.add('hidden');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-bolt"></i> 수신 쪽지 분석 시작';
+
+        if (!resData.success) {
+          emptyArea.classList.remove('hidden');
+          alert("AI 분석 실패: " + (resData.error || "수신 쪽지 분석 중 오류가 발생했습니다. API 키 설정을 확인해주세요."));
+          return;
+        }
+
+        renderAiTaskData(resData.data || {});
+
+      } catch (e) {
+        loading.classList.add('hidden');
+        emptyArea.classList.remove('hidden');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-bolt"></i> 수신 쪽지 분석 시작';
+        alert("분석 중 오류 발생: " + e.message);
+      }
+    }
+
+    let currentModalMsgKey = '';
+    let currentModalMsgSender = '';
+    let currentModalMsgTitle = '';
+
+    function openAddTaskModalFromMsgKey(msgKey) {
+      const k = String(msgKey);
+      const m = (window.inboxMessagesMap && window.inboxMessagesMap[k]) || {};
+      const sender = m.sender || '발신자 미상';
+      const dateStr = m.date || '';
+      const title = m.title || '';
+      const rawContent = m.content || m.snippet || title || '';
+      openAddTaskModalFromMsg(k, sender, title, dateStr, rawContent);
+    }
+
+    function openAddTaskModalFromMsg(msgKey, sender, title, dateStr, rawContentStr) {
+      currentModalMsgKey = msgKey || '';
+      currentModalMsgSender = sender || '';
+      currentModalMsgTitle = title || '';
+
+      const senderEl = document.getElementById('modalMsgSender');
+      const dateEl = document.getElementById('modalMsgDate');
+      const snippetEl = document.getElementById('modalMsgSnippet');
+      const titleInput = document.getElementById('modalTaskTitle');
+      const dateInput = document.getElementById('modalTaskDate');
+      const categorySelect = document.getElementById('modalTaskCategory');
+
+      if (senderEl) senderEl.innerText = sender || '발신자 미상';
+      if (dateEl) dateEl.innerText = dateStr ? `[${dateStr}]` : '';
+
+      const headerTitle = title ? `제목: ${title}` : (rawContentStr ? rawContentStr.substring(0, 60) + '...' : '수신 쪽지 원문');
+      if (snippetEl) snippetEl.innerText = headerTitle;
+      
+      // 원문 내용 그대로 입력란에 탑재 ("내용 정리할 필요 없이 원문 등록하면 된다")
+      if (titleInput) titleInput.value = rawContentStr || title || '';
+
+      // Default date to today
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (dateInput) dateInput.value = todayStr;
+      if (categorySelect) categorySelect.value = 'today_tasks';
+
+      const modal = document.getElementById('addTaskModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+
+    function closeAddTaskModal() {
+      const modal = document.getElementById('addTaskModal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function setModalQuickDate(type) {
+      const dateInput = document.getElementById('modalTaskDate');
+      const categorySelect = document.getElementById('modalTaskCategory');
+      const d = new Date();
+
+      if (type === 'today') {
+        if (dateInput) dateInput.value = d.toISOString().split('T')[0];
+        if (categorySelect) categorySelect.value = 'today_tasks';
+      } else if (type === 'tomorrow') {
+        d.setDate(d.getDate() + 1);
+        if (dateInput) dateInput.value = d.toISOString().split('T')[0];
+        if (categorySelect) categorySelect.value = 'today_tasks';
+      } else if (type === 'none') {
+        if (dateInput) dateInput.value = '';
+        if (categorySelect) categorySelect.value = 'general_tasks';
+      }
+    }
+
+    async function submitNewTaskFromModal() {
+      const titleInput = document.getElementById('modalTaskTitle');
+      const dateInput = document.getElementById('modalTaskDate');
+      const categorySelect = document.getElementById('modalTaskCategory');
+
+      const taskTitle = titleInput ? titleInput.value.trim() : '';
+      if (!taskTitle) {
+        alert("할 일 제목/내용을 입력해주세요.");
+        return;
+      }
+
+      const dateVal = dateInput ? dateInput.value.trim() : '';
+      const categoryVal = categorySelect ? categorySelect.value : 'general_tasks';
+
+      if (!globalAiTasksData) {
+        globalAiTasksData = {
+          today_tasks: [],
+          week_tasks: [],
+          future_tasks: [],
+          general_tasks: []
+        };
+      }
+      if (!globalAiTasksData[categoryVal]) {
+        globalAiTasksData[categoryVal] = [];
+      }
+
+      const rawText = taskTitle;
+      const cleanFirstLine = rawText.replace(/\r\n/g, ' ').replace(/\n/g, ' ').trim();
+      let titleStr = currentModalMsgTitle || '';
+      if (!titleStr || titleStr.length > 10) {
+        titleStr = cleanFirstLine.length > 10 ? cleanFirstLine.substring(0, 10) + '...' : cleanFirstLine;
+      }
+
+      const newTask = {
+        title: titleStr,
+        summary: rawText,
+        date: dateVal || '상시/미정',
+        msg_key: currentModalMsgKey,
+        sender: currentModalMsgSender,
+        completed: false,
+        is_manual: true
+      };
+
+      globalAiTasksData[categoryVal].unshift(newTask);
+      renderAiTaskData(globalAiTasksData);
+
+      try {
+        localStorage.setItem('cached_ai_tasks_json', JSON.stringify(globalAiTasksData));
+        await fetch('/api/save_cached_ai_tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: globalAiTasksData })
+        });
+      } catch(e) {
+        console.error("Task save error:", e);
+      }
+
+      closeAddTaskModal();
+      switchTab('tabAiDashboard');
+    }
+
+    let editionClickCount = 0;
+    let editionClickTimer = null;
+
+    async function handleEditionClick() {
+      editionClickCount++;
+      if (editionClickTimer) clearTimeout(editionClickTimer);
+      
+      if (editionClickCount >= 5) {
+        editionClickCount = 0;
+        await toggleHappymanualSecretKey();
+      } else {
+        editionClickTimer = setTimeout(() => {
+          editionClickCount = 0;
+        }, 2000);
+      }
+    }
+
+    async function toggleHappymanualSecretKey() {
+      const vipKey = "";
+      try {
+        const checkRes = await fetch('/api/load_ai_config');
+        const checkData = await checkRes.json();
+        const currentKey = (checkData.success && checkData.config && checkData.config.api_key) ? checkData.config.api_key.trim() : '';
+
+        if (currentKey === vipKey) {
+          const res = await fetch('/api/save_ai_config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ vendor: 'gemini', api_key: '' })
+          });
+          const data = await res.json();
+          if (data.success) {
+            alert("🔒 [happymanual 에디션] VIP 시크릿 AI 전용 키가 비활성화되었습니다.\n\nAI 분석 기능을 이용하려면 [AI 설정]에서 API 키를 직접 입력해야 합니다.");
+          } else {
+            alert("VIP 키 비활성화 실패: " + (data.error || "알 수 없는 오류"));
+          }
+        } else {
+          const res = await fetch('/api/save_ai_config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ vendor: 'gemini', api_key: vipKey })
+          });
+          const data = await res.json();
+          if (data.success) {
+            alert("🎁 [happymanual 에디션] VIP 시크릿 AI 전용 키가 성공적으로 활성화되었습니다!\n\n이제 API 키 입력 없이 즉시 수신 쪽지 AI 분석 기능을 사용할 수 있습니다.");
+          } else {
+            alert("VIP 키 활성화 실패: " + (data.error || "알 수 없는 오류"));
+          }
+        }
+      } catch (e) {
+        alert("VIP 키 토글 처리 오류: " + e.message);
+      }
+    }
+
+    async function openAiSettings() {
+      const modal = document.getElementById('aiSettingsModal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
+      try {
+        const res = await fetch('/api/load_ai_config');
+        const data = await res.json();
+        if (data.success && data.config) {
+          if (data.config.vendor) document.getElementById('aiVendor').value = data.config.vendor;
+          if (data.config.api_key) document.getElementById('aiApiKey').value = data.config.api_key;
+        }
+      } catch (e) {
+        console.error("AI 설정 로드 실패:", e);
+      }
+    }
+
+    function closeAiSettings() {
+      const modal = document.getElementById('aiSettingsModal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    async function saveAiSettings() {
+      const vendor = document.getElementById('aiVendor').value;
+      const apiKey = document.getElementById('aiApiKey').value.trim();
+
+      if (!apiKey) {
+        alert("API 키를 입력해주세요.");
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/save_ai_config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vendor: vendor, api_key: apiKey })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert("AI 설정이 안전하게 저장되었습니다!");
+          closeAiSettings();
+        } else {
+          alert("저장 실패: " + (data.error || "알 수 없는 오류"));
+        }
+      } catch (e) {
+        alert("저장 중 오류 발생: " + e.message);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadCachedAiTasks();
+    });
+</script>
+
+  <!-- AI Task Add Modal (From Inbox Message) -->
+  <div id="addTaskModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4 transition-all">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+          <i class="fa-solid fa-clipboard-check text-emerald-600"></i> 수신 쪽지 기반 할 일 등록
+        </h3>
+        <button onclick="closeAddTaskModal()" class="text-slate-400 hover:text-slate-600 text-lg cursor-pointer">&times;</button>
+      </div>
+      
+      <!-- 쪽지 출처 정보 -->
+      <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1 text-slate-600">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-800 flex items-center gap-1"><i class="fa-solid fa-user text-indigo-500"></i> 보낸이: <span id="modalMsgSender"></span></span>
+          <span class="text-slate-500 font-mono" id="modalMsgDate"></span>
+        </div>
+        <div class="truncate text-slate-700 italic" id="modalMsgSnippet"></div>
+      </div>
+
+      <!-- 할 일 제목 / 내용 (원문 등록 가능하도록 textarea로 제공) -->
+      <div class="space-y-1.5">
+        <label class="block text-xs font-bold text-slate-700">할 일 내용 (쪽지 원문)</label>
+        <textarea id="modalTaskTitle" rows="3" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs font-medium text-slate-800 leading-relaxed" placeholder="쪽지 원문 내용이 자동 입력됩니다..."></textarea>
+      </div>
+
+      <!-- 날짜 지정 & 빠른 버튼 -->
+      <div class="space-y-2">
+        <label class="block text-xs font-bold text-slate-700 flex items-center justify-between">
+          <span>마감 / 수행 날짜 지정</span>
+          <span class="text-[11px] text-slate-400 font-normal">날짜 미지정 시 '기타업무'로 자동 지정</span>
+        </label>
+        <div class="flex items-center gap-1.5">
+          <input type="date" id="modalTaskDate" class="px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500">
+          <button onclick="setModalQuickDate('today')" class="px-2.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200 transition cursor-pointer">오늘</button>
+          <button onclick="setModalQuickDate('tomorrow')" class="px-2.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200 transition cursor-pointer">내일</button>
+          <button onclick="setModalQuickDate('none')" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-300 transition cursor-pointer">날짜 없음(기타)</button>
+        </div>
+      </div>
+
+      <!-- 카테고리 (분류) 선택 -->
+      <div class="space-y-1.5">
+        <label class="block text-xs font-bold text-slate-700">할 일 분류 (대시보드 챕터)</label>
+        <select id="modalTaskCategory" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 bg-white">
+          <option value="today_tasks">📅 오늘 할 일 (Today)</option>
+          <option value="week_tasks">📆 이번 주 할 일 (This Week)</option>
+          <option value="future_tasks">🔮 향후 예정 업무 (Future)</option>
+          <option value="general_tasks">📌 기타/상시 업무 (General)</option>
+        </select>
+      </div>
+
+      <!-- 버튼 하단 -->
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+        <button onclick="closeAddTaskModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer">취소</button>
+        <button onclick="submitNewTaskFromModal()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer">
+          <i class="fa-solid fa-check"></i> AI 대시보드에 할 일 등록
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Settings Modal -->
+  <div id="aiSettingsModal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <h3 class="font-bold text-slate-800 flex items-center gap-2">
+          <i class="fa-solid fa-gear text-slate-500"></i> AI API 키 설정
+        </h3>
+        <button onclick="closeAiSettings()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">AI 모델 제공자</label>
+          <select id="aiVendor" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+            <option value="gemini">Google Gemini 2.5 / 3.5 Flash-Lite (초고속, 경량형 모델, 권장)</option>
+            <option value="openai">OpenAI GPT-4o-mini</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">API 키 (API Key)</label>
+          <input type="password" id="aiApiKey" placeholder="AQ.... 또는 AIzaSy... 또는 sk-..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 font-mono">
+          <p class="text-xs text-slate-400 mt-1.5">* Google AI Studio 최신 키(AQ.로 시작) 및 기존 키(AIzaSy...) 모두 완벽 지원됩니다.<br>* 입력하신 키는 사용자 PC 로컬 파일(ai_config.json)에만 안전하게 보관됩니다.</p>
+        </div>
+      </div>
+      <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50">
+        <button onclick="closeAiSettings()" class="px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-100 transition">취소</button>
+        <button onclick="saveAiSettings()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-sm transition">저장하기</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
