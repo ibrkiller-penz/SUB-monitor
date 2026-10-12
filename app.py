@@ -40,7 +40,7 @@ class Api:
         self.cfg = cfg
         self.tt_window = None  # 시간표 사이트를 띄워두는 숨김 창
         self._extract_js = (BASE / "web" / "tt_extract.js").read_text(encoding="utf-8")
-        self.watcher = MessageWatcher(cfg.get("message_apps", ["쿨메신저", "CoolMessenger"]))
+        self.watcher = MessageWatcher(cfg.get("message_apps", ["쿨메신저", "CoolMessenger"]), udb=cfg.get("udb"))
         self._net = psutil.net_io_counters()
         self._net_t = time.time()
         psutil.cpu_percent(None)

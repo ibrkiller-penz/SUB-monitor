@@ -12,6 +12,12 @@
   "calendar_days": 31,
   "panels": ["weather", "tt", "events", "msg"],
   "message_apps": ["쿨메신저", "CoolMessenger"],
+  "udb": {
+    "path": "",
+    "table": "tbl_recv",
+    "columns": { "sender": "", "title": "", "content": "", "date": "", "read": "", "key": "" },
+    "unread_only": true
+  },
   "display": {
     "target_width": 1920,
     "target_height": 440,

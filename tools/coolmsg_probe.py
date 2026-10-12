@@ -76,6 +76,58 @@ for base in [os.environ.get("APPDATA", ""), os.environ.get("LOCALAPPDATA", ""), 
     except Exception:
         pass
 
+section("3-1. 쿨메신저 UDB(SQLite) 후보 조사")
+import sqlite3, glob
+cands = []
+for base in [r"C:\CoolMessenger", r"C:\Program Files\CoolMessenger", r"C:\Program Files (x86)\CoolMessenger",
+             os.path.join(os.environ.get("APPDATA", ""), "CoolMessenger"), os.path.join(os.environ.get("LOCALAPPDATA", ""), "CoolMessenger"),
+             os.path.join(os.environ.get("PROGRAMDATA", ""), "CoolMessenger"), r"C:\Program Files", r"C:\Program Files (x86)", os.environ.get("APPDATA", ""), os.environ.get("LOCALAPPDATA", "")]:
+    if base and os.path.isdir(base):
+        for pat in ("**/*.udb", "**/*.db", "**/*.sqlite", "**/*.db3"):
+            for f in glob.glob(os.path.join(base, pat), recursive=True):
+                if any(k in f.lower() for k in KEYS) and os.path.getsize(f) > 10_000:
+                    cands.append(f)
+cands = sorted(set(cands), key=os.path.getmtime, reverse=True)
+for f in cands[:10]:
+    log(f"  후보: {f}  ({os.path.getsize(f)} bytes, 수정 {time.strftime('%Y-%m-%d %H:%M', time.localtime(os.path.getmtime(f)))})")
+    try:
+        with open(f, "rb") as fh:
+            head = fh.read(16)
+        log(f"     헤더: {head!r}")
+        if head.startswith(b"SQLite format 3"):
+            con = sqlite3.connect(f"file:{Path(f).as_uri()[7:]}?mode=ro", uri=True)
+            tables = [r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+            log(f"     테이블: {tables}")
+            for t in tables:
+                if any(k in t.lower() for k in ("recv", "send", "msg", "message", "note")):
+                    cols = [(r[1], r[2]) for r in con.execute(f"PRAGMA table_info({t})")]
+                    cnt = con.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+                    log(f"     - {t} ({cnt}행): {cols}")
+                    try:
+                        for row in con.execute(f"SELECT * FROM {t} ORDER BY rowid DESC LIMIT 2"):
+                            log("       샘플: " + ", ".join(f"{c[0]}={str(v)[:40]!r}" for c, v in zip(cols, row)))
+                    except Exception as e:
+                        log(f"       샘플 실패: {e}")
+            con.close()
+    except Exception as e:
+        log(f"     열기 실패: {e}")
+if not cands:
+    log("  후보 없음 → 쿨메신저 설치 폴더를 탐색기에서 찾아 경로를 알려주세요")
+
+section("3-2. 쿨메신저/예약매니저 로컬 포트")
+try:
+    import psutil
+    for p in psutil.process_iter(["name", "pid"]):
+        if any(k in (p.info["name"] or "").lower() for k in KEYS):
+            try:
+                for c in p.net_connections(kind="inet"):
+                    if c.status == "LISTEN":
+                        log(f"  {p.info['name']} (pid {p.info['pid']}) LISTEN {c.laddr.ip}:{c.laddr.port}")
+            except Exception as e:
+                log(f"  {p.info['name']}: 포트 조회 실패 ({e})")
+except Exception as e:
+    log(f"  실패: {e}")
+
 section("4. Windows 알림(토스트) 60초 수신 테스트")
 try:
     import asyncio

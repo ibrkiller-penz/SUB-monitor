@@ -23,7 +23,9 @@ Windows PC 옆에 두는 가로 스트립 디스플레이용 Python(pywebview) �
 
 ## 메시지(쿨메신저) 패널 — 진행 상태
 - 쿨메신저는 공개 API 없음. `notify.py`가 ① Windows 알림(winsdk UserNotificationListener) ② 창 제목 "(N)" 두 경로로 감지. 어느 쪽이 실제로 되는지는 **Windows에서 `tools/coolmsg_probe.py`를 실행**해 결과(`tools/coolmsg_probe_result.txt`)를 보고 확정해야 한다.
-- 사용자가 `C:\Users\pc\Desktop\안티그래비티 결과\쿨잡도리` 폴더에 쿨메신저 관련 이전 작업물이 있다고 함 → 받으면 그 방식(로컬 DB·창 구조 등)으로 바꿀 것.
+- `ref/쿨메신저_예약매니저/`(참고 사본) 분석 결과: 그 앱은 **쿨메신저 로컬 DB(UDB)를 직접 읽는다** — 수신 쪽지 `tbl_recv`(sender/date/title/content, 본문 `{COMP}` 압축), 예약 `tbl_send`. 백엔드 .py는 exe에 컴파일돼 있어 파일 경로·컬럼명은 미확인.
+- 그래서 `notify.py`에 0순위로 `UdbReader`(SQLite, 컬럼명 자동 추정, `{COMP}` zlib/base64 복원, 안읽음 컬럼 있으면 필터) 추가. `config.json > udb`(path/table/columns/unread_only)로 맞춘다. 가짜 DB로 단위 검증만 함.
+- **다음 단계(직장 PC)**: `tools/coolmsg_probe.py` 실행 → 3-1 절의 UDB 후보 경로·테이블·컬럼·샘플을 보고 `config.json > udb` 채우기. SQLite가 아니면(헤더가 'SQLite format 3'이 아니면) 형식에 맞는 리더를 새로 짜야 함.
 - 허브 패널 표시 여부는 설정(⚙)에서 고르고 `config.json`의 `panels`에 저장. PC 상태는 시계 아래 한 줄(`#pcMini`)로도 항상 보임.
 
 ## 아직 확인 못 한 것
