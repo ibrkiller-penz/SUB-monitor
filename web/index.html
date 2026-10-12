@@ -124,7 +124,8 @@
   .ring .v { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .ring .v b { font-size: 20px; font-variant-numeric: tabular-nums; }
   .ring .v span { font-size: 14px; color: var(--muted); }
-  .net { font-size: 15px; color: var(--muted); line-height: 1.7; font-variant-numeric: tabular-nums; margin-top: 8px; text-align: center; }
+  #pcbody { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .net { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; font-size: 15px; color: var(--muted); line-height: 1.4; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .net b { color: var(--text); font-weight: 600; }
   /* 시계 아래 오늘 요약 */
   #todayBox { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; text-shadow: none; }
@@ -145,9 +146,9 @@
   #cal .g .has::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--accent); }
 
   /* PC 그래프 */
-  .spark { margin-top: 10px; }
+  .spark { margin-top: 8px; }
   .spark .lbl { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); margin-bottom: 2px; }
-  .spark svg { display: block; width: 100%; height: 34px; }
+  .spark svg { display: block; width: 100%; height: 28px; }
 
   /* 설정 */
   #gear { all: unset; cursor: pointer; font-size: 20px; opacity: .55; margin-left: 4px; }
@@ -465,7 +466,7 @@ async function loadSystem() {
   h += `<div class="spark"><div class="lbl"><span>CPU 2분</span><span>${Math.round(s.cpu)}%</span></div>${spark(hist.cpu, 100, 'var(--accent)')}</div>`;
   h += `<div class="spark"><div class="lbl"><span>네트워크</span><span>↓${speed(s.down)} ↑${speed(s.up)}</span></div>${spark(hist.net, nmax, '#a9cdf5')}</div>`;
   const up = s.uptime, ud = Math.floor(up / 86400), uh = Math.floor(up % 86400 / 3600), um = Math.floor(up % 3600 / 60);
-  h += `<div class="net">가동 ${ud ? ud + '일 ' : ''}${uh}시간 ${um}분<br>RAM ${s.ram_used} / ${s.ram_total} GB</div>`;
+  h += `<div class="net"><span>가동 <b>${ud ? ud + '일 ' : ''}${uh}시간 ${um}분</b></span><span>RAM <b>${s.ram_used}/${s.ram_total}GB</b></span></div>`;
   $('pcbody').innerHTML = h;
   if (window.onDataChange) onDataChange();
 }
