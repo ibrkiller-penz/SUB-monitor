@@ -27,10 +27,11 @@ UDB_SEARCH = [r"C:\CoolMessenger", r"C:\Program Files\CoolMessenger", r"C:\Progr
 COL_GUESS = {  # 역할별 후보 컬럼명 (소문자 비교)
     "sender": ["sender", "send_name", "sendname", "from_name", "fromname", "sendid", "send_id", "from_id", "name", "user_name"],
     "title": ["title", "subject", "msg_title"],
-    "content": ["content", "contents", "body", "msg", "message", "text", "msg_content"],
-    "date": ["recv_date", "recvdate", "date", "send_date", "senddate", "reg_date", "regdate", "time", "recv_time", "wdate"],
-    "read": ["read_yn", "readyn", "isread", "is_read", "read", "confirm", "confirm_yn", "read_flag", "readflag", "open_yn"],
-    "key": ["key", "idx", "id", "seq", "no", "msg_id", "msgid"],
+    # MessageText = 평문, MessageBody = "{COMP}" 압축 HTML. 평문이 있으면 그쪽을 먼저 쓴다.
+    "content": ["messagetext", "content", "contents", "body", "msg", "message", "text", "msg_content", "messagebody"],
+    "date": ["receivedate", "recv_date", "recvdate", "date", "send_date", "senddate", "reg_date", "regdate", "time", "recv_time", "wdate"],
+    "read": ["isunread", "is_unread", "read_yn", "readyn", "isread", "is_read", "read", "confirm", "confirm_yn", "read_flag", "readflag", "open_yn"],
+    "key": ["messagekey", "key", "idx", "id", "seq", "no", "msg_id", "msgid"],
 }
 
 
@@ -64,13 +65,28 @@ def decomp(text):
 class UdbReader:
     def __init__(self, cfg):
         cfg = cfg or {}
-        self.path = cfg.get("path") or ""
+        self.path = self.resolve(cfg.get("path") or "")
         self.table = cfg.get("table") or "tbl_recv"
         self.cols = {k: v for k, v in (cfg.get("columns") or {}).items() if v}
         self.unread_only = cfg.get("unread_only", True)
         self.error = ""
         if not self.path:
             self.path = self.find()
+
+    @staticmethod
+    def resolve(path):
+        """경로에 %LOCALAPPDATA% 같은 환경변수와 글롭(*)을 쓸 수 있다.
+        udb 파일 이름은 Windows 계정이 아니라 쿨메신저 로그인 이름이라서 글롭이 편하다.
+        여러 개가 맞으면 가장 최근에 쓰인 파일을 쓴다 (예: '홍길동 (1).udb' 같은 옛 사본 제외)."""
+        path = os.path.expandvars(os.path.expanduser(path or ""))
+        if not path:
+            return ""
+        if os.path.isdir(path):
+            path = os.path.join(path, "*.udb")
+        if any(c in path for c in "*?["):
+            hits = [h for h in glob.glob(path) if os.path.isfile(h)]
+            return max(hits, key=os.path.getmtime) if hits else ""
+        return path
 
     @staticmethod
     def find():
@@ -99,6 +115,14 @@ class UdbReader:
                     break
         return out, names
 
+    @staticmethod
+    def _unread_cond(col):
+        """읽음 컬럼의 극성은 이름으로 판단한다.
+        IsUnRead 처럼 '안읽음' 뜻이면 1 이 안읽음, read_yn 처럼 '읽음' 뜻이면 0/'N' 이 안읽음."""
+        if "unread" in col.lower().replace("_", ""):
+            return f"{col} NOT IN (0, '0', 'N', 'n', '') AND {col} IS NOT NULL"
+        return f"({col} IN (0, '0', 'N', 'n', '') OR {col} IS NULL)"
+
     def poll(self, limit=20):
         if not self.path or not os.path.exists(self.path):
             self.error = "UDB 파일을 찾지 못함 (config.json > udb.path 지정)"
@@ -110,7 +134,7 @@ class UdbReader:
                 return []
             where = ""
             if self.unread_only and "read" in cols:
-                where = f"WHERE {cols['read']} IN (0, '0', 'N', 'n', '') OR {cols['read']} IS NULL"
+                where = f"WHERE {self._unread_cond(cols['read'])}"
             order = f"ORDER BY {cols['date']} DESC" if "date" in cols else (f"ORDER BY {cols['key']} DESC" if "key" in cols else "")
             rows = con.execute(f"SELECT * FROM {self.table} {where} {order} LIMIT {int(limit)}").fetchall()
             idx = {n: i for i, n in enumerate(names)}
@@ -123,8 +147,11 @@ class UdbReader:
                     ts = datetime.fromisoformat(str(dt)[:19].replace("/", "-")).timestamp()
                 except Exception:
                     ts = time.time()
-                out.append({"id": f"u{g('key') if 'key' in cols else hash(r)}", "app": "쿨메신저", "title": str(g("sender") or g("title") or "쪽지"),
-                            "body": " ".join(x for x in (str(g("title") or ""), content.strip()) if x)[:200], "time": ts})
+                # MessageText 는 보통 제목 문장으로 시작하므로 제목을 또 붙이지 않는다
+                title, content = str(g("title") or ""), content.strip()
+                body = content if (not title or content.startswith(title)) else " ".join(x for x in (title, content) if x)
+                out.append({"id": f"u{g('key') if 'key' in cols else hash(r)}", "app": "쿨메신저", "title": str(g("sender") or title or "쪽지"),
+                            "body": body[:200], "time": ts})
             self.error = ""
             return out
 

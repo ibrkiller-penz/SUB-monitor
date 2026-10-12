@@ -13,10 +13,17 @@
   "panels": ["weather", "tt", "events", "msg"],
   "message_apps": ["쿨메신저", "CoolMessenger"],
   "udb": {
-    "path": "",
+    "path": "%LOCALAPPDATA%/CoolMessenger/Memo/*.udb",
     "table": "tbl_recv",
-    "columns": { "sender": "", "title": "", "content": "", "date": "", "read": "", "key": "" },
-    "unread_only": true
+    "columns": {
+      "sender": "Sender",
+      "title": "Title",
+      "content": "MessageText",
+      "date": "ReceiveDate",
+      "read": "IsUnRead",
+      "key": "MessageKey"
+    },
+    "unread_only": false
   },
   "display": {
     "target_width": 1920,
