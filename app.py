@@ -47,11 +47,12 @@ class Api:
             "weather_name": self.cfg.get("weather", {}).get("name", ""),
         }
 
-    def get_timetable(self):
-        """숨김 창의 시간표 사이트 엔진에서 계산된 데이터만 가져온다."""
+    def get_timetable(self, week=-1):
+        """숨김 창의 시간표 사이트 엔진에서 계산된 데이터만 가져온다. week: 0-based, -1이면 오늘 주차."""
         if not self.tt_window:
             return {"ready": False}
-        js = self._extract_js.replace("__TEACHER__", json.dumps(self.cfg.get("teacher_name", "")))
+        js = (self._extract_js.replace("__TEACHER__", json.dumps(self.cfg.get("teacher_name", "")))
+              .replace("__WEEK__", str(int(week) if week is not None else -1)))
         try:
             return self.tt_window.evaluate_js(js) or {"ready": False}
         except Exception as e:

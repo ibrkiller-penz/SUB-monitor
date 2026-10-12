@@ -33,20 +33,28 @@ body.detail #root { visibility: hidden; }
 .dlist { flex: 1; min-height: 0; overflow: hidden; }
 
 /* 주간 시간표 */
-.wt { display: grid; grid-template-columns: 110px repeat(5, 1fr); grid-template-rows: auto repeat(8, 1fr); gap: 4px; height: 100%; }
+.wnav { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; flex: none; }
+.wnav button { all: unset; cursor: pointer; width: 38px; height: 34px; text-align: center; line-height: 34px; border-radius: 9px; background: rgba(255,255,255,.10); font-size: 15px; }
+.wnav button:active { background: var(--accent); color: #1a120c; }
+.wnav span { font-size: 20px; font-weight: 500; padding: 0 10px; }
+.wnav span.other { color: var(--accent); }
+.wnav button.today { width: auto; padding: 0 14px; background: var(--accent); color: #1a120c; font-weight: 500; margin-left: 6px; }
+.wnav em { font-style: normal; font-size: 15px; color: var(--muted); margin-left: 8px; }
+.wt { display: grid; grid-template-columns: 110px repeat(5, 1fr); grid-template-rows: auto repeat(8, 1fr); gap: 4px; flex: 1; min-height: 0; }
 .wt-h { text-align: center; font-size: 17px; font-weight: 600; padding: 2px 4px; display: flex; flex-direction: column; justify-content: center; line-height: 1.15; min-width: 0; }
-.wt-h small { font-size: 13px; color: var(--muted); font-weight: 400; }
-.wt-h em { font-style: normal; font-size: 12px; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wt-h small { font-size: 14px; color: var(--muted); font-weight: 400; }
+.wt-h em { font-style: normal; font-size: 14px; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wt-h.td { color: var(--accent); }
 .wt-p { font-size: 16px; color: var(--muted); display: flex; align-items: baseline; gap: 6px; padding-left: 6px; white-space: nowrap; }
 .wt-p small { font-size: 12px; }
 .wt-c { border-radius: 10px; background: rgba(255,255,255,.05); padding: 2px 10px; display: flex; align-items: baseline; gap: 10px; min-width: 0; overflow: hidden; line-height: 1.15; }
-.wt-c b { font-size: 18px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; max-width: 70%; }
-.wt-c small { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wt-c b { font-size: 20px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; max-width: 75%; }
+.wt-c small { font-size: 15px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wt-c.td { background: rgba(255,255,255,.09); }
 .wt-c.class { border-left: 3px solid var(--accent); background: rgba(255,255,255,.12); }
 .wt-c.free b { color: var(--muted); font-weight: 400; font-size: 14px; }
-.wt-c.event b { color: #f3d8b5; font-size: 14px; }
+.wt-c.event b { color: #f3d8b5; font-size: 15px; }
+.wt-c.evc { background: rgba(243,216,181,.10); border-left: 3px solid #f3d8b5; } .wt-c.evc b { color: var(--text); font-size: 20px; }
 .wt-c.holiday b { color: #f3b5a5; font-size: 14px; }
 .wt-c.duty, .wt-c.sub, .wt-c.dangyeo, .wt-c.lunch.dutyon { background: rgba(244,162,89,.18); }
 .wt-c.absent { background: rgba(239,123,107,.18); }

@@ -122,16 +122,20 @@ function viewWeather() {
 function viewTimetable() {
   if (!tt) return { title: '시간표', html: '<div class="dcard"><div class="muted">시간표를 불러오는 중…</div></div>' };
   const days = ['월', '화', '수', '목', '금'], nowMin = nowMinutes(), todayReal = WD[new Date().getDay()];
+  const isCurWeek = tt.week === tt.currentWeek;
+  const nav = `<div class="wnav"><button data-wk="-1">◀</button><span class="${isCurWeek ? '' : 'other'}">${tt.week}주차 (${tt.range})</span><button data-wk="1">▶</button>${isCurWeek ? '' : '<button data-wk="0" class="today">오늘</button>'}<em>${isCurWeek ? '이번 주' : ''}</em></div>`;
   let h = '<div class="wt"><div class="wt-h"></div>' + days.map(d => `<div class="wt-h ${d === tt.today ? 'td' : ''}">${d}<small>${tt.days[d].date.slice(5).replace('.', '/')}</small>${tt.days[d].title ? `<em>${esc(tt.days[d].title)}</em>` : ''}</div>`).join('');
   PERIODS.forEach(([p, s, e]) => {
     h += `<div class="wt-p">${p === '점심' ? '점심' : p + '교시'}<small>${s}~${e}</small></div>`;
     days.forEach(d => {
       const data = tt.days[d];
-      const isNow = d === tt.today && todayReal === tt.today && nowMin >= toMin(s) && nowMin < toMin(e);
+      const isNow = isCurWeek && d === tt.today && todayReal === tt.today && nowMin >= toMin(s) && nowMin < toMin(e);
       if (p === '점심') { h += `<div class="wt-c lunch ${data.lunchDuty ? 'dutyon' : ''} ${isNow ? 'now' : ''}">${data.lunchDuty ? '🍱 급식지도' : '·'}</div>`; return; }
       const c = data.periods[p - 1] || { type: 'free', subject: '공강', room: '' };
       const jido = data.jido.find(j => Number(j.period) === p), asDuty = jido && c.type === 'free';
-      h += `<div class="wt-c ${asDuty ? 'duty' : c.type} ${isNow ? 'now' : ''} ${d === tt.today ? 'td' : ''}"><b>${esc(asDuty ? '공강지도' : c.subject)}</b><small>${esc(jido ? jido.target : c.room)}</small></div>`;
+      const isEv = (c.type === 'event' || c.type === 'holiday') && c.room;
+      const main = asDuty ? '공강지도' : isEv ? c.room : c.subject, sub = jido ? jido.target : isEv ? '' : c.room;
+      h += `<div class="wt-c ${asDuty ? 'duty' : c.type} ${isEv ? 'evc' : ''} ${isNow ? 'now' : ''} ${isCurWeek && d === tt.today ? 'td' : ''}"><b>${esc(main)}</b><small>${esc(sub)}</small></div>`;
     });
   });
   h += '</div>';
@@ -147,7 +151,7 @@ function viewTimetable() {
     const n = tt.days[d].periods.filter(c => c.type === 'class' || c.type === 'sub').length;
     return `<div class="dli"><span>${d}</span><i class="bar"><b style="width:${n / 7 * 100}%"></b></i><span>${n}시간</span></div>`;
   }).join('') + '</div>';
-  return { title: `${tt.teacher}${tt.homeroom ? ` (${tt.homeroom})` : ''} · ${tt.week}주차 주간 시간표`, html: `<div class="dgrid tt"><div class="dcard">${h}</div><div class="dside">${side}</div></div>` };
+  return { title: `${tt.teacher}${tt.homeroom ? ` (${tt.homeroom})` : ''} · ${tt.week}주차 주간 시간표`, html: `<div class="dgrid tt"><div class="dcard">${nav}${h}</div><div class="dside">${side}</div></div>` };
 }
 
 /* ---------- 일정 상세: 큰 달력 + 선택일 일정 ---------- */
@@ -210,7 +214,10 @@ window.addEventListener('DOMContentLoaded', () => {
     const kind = PANEL_KIND[p.id]; if (kind) openDetail(kind);
   }));
   $('dback').onclick = closeDetail;
-  $('dbody').addEventListener('click', e => { const c = e.target.closest('.bcal .c'); if (c) { calSel = c.dataset.k; renderDetail(); } });
+  $('dbody').addEventListener('click', e => {
+    const c = e.target.closest('.bcal .c'); if (c) { calSel = c.dataset.k; renderDetail(); return; }
+    const w = e.target.closest('[data-wk]'); if (w) { const k = Number(w.dataset.wk); if (k === 0) { ttWeekSel = null; loadTimetable(); } else changeWeek(k); }
+  });
   document.addEventListener('pointerdown', bumpIdle);
   setInterval(() => {
     if (detailKind === 'pc' && window.pywebview) pywebview.api.get_processes().then(p => { procs = p || []; });

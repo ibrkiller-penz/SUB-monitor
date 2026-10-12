@@ -71,7 +71,12 @@
   /* 시간표 */
   #ttHead { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   #ttName { font-size: 23px; font-weight: 600; }
-  #ttWeek { font-size: 17px; color: var(--muted); }
+  #ttNav { display: flex; align-items: center; gap: 2px; }
+  #ttNav button { all: unset; cursor: pointer; font-size: 14px; color: var(--muted); width: 30px; height: 30px; text-align: center; line-height: 30px; border-radius: 8px; }
+  #ttNav button:hover { background: rgba(255,255,255,.12); color: var(--text); }
+  #ttNav #ttToday { width: auto; padding: 0 10px; font-size: 15px; color: #1a120c; background: var(--accent); font-weight: 500; margin-left: 4px; }
+  #ttWeek { font-size: 17px; color: var(--muted); white-space: nowrap; }
+  #ttWeek.other { color: var(--accent); }
   #ttDays { margin-left: auto; display: flex; gap: 4px; }
   #ttDays button { all: unset; cursor: pointer; font-size: 17px; width: 32px; height: 30px; text-align: center; line-height: 30px;
     border-radius: 8px; color: var(--muted); }
@@ -86,7 +91,7 @@
   .slot.free .sj { color: var(--muted); font-weight: 400; font-size: 20px; }
   .slot.class { background: rgba(255,255,255,.10); }
   .slot.class .sj { color: var(--text); }
-  .slot.event { background: rgba(255,255,255,.07); } .slot.event .sj { font-size: 18px; color: #f3d8b5; }
+  .slot.event { background: rgba(255,255,255,.07); } .slot.event .sj { font-size: 20px; color: #f3d8b5; } .slot.event .rm { color: var(--accent); }
   .slot.holiday .sj { font-size: 19px; color: #f3b5a5; }
   .slot.duty, .slot.dangyeo, .slot.sub { background: rgba(244,162,89,.16); }
   .slot.absent { background: rgba(239,123,107,.16); } .slot.absent .sj { font-size: 18px; }
@@ -194,7 +199,8 @@
 
   <section class="panel" id="tt">
     <div id="ttHead">
-      <span id="ttName">시간표</span><span id="ttWeek"></span>
+      <span id="ttName">시간표</span>
+      <div id="ttNav"><button data-wk="-1" title="이전 주">◀</button><span id="ttWeek"></span><button data-wk="1" title="다음 주">▶</button><button id="ttToday" hidden>오늘</button></div>
       <div id="ttDays"></div>
       <button id="gear" title="설정">⚙</button>
     </div>
@@ -303,9 +309,10 @@ async function loadWeather() {
 }
 
 /* ---------- 시간표 (사이트 엔진 데이터) ---------- */
-let tt = null, ttSel = null, ttSelAt = 0;
+let tt = null, ttSel = null, ttSelAt = 0, ttWeekSel = null, ttWeekAt = 0;   // ttWeekSel: 0-based, null=오늘 주차
 async function loadTimetable() {
-  const r = await pywebview.api.get_timetable();
+  if (ttWeekSel != null && Date.now() - ttWeekAt > 3 * 60 * 1000) ttWeekSel = null;   // 3분 뒤 오늘 주차로 복귀
+  const r = await pywebview.api.get_timetable(ttWeekSel ?? -1);
   if (!r || !r.ready) { if (!tt) setTimeout(loadTimetable, 2000); return; }
   if (!r.teacher) { renderPicker(r.teachers); return; }
   tt = r; teacherList = r.teachers; renderTimetable();
@@ -316,6 +323,12 @@ function renderPicker(teachers) {
   $('ttName').textContent = '시간표';
   $('ttList').innerHTML = `<div id="ttPick" style="grid-column:1/-1;grid-row:1/-1"><div class="muted">교사가 설정되지 않았습니다</div>
     <button class="tchip hl" style="cursor:pointer;border:0;font:inherit" onclick="openSettings()">⚙ 교사 선택</button></div>`;
+}
+function changeWeek(delta) {
+  if (!tt) return;
+  const w = Math.max(0, Math.min(tt.totalWeeks - 1, (tt.week - 1) + delta));
+  ttWeekSel = w === tt.currentWeek - 1 ? null : w; ttWeekAt = Date.now();
+  loadTimetable();
 }
 function openSettings() {
   const list = (tt && tt.teachers) || teacherList;
@@ -329,9 +342,12 @@ function renderTimetable() {
   // 다른 요일을 눌러봤다면 60초 뒤 오늘로 복귀
   if (ttSel && Date.now() - ttSelAt > 60000) ttSel = null;
   const day = ttSel || tt.today, data = tt.days[day];
-  const isToday = day === tt.today && WD[new Date().getDay()] === tt.today;
+  const isCurWeek = tt.week === tt.currentWeek;
+  const isToday = isCurWeek && day === tt.today && WD[new Date().getDay()] === tt.today;
   $('ttName').textContent = tt.teacher;
-  $('ttWeek').textContent = `${tt.week}주차 · ${data.date.slice(5).replace('.', '/')} (${day})`;
+  $('ttWeek').textContent = `${tt.week}주차 (${tt.range})`;
+  $('ttWeek').className = isCurWeek ? '' : 'other';
+  $('ttToday').hidden = isCurWeek;
   $('ttDays').innerHTML = ['월', '화', '수', '목', '금'].map(d =>
     `<button class="${d === day ? 'sel' : ''} ${d === tt.today ? 'today' : ''}" data-d="${d}">${d}</button>`).join('');
   $('ttDays').querySelectorAll('button').forEach(b => b.onclick = () => { ttSel = b.dataset.d; ttSelAt = Date.now(); renderTimetable(); });
@@ -349,9 +365,12 @@ function renderTimetable() {
     const jido = data.jido.find(j => Number(j.period) === p);
     const asDuty = jido && c.type === 'free';
     const st = state(s, e);
+    const isEv = (c.type === 'event' || c.type === 'holiday') && c.room;
+    const main = asDuty ? '공강지도' : isEv ? c.room : c.subject;
+    const sub = jido ? `공강지도 · ${jido.target}` : isEv ? c.subject : c.room;
     const prog = st === 'now' ? `<div class="prog"><i style="width:${Math.round((nowMin - toMin(s)) / (toMin(e) - toMin(s)) * 100)}%"></i></div>` : '';
     html += `<div class="slot ${asDuty ? 'duty' : c.type} ${st}"><div class="no"><span>${p}교시 · ${s}</span></div>
-      <div class="sj">${esc(asDuty ? '공강지도' : c.subject)}</div><div class="rm">${esc(jido ? `공강지도 · ${jido.target}` : c.room)}</div>${prog}</div>`;
+      <div class="sj">${esc(main)}</div><div class="rm">${esc(sub)}</div>${prog}</div>`;
   });
   $('ttList').innerHTML = html;
 
@@ -500,6 +519,8 @@ window.addEventListener('pywebviewready', async () => {
   $('gear').onclick = openSettings;
   $('setCancel').onclick = closeSettings;
   $('setReload').onclick = async () => { closeSettings(); await pywebview.api.reload_timetable(); tt = null; setTimeout(loadTimetable, 3000); };
+  $('ttNav').querySelectorAll('[data-wk]').forEach(b => b.onclick = () => changeWeek(Number(b.dataset.wk)));
+  $('ttToday').onclick = () => { ttWeekSel = null; loadTimetable(); };
   $('setSave').onclick = async () => {
     const name = $('setTeacher').value; closeSettings();
     if (name) { await pywebview.api.set_teacher(name); ttSel = null; loadTimetable(); }
