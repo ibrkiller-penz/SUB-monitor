@@ -1,0 +1,18 @@
+{
+  "timetable_url": "https://teacher-2026.vercel.app/widget",
+  "teacher_name": "임병율",
+  "weather": {
+    "name": "부산 동래구",
+    "latitude": 35.2049,
+    "longitude": 129.0838
+  },
+  "ical_urls": [
+    ""
+  ],
+  "calendar_days": 31,
+  "display": {
+    "target_width": 1920,
+    "target_height": 440,
+    "fullscreen": true
+  }
+}

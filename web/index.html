@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>LESOWN Dashboard</title>
+<style>
+  :root {
+    /* 월별 테마 색은 JS가 덮어쓴다 (기본: 가을) */
+    --accent: #f4a259; --accent2: #e76f51;
+    --text: #fbf6ee; --muted: rgba(251, 246, 238, .62); --line: rgba(255, 255, 255, .12);
+    --glass: rgba(24, 16, 10, .34); --glass-strong: rgba(24, 16, 10, .58);
+    --ok: #9ad37b; --warn: #f6c453; --bad: #ef7b6b;
+  }
+  @font-face { font-family: "SCDream"; src: url("fonts/S-CoreDream-4Regular.woff") format("woff"); font-weight: 100 400; }
+  @font-face { font-family: "SCDream"; src: url("fonts/S-CoreDream-5Medium.woff") format("woff"); font-weight: 500; }
+  @font-face { font-family: "SCDream"; src: url("fonts/S-CoreDream-6Bold.woff") format("woff"); font-weight: 600 900; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #1a120c; color: var(--text);
+    font-family: "SCDream", "Malgun Gothic", sans-serif; user-select: none; }
+  #bg { position: fixed; inset: 0; background-size: cover; background-position: center; transition: opacity 1.2s; }
+  #bg::after { content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, rgba(0,0,0,.45), rgba(0,0,0,.15) 40%, rgba(0,0,0,.15) 60%, rgba(0,0,0,.45)); }
+  #root { position: relative; display: grid; height: 100vh; padding: 14px; gap: 14px;
+    grid-template-columns: 330fr 390fr 560fr 360fr 248fr; }
+  .panel { background: var(--glass); backdrop-filter: blur(14px) saturate(120%); -webkit-backdrop-filter: blur(14px) saturate(120%);
+    border: 1px solid var(--line); border-radius: 20px; padding: 16px 18px; overflow: hidden; box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 10px 32px rgba(0,0,0,.28);
+    display: flex; flex-direction: column; min-width: 0; box-shadow: 0 8px 30px rgba(0,0,0,.25); }
+  .ptitle { font-size: 17px; color: var(--muted); letter-spacing: .08em; margin-bottom: 10px;
+    display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .ptitle .k { text-transform: uppercase; color: var(--text); font-weight: 500; padding-left: 10px; position: relative; }
+  .ptitle .k::before { content: ''; position: absolute; left: 0; top: 3px; bottom: 3px; width: 3px; border-radius: 2px; background: var(--accent); }
+  .err { color: var(--warn); font-size: 18px; line-height: 1.5; }
+  .muted { color: var(--muted); }
+
+  /* 시계 — 패널 없이 배경 위에 */
+  #clock { background: none; border: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none;
+    justify-content: center; padding-left: 10px; text-shadow: 0 2px 18px rgba(0,0,0,.55); }
+  #season { font-size: 19px; color: var(--accent); letter-spacing: .2em; margin-bottom: 4px; }
+  #time { font-size: 120px; font-weight: 400; line-height: .95; letter-spacing: -3px; font-variant-numeric: tabular-nums; }
+  #time b { font-weight: 600; }
+  #sub { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
+  #dayBar { margin-top: 10px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.14); overflow: hidden; width: 86%; }
+  #dayBar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), #fff3); transition: width 1s linear; }
+  #dayTxt { font-size: 15px; color: var(--muted); margin-top: 5px; }
+  #ampm { font-size: 25px; color: var(--muted); }
+  #sec { font-size: 25px; color: var(--accent); font-variant-numeric: tabular-nums; }
+  #date { font-size: 30px; margin-top: 14px; font-weight: 500; }
+  #dday { font-size: 18px; color: var(--muted); margin-top: 6px; }
+
+  /* 날씨 */
+  .wnow { display: flex; align-items: center; gap: 14px; }
+  .wicon { font-size: 74px; line-height: 1; filter: drop-shadow(0 4px 10px rgba(0,0,0,.3)); }
+  .wtemp { font-size: 76px; font-weight: 300; letter-spacing: -2px; }
+  .wdesc { font-size: 18px; color: var(--muted); line-height: 1.6; white-space: nowrap; }
+  .wdesc b { color: var(--text); font-weight: 600; font-size: 23px; }
+  .wmeta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 6px; }
+  .wmeta div { background: rgba(255,255,255,.06); border-radius: 10px; padding: 6px 4px; text-align: center; font-size: 15px; color: var(--muted); }
+  .wmeta b { display: block; color: var(--text); font-size: 19px; font-weight: 600; margin-top: 2px; }
+  .hourly { display: grid; grid-template-columns: repeat(6, 1fr); text-align: center; font-size: 17px; color: var(--muted);
+    padding: 6px 0; border-top: 1px solid var(--line); }
+  .hourly .i { font-size: 25px; margin: 3px 0; }
+  .hourly .t { color: var(--text); font-size: 19px; }
+  .hourly .pb { height: 3px; margin: 4px 8px 0; border-radius: 2px; background: rgba(255,255,255,.10); overflow: hidden; }
+  .hourly .pb i { display: block; height: 100%; background: #8ac4ff; }
+  .sun { display: flex; justify-content: space-between; font-size: 15px; color: var(--muted); padding: 6px 2px 0; }
+  .sun b { color: var(--text); font-weight: 500; }
+  .daily { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; text-align: center; font-size: 17px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .daily .i { font-size: 25px; }
+  .hi { color: #ffb38a; } .lo { color: #a9cdf5; } .pp { color: var(--muted); font-size: 14px; }
+
+  /* 시간표 */
+  #ttHead { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  #ttName { font-size: 23px; font-weight: 600; }
+  #ttWeek { font-size: 17px; color: var(--muted); }
+  #ttDays { margin-left: auto; display: flex; gap: 4px; }
+  #ttDays button { all: unset; cursor: pointer; font-size: 17px; width: 32px; height: 30px; text-align: center; line-height: 30px;
+    border-radius: 8px; color: var(--muted); }
+  #ttDays button.today { color: var(--accent); }
+  #ttDays button.sel { background: rgba(255,255,255,.14); color: var(--text); font-weight: 600; }
+  #ttList { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr); gap: 8px; flex: 1; }
+  .slot { position: relative; border-radius: 14px; padding: 10px 12px; background: rgba(255,255,255,.05); overflow: hidden;
+    border: 1px solid transparent; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
+  .slot .no { font-size: 15px; color: var(--muted); display: flex; justify-content: space-between; white-space: nowrap; gap: 6px; }
+  .slot .sj { font-size: 25px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slot .rm { font-size: 17px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 16px; }
+  .slot.free .sj { color: var(--muted); font-weight: 400; font-size: 20px; }
+  .slot.class { background: rgba(255,255,255,.10); }
+  .slot.class .sj { color: var(--text); }
+  .slot.event { background: rgba(255,255,255,.07); } .slot.event .sj { font-size: 18px; color: #f3d8b5; }
+  .slot.holiday .sj { font-size: 19px; color: #f3b5a5; }
+  .slot.duty, .slot.dangyeo, .slot.sub { background: rgba(244,162,89,.16); }
+  .slot.absent { background: rgba(239,123,107,.16); } .slot.absent .sj { font-size: 18px; }
+  .slot.lunch { background: rgba(255,255,255,.03); }
+  .slot.lunch.dutyon { background: rgba(244,162,89,.16); }
+  .slot.now { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, 0 0 18px rgba(244,162,89,.25); }
+  .slot.now::after { content: "NOW"; position: absolute; top: 8px; right: 10px; font-size: 12px; font-weight: 600; letter-spacing: .08em; color: #1a120c; background: var(--accent); border-radius: 999px; padding: 2px 8px; }
+  .slot.now .no { padding-right: 52px; }
+  .slot .prog { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.08); }
+  .slot .prog i { display: block; height: 100%; background: var(--accent); }
+  .slot.class::before, .slot.sub::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: var(--accent); opacity: .8; }
+  .slot.class, .slot.sub { padding-left: 16px; }
+  .slot.past { opacity: .45; }
+  #ttFoot { margin-top: 10px; font-size: 17px; align-items: center; color: var(--muted); display: flex; gap: 12px; min-height: 18px; }
+  #ttFoot .live { color: var(--accent); font-weight: 600; }
+  #ttPick { flex: 1; display: flex; flex-direction: column; gap: 10px; justify-content: center; align-items: center; }
+  #ttPick select { font-size: 20px; padding: 6px 10px; border-radius: 8px; background: rgba(0,0,0,.4); color: var(--text); border: 1px solid var(--line); }
+
+  /* 일정 */
+  #events { overflow-y: auto; flex: 1; scrollbar-width: none; }
+  #events::-webkit-scrollbar { display: none; }
+  .day { font-size: 15px; color: var(--accent); margin: 10px 0 2px; font-weight: 600; letter-spacing: .05em; }
+  .day:first-child { margin-top: 0; }
+  .ev { display: flex; gap: 10px; padding: 6px 0; font-size: 20px; align-items: baseline; }
+  .ev + .ev { border-top: 1px solid var(--line); }
+  .ev .t { color: var(--muted); font-size: 17px; min-width: 44px; font-variant-numeric: tabular-nums; }
+  .ev .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ev.now .n { color: var(--accent); font-weight: 600; }
+  .ev.past { opacity: .4; }
+
+  /* PC */
+  .ring-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 4px; justify-items: center; }
+  .ring { position: relative; width: 86px; height: 86px; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .v { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ring .v b { font-size: 20px; font-variant-numeric: tabular-nums; }
+  .ring .v span { font-size: 14px; color: var(--muted); }
+  .net { font-size: 15px; color: var(--muted); line-height: 1.7; font-variant-numeric: tabular-nums; margin-top: 8px; text-align: center; }
+  .net b { color: var(--text); font-weight: 600; }
+  /* 시계 아래 오늘 요약 */
+  #todayBox { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; text-shadow: none; }
+  .tchip { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; font-size: 17px; padding: 5px 10px; border-radius: 999px;
+    background: rgba(0,0,0,.35); backdrop-filter: blur(8px); border: 1px solid var(--line); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tchip.hl { color: #1a120c; background: var(--accent); border-color: transparent; font-weight: 500; }
+  .tchip b { font-weight: 600; }
+
+  /* 미니 달력 */
+  #cal { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 6px; }
+  #cal .mh { font-size: 15px; color: var(--muted); margin-bottom: 4px; display: flex; justify-content: space-between; }
+  #cal .g { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 15px; row-gap: 1px; }
+  #cal .g span { position: relative; line-height: 21px; color: var(--text); opacity: .85; }
+  #cal .g .wk { color: var(--muted); font-size: 14px; }
+  #cal .g .sun { color: #f3a5a0; } #cal .g .sat { color: #a9cdf5; }
+  #cal .g .out { opacity: .25; }
+  #cal .g .td { background: var(--accent); color: #1a120c; border-radius: 6px; font-weight: 600; opacity: 1; }
+  #cal .g .has::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--accent); }
+
+  /* PC 그래프 */
+  .spark { margin-top: 10px; }
+  .spark .lbl { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); margin-bottom: 2px; }
+  .spark svg { display: block; width: 100%; height: 34px; }
+
+  /* 설정 */
+  #gear { all: unset; cursor: pointer; font-size: 20px; opacity: .55; margin-left: 4px; }
+  #gear:hover { opacity: 1; }
+  #modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 10; }
+  #modal.on { display: flex; }
+  #modal .box { width: 460px; background: rgba(30,22,16,.92); border: 1px solid var(--line); border-radius: 18px; padding: 22px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  #modal h3 { font-size: 23px; font-weight: 600; margin-bottom: 14px; }
+  #modal label { font-size: 17px; color: var(--muted); display: block; margin-bottom: 6px; }
+  #modal select { width: 100%; font: inherit; font-size: 20px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.4); color: var(--text); border: 1px solid var(--line); }
+  #modal .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  #modal button { font: inherit; font-size: 18px; padding: 8px 16px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--text); cursor: pointer; }
+  #modal button.pri { background: var(--accent); color: #1a120c; border-color: transparent; font-weight: 600; }
+  #closeBtn { cursor: pointer; opacity: .3; font-size: 18px; }
+  #closeBtn:hover { opacity: 1; color: var(--bad); }
+</style>
+<link rel="stylesheet" href="detail.css">
+</head>
+<body>
+<div id="bg"></div>
+<div id="modal"><div class="box">
+  <h3>설정</h3>
+  <label for="setTeacher">교사 선택</label>
+  <select id="setTeacher"></select>
+  <div class="btns"><button id="setReload">시간표 새로고침</button><button id="setCancel">취소</button><button class="pri" id="setSave">저장</button></div>
+</div></div>
+<div id="detail"><div class="dhead"><button id="dback">← 허브로</button><span id="dtitle"></span><span id="dclock"></span></div><div id="dbody"></div></div>
+<div id="root">
+  <section class="panel" id="clock">
+    <div id="season"></div>
+    <div id="time">--:--</div>
+    <div id="sub"><span id="ampm"></span><span id="sec"></span></div>
+    <div id="date"></div>
+    <div id="dday"></div>
+    <div id="dayBar"><i></i></div><div id="dayTxt"></div>
+    <div id="todayBox"></div>
+  </section>
+
+  <section class="panel" id="weather">
+    <div class="ptitle"><span class="k" id="wname">날씨</span><span id="wupd"></span></div>
+    <div id="wbody"><div class="muted">불러오는 중…</div></div>
+  </section>
+
+  <section class="panel" id="tt">
+    <div id="ttHead">
+      <span id="ttName">시간표</span><span id="ttWeek"></span>
+      <div id="ttDays"></div>
+      <button id="gear" title="설정">⚙</button>
+    </div>
+    <div id="ttList"><div class="muted" style="grid-column:1/-1;align-self:center;text-align:center">시간표 불러오는 중…</div></div>
+    <div id="ttFoot"></div>
+  </section>
+
+  <section class="panel" id="eventsPanel">
+    <div class="ptitle"><span class="k">일정</span><span id="eupd"></span></div>
+    <div id="events"><div class="muted">불러오는 중…</div></div>
+    <div id="cal"></div>
+  </section>
+
+  <section class="panel" id="pc">
+    <div class="ptitle"><span class="k">PC</span><span id="closeBtn" title="종료 (Esc)">✕</span></div>
+    <div id="pcbody"></div>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const WD = ['일', '월', '화', '수', '목', '금', '토'];
+const pad = n => String(n).padStart(2, '0');
+const esc = x => String(x ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* ---------- 월별 배경 & 테마 ---------- */
+const THEMES = {
+  1:  ['한겨울', '#9cc3e6', 'rgba(10,18,30,.35)'],  2:  ['늦겨울', '#e6b8d0', 'rgba(22,16,28,.32)'],
+  3:  ['초봄',   '#f2d16b', 'rgba(20,22,14,.32)'],  4:  ['봄',     '#f4a6c1', 'rgba(28,14,22,.30)'],
+  5:  ['신록',   '#a8d672', 'rgba(12,22,12,.32)'],  6:  ['초여름', '#f6b860', 'rgba(24,18,10,.32)'],
+  7:  ['한여름', '#6fd3cf', 'rgba(8,22,28,.32)'],   8:  ['늦여름', '#8fd694', 'rgba(8,20,14,.35)'],
+  9:  ['초가을', '#f2c65c', 'rgba(26,20,8,.32)'],   10: ['가을',   '#f4a259', 'rgba(26,14,8,.32)'],
+  11: ['늦가을', '#e0a66b', 'rgba(24,16,10,.35)'],  12: ['겨울밤', '#f2c879', 'rgba(10,14,26,.35)'],
+};
+let curMonth = 0;
+function applyMonth() {
+  const m = new Date().getMonth() + 1;
+  if (m === curMonth) return;
+  curMonth = m;
+  const [name, accent, glass] = THEMES[m];
+  const r = document.documentElement.style;
+  r.setProperty('--accent', accent);
+  r.setProperty('--glass', glass);
+  $('bg').style.backgroundImage = `url("bg/${pad(m)}.jpg")`;
+  $('season').textContent = name.split('').join(' ');
+}
+
+/* ---------- 시계 ---------- */
+const PERIODS = [
+  [1, '08:40', '09:30'], [2, '09:40', '10:30'], [3, '10:40', '11:30'], [4, '11:40', '12:30'],
+  ['점심', '12:30', '13:30'], [5, '13:30', '14:20'], [6, '14:40', '15:30'], [7, '15:40', '16:30'],
+];
+const toMin = s => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+function tickClock() {
+  const d = new Date(), h = d.getHours();
+  $('time').innerHTML = `<b>${pad(h % 12 || 12)}</b>:${pad(d.getMinutes())}`;
+  $('ampm').textContent = h < 12 ? '오전' : '오후';
+  $('sec').textContent = `${pad(d.getSeconds())}초`;
+  $('date').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일`;
+  const doy = Math.floor((d - new Date(d.getFullYear(), 0, 1)) / 864e5) + 1;
+  $('dday').textContent = `${d.getFullYear()} · ${doy}일째 · 올해 ${Math.round(doy / (d.getFullYear() % 4 ? 365 : 366) * 100)}%`;
+  // 근무일 진행도 (08:40 ~ 16:30)
+  const nm = h * 60 + d.getMinutes(), a = toMin('08:40'), b = toMin('16:30');
+  const wd = d.getDay() >= 1 && d.getDay() <= 5, pct = Math.max(0, Math.min(1, (nm - a) / (b - a)));
+  $('dayBar').firstElementChild.style.width = (wd ? pct * 100 : 0) + '%';
+  $('dayTxt').textContent = !wd ? '주말' : nm < a ? `수업 시작까지 ${a - nm}분` : nm >= b ? '오늘 수업 종료' : `하루 ${Math.round(pct * 100)}% · 퇴근까지 ${Math.floor((b - nm) / 60)}시간 ${(b - nm) % 60}분`;
+  applyMonth();
+  if (window.tickDetail) tickDetail(d);
+}
+
+/* ---------- 날씨 ---------- */
+const WMO = {
+  0: ['☀️', '맑음'], 1: ['🌤️', '대체로 맑음'], 2: ['⛅', '구름 조금'], 3: ['☁️', '흐림'], 45: ['🌫️', '안개'], 48: ['🌫️', '안개'],
+  51: ['🌦️', '이슬비'], 53: ['🌦️', '이슬비'], 55: ['🌦️', '이슬비'], 61: ['🌧️', '비'], 63: ['🌧️', '비'], 65: ['🌧️', '강한 비'],
+  66: ['🌧️', '어는 비'], 67: ['🌧️', '어는 비'], 71: ['🌨️', '눈'], 73: ['🌨️', '눈'], 75: ['❄️', '많은 눈'], 77: ['🌨️', '싸락눈'],
+  80: ['🌦️', '소나기'], 81: ['🌧️', '소나기'], 82: ['⛈️', '강한 소나기'], 85: ['🌨️', '눈 소나기'], 86: ['🌨️', '눈 소나기'],
+  95: ['⛈️', '뇌우'], 96: ['⛈️', '뇌우·우박'], 99: ['⛈️', '뇌우·우박'],
+};
+const wmo = (c, day = 1) => { const w = WMO[c] || ['❔', '-']; return (!day && c <= 1) ? ['🌙', w[1]] : w; };
+const grade = (v, cut) => v == null ? '-' : v <= cut[0] ? '좋음' : v <= cut[1] ? '보통' : v <= cut[2] ? '나쁨' : '매우나쁨';
+let weatherData = null, weatherName = '';
+async function loadWeather() {
+  const d = await pywebview.api.get_weather();
+  weatherData = d; if (window.onDataChange) onDataChange();
+  if (d.error) { $('wbody').innerHTML = `<div class="err">날씨 오류: ${esc(d.error)}</div>`; return; }
+  const c = d.current, [ic, desc] = wmo(c.weather_code, c.is_day), air = d.air || {};
+  const nowH = new Date(); nowH.setMinutes(0, 0, 0);
+  const idx = d.hourly.time.findIndex(t => new Date(t) >= nowH);
+  let hourly = '';
+  for (let i = idx + 2; i < idx + 2 + 12 && i < d.hourly.time.length; i += 2) {
+    const t = new Date(d.hourly.time[i]), hh = t.getHours();
+    hourly += `<div>${hh}시<div class="i">${wmo(d.hourly.weather_code[i], hh >= 6 && hh < 19)[0]}</div>
+      <div class="t">${Math.round(d.hourly.temperature_2m[i])}°</div><div class="pb"><i style="width:${d.hourly.precipitation_probability[i] ?? 0}%"></i></div></div>`;
+  }
+  const daily = d.daily.time.map((t, i) => `<div>${i === 0 ? '오늘' : WD[new Date(t).getDay()]}
+      <div class="i">${wmo(d.daily.weather_code[i])[0]}</div>
+      <span class="hi">${Math.round(d.daily.temperature_2m_max[i])}°</span> <span class="lo">${Math.round(d.daily.temperature_2m_min[i])}°</span>
+      <div class="pp">☔ ${d.daily.precipitation_probability_max[i] ?? 0}%</div></div>`).join('');
+  $('wbody').innerHTML = `
+    <div class="wnow"><div class="wicon">${ic}</div><div class="wtemp">${Math.round(c.temperature_2m)}°</div>
+      <div class="wdesc"><b>${desc}</b><br>체감 ${Math.round(c.apparent_temperature)}°</div></div>
+    <div class="wmeta"><div>습도<b>${c.relative_humidity_2m}%</b></div><div>바람<b>${(c.wind_speed_10m / 3.6).toFixed(1)}m/s</b></div>
+      <div>미세먼지<b>${grade(air.pm10, [30, 80, 150])}</b></div><div>초미세<b>${grade(air.pm2_5, [15, 35, 75])}</b></div></div>
+    <div class="hourly">${hourly}</div><div class="daily">${daily}</div>`;
+  $('wupd').textContent = d.daily.sunrise ? `🌅 ${d.daily.sunrise[0].slice(11)} · 🌇 ${d.daily.sunset[0].slice(11)}` : '';
+}
+
+/* ---------- 시간표 (사이트 엔진 데이터) ---------- */
+let tt = null, ttSel = null, ttSelAt = 0;
+async function loadTimetable() {
+  const r = await pywebview.api.get_timetable();
+  if (!r || !r.ready) { if (!tt) setTimeout(loadTimetable, 2000); return; }
+  if (!r.teacher) { renderPicker(r.teachers); return; }
+  tt = r; teacherList = r.teachers; renderTimetable();
+}
+let teacherList = [];
+function renderPicker(teachers) {
+  teacherList = teachers;
+  $('ttName').textContent = '시간표';
+  $('ttList').innerHTML = `<div id="ttPick" style="grid-column:1/-1;grid-row:1/-1"><div class="muted">교사가 설정되지 않았습니다</div>
+    <button class="tchip hl" style="cursor:pointer;border:0;font:inherit" onclick="openSettings()">⚙ 교사 선택</button></div>`;
+}
+function openSettings() {
+  const list = (tt && tt.teachers) || teacherList;
+  const cur = tt ? tt.teacher : '';
+  $('setTeacher').innerHTML = list.map(t => `<option ${t === cur ? 'selected' : ''}>${esc(t)}</option>`).join('');
+  $('modal').classList.add('on');
+}
+function closeSettings() { $('modal').classList.remove('on'); }
+function renderTimetable() {
+  if (!tt) return;
+  // 다른 요일을 눌러봤다면 60초 뒤 오늘로 복귀
+  if (ttSel && Date.now() - ttSelAt > 60000) ttSel = null;
+  const day = ttSel || tt.today, data = tt.days[day];
+  const isToday = day === tt.today && WD[new Date().getDay()] === tt.today;
+  $('ttName').textContent = tt.teacher;
+  $('ttWeek').textContent = `${tt.week}주차 · ${data.date.slice(5).replace('.', '/')} (${day})`;
+  $('ttDays').innerHTML = ['월', '화', '수', '목', '금'].map(d =>
+    `<button class="${d === day ? 'sel' : ''} ${d === tt.today ? 'today' : ''}" data-d="${d}">${d}</button>`).join('');
+  $('ttDays').querySelectorAll('button').forEach(b => b.onclick = () => { ttSel = b.dataset.d; ttSelAt = Date.now(); renderTimetable(); });
+
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const state = (s, e) => !isToday ? '' : nowMin >= toMin(e) ? 'past' : nowMin >= toMin(s) ? 'now' : '';
+  let html = '';
+  PERIODS.forEach(([p, s, e]) => {
+    if (p === '점심') {
+      html += `<div class="slot lunch ${data.lunchDuty ? 'dutyon' : ''} ${state(s, e)}"><div class="no"><span>점심 · ${s}</span></div>
+        <div class="sj">${data.lunchDuty ? '🍱 급식지도' : '점심시간'}</div><div class="rm">${data.lunchDuty ? '학생 식당' : ''}</div></div>`;
+      return;
+    }
+    const c = data.periods[p - 1] || { type: 'free', subject: '공강', room: '' };
+    const jido = data.jido.find(j => Number(j.period) === p);
+    const asDuty = jido && c.type === 'free';
+    const st = state(s, e);
+    const prog = st === 'now' ? `<div class="prog"><i style="width:${Math.round((nowMin - toMin(s)) / (toMin(e) - toMin(s)) * 100)}%"></i></div>` : '';
+    html += `<div class="slot ${asDuty ? 'duty' : c.type} ${st}"><div class="no"><span>${p}교시 · ${s}</span></div>
+      <div class="sj">${esc(asDuty ? '공강지도' : c.subject)}</div><div class="rm">${esc(jido ? `공강지도 · ${jido.target}` : c.room)}</div>${prog}</div>`;
+  });
+  $('ttList').innerHTML = html;
+
+  const classes = data.periods.filter(c => c.type === 'class' || c.type === 'sub').length;
+  let live = '';
+  if (isToday) {
+    for (const [p, s, e] of PERIODS) {
+      if (nowMin >= toMin(s) && nowMin < toMin(e)) { live = `${p === '점심' ? '점심시간' : p + '교시'} · ${toMin(e) - nowMin}분 남음`; break; }
+      if (nowMin < toMin(s)) { live = `다음 ${p === '점심' ? '점심' : p + '교시'}까지 ${toMin(s) - nowMin}분`; break; }
+    }
+  }
+  if (window.onDataChange) onDataChange();
+  $('ttFoot').innerHTML = `<span class="live">${live}</span><span>수업 ${classes}시간</span>${data.title ? `<span>· ${esc(data.title)}</span>` : ''}`;
+  renderTodayBox();
+}
+function renderTodayBox() {
+  if (!tt) return;
+  const d = tt.days[tt.today], chips = [];
+  const isToday = WD[new Date().getDay()] === tt.today;
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  if (d.title) chips.push(`<span class="tchip hl">📌 ${esc(d.title)}</span>`);
+  if (isToday) {
+    const next = PERIODS.find(([p, s]) => typeof p === 'number' && toMin(s) > nowMin
+      && ['class', 'sub', 'dangyeo'].includes((d.periods[p - 1] || {}).type));
+    if (next) { const c = d.periods[next[0] - 1]; chips.push(`<span class="tchip">다음 수업 <b>${next[0]}교시 ${esc(c.subject)}</b> ${esc(c.room)} · ${next[1]}</span>`); }
+    else if (nowMin < toMin('16:30')) chips.push(`<span class="tchip">오늘 남은 수업 없음</span>`);
+  } else {
+    chips.push(`<span class="tchip">${tt.today}요일 시간표 표시 중</span>`);
+  }
+  d.jido.forEach(j => chips.push(`<span class="tchip">🛡 ${j.period}교시 공강지도 · ${esc(j.target)}</span>`));
+  if (d.lunchDuty) chips.push(`<span class="tchip">🍱 점심 급식지도</span>`);
+  const n = d.periods.filter(c => c.type === 'class' || c.type === 'sub').length;
+  chips.push(`<span class="tchip">${esc(tt.teacher)}${tt.homeroom ? ` · ${esc(tt.homeroom)} 담임` : ''} · 오늘 ${n}시간</span>`);
+  $('todayBox').innerHTML = chips.slice(0, 4).join('');
+}
+
+/* ---------- 일정 ---------- */
+let eventsCache = [], eventsErr = null;
+async function loadEvents() {
+  const r = await pywebview.api.get_events();
+  if (r.error && !r.events) { $('events').innerHTML = `<div class="muted" style="font-size:17px;line-height:1.6">${esc(r.error)}</div>`; renderCal(); return; }
+  eventsCache = r.events || []; eventsErr = r.error;
+  renderEvents();
+  const u = new Date(); $('eupd').textContent = `${pad(u.getHours())}:${pad(u.getMinutes())}`;
+}
+function renderEvents() {
+  const now = new Date(), today0 = new Date(now.toDateString());
+  if (!eventsCache.length) { $('events').innerHTML = `<div class="muted">예정된 일정이 없습니다.</div>`; renderCal(); return; }
+  let html = '', lastDay = '';
+  for (const e of eventsCache) {
+    const s = new Date(e.start), en = e.end ? new Date(e.end) : s;
+    if (en <= today0) continue;
+    const key = (s < today0 ? today0 : s).toDateString();
+    if (key !== lastDay) {
+      const diff = Math.round((new Date(key) - today0) / 864e5), k = new Date(key);
+      html += `<div class="day">${diff === 0 ? '오늘' : diff === 1 ? '내일' : `${k.getMonth() + 1}/${k.getDate()} ${WD[k.getDay()]}`}</div>`;
+      lastDay = key;
+    }
+    const cls = e.all_day ? '' : (now >= s && now < en ? 'now' : now >= en ? 'past' : '');
+    html += `<div class="ev ${cls}"><span class="t">${e.all_day ? '종일' : `${pad(s.getHours())}:${pad(s.getMinutes())}`}</span>
+      <span class="n">${esc(e.title)}</span></div>`;
+  }
+  if (eventsErr) html += `<div class="err" style="margin-top:8px;font-size:15px">일부 캘린더 오류</div>`;
+  $('events').innerHTML = html;
+  renderCal();
+  if (window.onDataChange) onDataChange();
+}
+function renderCal() {
+  const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+  const first = new Date(y, m, 1), start = new Date(y, m, 1 - first.getDay());
+  const has = new Set(eventsCache.map(e => new Date(e.start).toDateString()));
+  let g = WD.map((w, i) => `<span class="wk ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}">${w}</span>`).join('');
+  const weeks = Math.ceil((first.getDay() + new Date(y, m + 1, 0).getDate()) / 7);
+  for (let i = 0; i < weeks * 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const cls = [d.getMonth() !== m ? 'out' : '', d.getDay() === 0 ? 'sun' : d.getDay() === 6 ? 'sat' : '',
+      d.toDateString() === now.toDateString() ? 'td' : '', has.has(d.toDateString()) ? 'has' : ''].join(' ');
+    g += `<span class="${cls}">${d.getDate()}</span>`;
+  }
+  $('cal').innerHTML = `<div class="mh"><span>${y}년 ${m + 1}월</span></div><div class="g">${g}</div>`;
+}
+
+/* ---------- PC ---------- */
+const ring = (v, label, text) => {
+  const R = 38, C = 2 * Math.PI * R, col = v < 60 ? 'var(--accent)' : v < 85 ? 'var(--warn)' : 'var(--bad)';
+  return `<div class="ring"><svg width="86" height="86"><circle cx="43" cy="43" r="${R}" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="5"/>
+    <circle cx="43" cy="43" r="${R}" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round"
+      stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - Math.min(v, 100) / 100)}" style="transition:stroke-dashoffset .6s"/></svg>
+    <div class="v"><b>${text ?? Math.round(v) + '%'}</b><span>${label}</span></div></div>`;
+};
+const hist = { cpu: [], ram: [], gpu: [], disk: [], net: [] }, HN = 60;
+let lastSys = null;
+function spark(arr, max, color, Hh = 34) {
+  if (arr.length < 2) return '<svg></svg>';
+  const W = 200, step = W / (arr.length - 1), off = 0;
+  const pts = arr.map((v, i) => `${(off + i * step).toFixed(1)},${(Hh - 2 - Math.min(v / max, 1) * (Hh - 4)).toFixed(1)}`);
+  return `<svg viewBox="0 0 ${W} ${Hh}" preserveAspectRatio="none">
+    <polygon points="${off},${Hh} ${pts.join(' ')} ${W},${Hh}" fill="${color}" opacity=".18"/>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
+}
+const speed = b => b > 1048576 ? (b / 1048576).toFixed(1) + 'MB/s' : (b / 1024).toFixed(0) + 'KB/s';
+async function loadSystem() {
+  const s = await pywebview.api.get_system();
+  let h = '<div class="ring-row">' + ring(s.cpu, 'CPU') + ring(s.ram, 'RAM');
+  h += s.gpu ? ring(s.gpu.load, `GPU ${Math.round(s.gpu.temp)}°`) : '';
+  h += s.battery != null ? ring(s.battery, '배터리') : ring(s.disk, '디스크');
+  h += '</div>';
+  lastSys = s;
+  hist.cpu.push(s.cpu); hist.ram.push(s.ram); hist.gpu.push(s.gpu ? s.gpu.load : 0); hist.disk.push(s.disk); hist.net.push(s.down + s.up);
+  if (hist.cpu.length > HN) for (const k in hist) hist[k].shift();
+  const nmax = Math.max(102400, ...hist.net);
+  h += `<div class="spark"><div class="lbl"><span>CPU 2분</span><span>${Math.round(s.cpu)}%</span></div>${spark(hist.cpu, 100, 'var(--accent)')}</div>`;
+  h += `<div class="spark"><div class="lbl"><span>네트워크</span><span>↓${speed(s.down)} ↑${speed(s.up)}</span></div>${spark(hist.net, nmax, '#a9cdf5')}</div>`;
+  const up = s.uptime, ud = Math.floor(up / 86400), uh = Math.floor(up % 86400 / 3600), um = Math.floor(up % 3600 / 60);
+  h += `<div class="net">가동 ${ud ? ud + '일 ' : ''}${uh}시간 ${um}분<br>RAM ${s.ram_used} / ${s.ram_total} GB</div>`;
+  $('pcbody').innerHTML = h;
+  if (window.onDataChange) onDataChange();
+}
+
+/* ---------- 넘치는 글자 자동 축소 ---------- */
+function fitAll() {
+  document.querySelectorAll('.sj, .rm, .ev .n, .tchip, #date, #ttWeek, .wdesc b, .net, .spark .lbl span:last-child').forEach(el => {
+    el.style.fontSize = '';
+    let fs = parseFloat(getComputedStyle(el).fontSize), min = el.classList.contains('rm') ? 13 : fs * 0.6;
+    while (el.scrollWidth > el.clientWidth && fs > min) { fs -= 1; el.style.fontSize = fs + 'px'; }
+  });
+  // 패널 세로 넘침: 일정 목록은 스크롤 대신 아래 항목을 숨김
+  const ev = $('events');
+  if (ev) [...ev.children].forEach(c => c.style.display = '');
+  if (ev && ev.scrollHeight > ev.clientHeight) {
+    const kids = [...ev.children];
+    for (let i = kids.length - 1; i > 0 && ev.scrollHeight > ev.clientHeight; i--) kids[i].style.display = 'none';
+  }
+}
+if (document.fonts) document.fonts.ready.then(fitAll);
+window.addEventListener('resize', fitAll);
+new MutationObserver(() => { clearTimeout(window._fitT); window._fitT = setTimeout(fitAll, 50); })
+  .observe(document.getElementById('root'), { childList: true, subtree: true });
+
+/* ---------- 시작 ---------- */
+tickClock(); setInterval(tickClock, 1000);
+window.addEventListener('pywebviewready', async () => {
+  const cfg = await pywebview.api.get_config();
+  weatherName = cfg.weather_name; $('wname').textContent = cfg.weather_name;
+  $('closeBtn').onclick = () => pywebview.api.close();
+  $('gear').onclick = openSettings;
+  $('setCancel').onclick = closeSettings;
+  $('setReload').onclick = async () => { closeSettings(); await pywebview.api.reload_timetable(); tt = null; setTimeout(loadTimetable, 3000); };
+  $('setSave').onclick = async () => {
+    const name = $('setTeacher').value; closeSettings();
+    if (name) { await pywebview.api.set_teacher(name); ttSel = null; loadTimetable(); }
+  };
+  loadWeather(); loadEvents(); loadSystem(); loadTimetable();
+  setInterval(loadSystem, 2000);
+  setInterval(loadWeather, 15 * 60 * 1000);
+  setInterval(loadEvents, 10 * 60 * 1000);
+  setInterval(loadTimetable, 60 * 1000);   // 사이트 변경사항(실시간 동기화) 반영
+  setInterval(() => { renderEvents(); renderTimetable(); }, 30 * 1000);
+  let day = new Date().getDate();           // 날짜가 바뀌면 사이트 새로 로드
+  setInterval(() => { if (new Date().getDate() !== day) { day = new Date().getDate(); pywebview.api.reload_timetable(); } }, 60 * 1000);
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if ($('modal').classList.contains('on')) closeSettings(); else if (detailKind) closeDetail(); else pywebview.api.close();
+});
+</script>
+<script src="detail.js"></script>
+</body>
+</html>
