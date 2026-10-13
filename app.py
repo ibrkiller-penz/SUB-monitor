@@ -5,6 +5,7 @@
 import json
 import subprocess
 import sys
+import threading
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -89,7 +90,16 @@ class Api:
         self.watcher = MessageWatcher(cfg.get("message_apps", ["쿨메신저", "CoolMessenger"]), udb=cfg.get("udb"))
         self._net = psutil.net_io_counters()
         self._net_t = time.time()
-        psutil.cpu_percent(None)
+        self._cpu = 0.0
+        threading.Thread(target=self._cpu_sampler, daemon=True).start()
+
+    def _cpu_sampler(self):
+        """cpu_percent(None)은 호출 간격이 들쭉날쭉하면 0%가 나오므로, 전용 스레드에서 1초 간격으로 잰다."""
+        while True:
+            try:
+                self._cpu = psutil.cpu_percent(interval=1.0)
+            except Exception:
+                time.sleep(1)
 
     DEFAULT_PANELS = ["weather", "tt", "events", "msg"]
 
@@ -198,7 +208,7 @@ class Api:
             self._gpu = (now, gpu)
         bat = psutil.sensors_battery() if hasattr(psutil, "sensors_battery") else None
         return {
-            "cpu": psutil.cpu_percent(None),
+            "cpu": self._cpu,
             "ram": mem.percent,
             "ram_used": round(mem.used / 2**30, 1),
             "ram_total": round(mem.total / 2**30, 1),

@@ -32,7 +32,7 @@
   #topbar #closeBtn:hover { color: var(--bad); }
   body.detail #topbar { display: none; }
   /* 시계 아래 PC 한 줄 */
-  #pcMini { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line); font-size: 15px; color: var(--muted); display: flex; gap: 12px;
+  #pcMini { flex: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 15px; color: var(--muted); display: flex; gap: 12px;
     white-space: nowrap; cursor: pointer; font-variant-numeric: tabular-nums; }
   #pcMini b { color: var(--text); font-weight: 500; }
   /* 메시지 패널 */
@@ -147,17 +147,17 @@
   .ev.local .n::before { content: '✎ '; color: var(--accent); font-size: 13px; }
 
   /* PC */
-  .ring-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 4px; justify-items: center; }
-  .ring { position: relative; width: 86px; height: 86px; }
-  .ring svg { transform: rotate(-90deg); }
+  .ring-row { display: flex; gap: 6px; align-items: center; }
+  .ring { position: relative; flex: 1 1 0; min-width: 0; aspect-ratio: 1 / 1; max-width: 96px; }
+  .ring svg { transform: rotate(-90deg); width: 100%; height: 100%; display: block; }
   .ring .v { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .ring .v b { font-size: 20px; font-variant-numeric: tabular-nums; }
-  .ring .v span { font-size: 14px; color: var(--muted); }
+  .ring .v b { font-size: 17px; font-variant-numeric: tabular-nums; }
+  .ring .v span { font-size: 12px; color: var(--muted); }
   #pcbody { display: flex; flex-direction: column; flex: 1; min-height: 0; }
   .net { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; font-size: 15px; color: var(--muted); line-height: 1.4; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .net b { color: var(--text); font-weight: 600; }
   /* 시계 아래 오늘 요약 */
-  #todayBox { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; text-shadow: none; }
+  #todayBox { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; text-shadow: none; flex: 1 1 auto; min-height: 0; overflow: hidden; }
   .tchip { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; font-size: 17px; padding: 6px 18px 6px 14px; border-radius: 999px;
     background: rgba(0,0,0,.35); backdrop-filter: blur(8px); border: 1px solid var(--line); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tchip.hl { color: #1a120c; background: var(--accent); border-color: transparent; font-weight: 500; }
@@ -450,7 +450,7 @@ function renderTodayBox() {
   if (d.lunchDuty) chips.push(`<span class="tchip">🍱 점심 급식지도</span>`);
   const n = d.periods.filter(c => c.type === 'class' || c.type === 'sub').length;
   chips.push(`<span class="tchip">${esc(tt.teacher)}${tt.homeroom ? ` · ${esc(tt.homeroom)} 담임` : ''} · 오늘 ${n}시간</span>`);
-  $('todayBox').innerHTML = chips.slice(0, 4).join('');
+  $('todayBox').innerHTML = chips.slice(0, 3).join('');
 }
 
 /* ---------- 일정 ---------- */
@@ -502,7 +502,7 @@ function renderCal() {
 /* ---------- PC ---------- */
 const ring = (v, label, text) => {
   const R = 38, C = 2 * Math.PI * R, col = v < 60 ? 'var(--accent)' : v < 85 ? 'var(--warn)' : 'var(--bad)';
-  return `<div class="ring"><svg width="86" height="86"><circle cx="43" cy="43" r="${R}" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="5"/>
+  return `<div class="ring"><svg viewBox="0 0 86 86"><circle cx="43" cy="43" r="${R}" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="5"/>
     <circle cx="43" cy="43" r="${R}" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round"
       stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - Math.min(v, 100) / 100)}" style="transition:stroke-dashoffset .6s"/></svg>
     <div class="v"><b>${text ?? Math.round(v) + '%'}</b><span>${label}</span></div></div>`;
