@@ -163,3 +163,9 @@ body.portrait .dhead { flex-wrap: wrap; } body.portrait #dtitle { font-size: 20p
 .tclock.small .bt { font-size: 96px; } .tclock.small .bd { font-size: 22px; }
 .dc-t .mbtn { margin-left: auto; }
 body.portrait .dgrid.sch { grid-template-columns: 1fr !important; }
+
+/* 상세 카드 높이 고정: 카드가 내용만큼 늘어나 화면 밖으로 잘리지 않도록 */
+.dgrid.ev, .dgrid.w, .dgrid.tt, .dgrid.today, .dgrid.sch, .dgrid.one { grid-template-rows: minmax(0, 1fr); }
+.dgrid > .dcard, .dgrid > .dcol, .dgrid > .dside { height: 100%; min-height: 0; box-sizing: border-box; }
+.dcol > .dcard, .dside > .dcard { height: auto; min-height: 0; }
+.bcal { height: auto; }
