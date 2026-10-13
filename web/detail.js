@@ -125,7 +125,8 @@ function viewTimetable() {
   if (!tt) return { title: '시간표', html: '<div class="dcard"><div class="muted">시간표를 불러오는 중…</div></div>' };
   const days = ['월', '화', '수', '목', '금'], nowMin = nowMinutes(), todayReal = WD[new Date().getDay()];
   const isCurWeek = tt.week === tt.currentWeek;
-  const nav = `<div class="wnav"><button data-wk="-1">◀</button><span class="${isCurWeek ? '' : 'other'}">${tt.week}주차 (${tt.range})</span><button data-wk="1">▶</button>${isCurWeek ? '' : '<button data-wk="0" class="today">오늘</button>'}<em>${isCurWeek ? '이번 주' : ''}</em></div>`;
+  const tsel = `<select class="tsel" id="dTeacher">${(tt.teachers || []).map(t => `<option ${t === tt.teacher ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
+  const nav = `<div class="wnav"><button data-wk="-1">◀</button><span class="${isCurWeek ? '' : 'other'}">${tt.week}주차 (${tt.range})</span><button data-wk="1">▶</button>${isCurWeek ? '' : '<button data-wk="0" class="today">오늘</button>'}<em>${isCurWeek ? '이번 주' : ''}</em>${tsel}</div>`;
   let h = '<div class="wt"><div class="wt-h"></div>' + days.map(d => `<div class="wt-h ${d === tt.today ? 'td' : ''}">${d}<small>${tt.days[d].date.slice(5).replace('.', '/')}</small>${tt.days[d].title ? `<em>${esc(tt.days[d].title)}</em>` : ''}</div>`).join('');
   PERIODS.forEach(([p, s, e]) => {
     h += `<div class="wt-p">${p === '점심' ? '점심' : p + '교시'}<small>${s}</small></div>`;
@@ -238,6 +239,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const kind = PANEL_KIND[p.id]; if (kind) openDetail(kind);
   }));
   $('dback').onclick = closeDetail;
+  $('dbody').addEventListener('change', async e => {
+    if (e.target.id !== 'dTeacher') return;
+    const name = e.target.value; if (!name || (tt && tt.teacher === name)) return;
+    await pywebview.api.set_teacher(name); ttSel = null; ttWant = name; ttRetry = 0; loadTimetable();
+  });
   $('dbody').addEventListener('input', e => {
     if (!e.target.closest('#evForm')) return;
     evDraft = { title: $('evTitle').value, date: $('evDate').value, time: $('evTime').value, all_day: $('evAllDay').checked };
