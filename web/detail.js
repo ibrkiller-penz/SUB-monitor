@@ -258,7 +258,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('[data-msgclear]')) { await pywebview.api.clear_messages(); await loadMessages(); return; }
     const del = e.target.closest('[data-del]'); if (del) { await pywebview.api.delete_event(del.dataset.del); await loadEvents(); renderDetail(); return; }
     const c = e.target.closest('.bcal .c'); if (c) { calSel = c.dataset.k; evDraft.date = ''; renderDetail(); return; }
-    const w = e.target.closest('[data-wk]'); if (w) { const k = Number(w.dataset.wk); if (k === 0) { ttWeekSel = null; loadTimetable(); } else changeWeek(k); }
+    const w = e.target.closest('[data-wk]'); if (w) { const k = Number(w.dataset.wk); if (k === 0) { ttWeekSel = null; ttRetry = 0; loadTimetable(); } else changeWeek(k); }
   });
   document.addEventListener('pointerdown', bumpIdle);
   setInterval(() => {

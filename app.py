@@ -4,6 +4,7 @@
 """
 import json
 import sys
+import threading
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -35,11 +36,43 @@ def save_config(cfg):
         json.dump(cfg, f, ensure_ascii=False, indent=2)
 
 
+class TimetableBridge:
+    """시간표 사이트 창(화면 밖)에 주입된 스크립트가 주기적으로 데이터를 밀어넣는 통로.
+
+    예전엔 대시보드가 숨김 창에 evaluate_js 로 데이터를 '당겨' 왔는데, Windows(WebView2)에서는
+    숨김 창이 로드되지 않아 그 호출이 멈추고 앱 전체가 '응답 없음'이 됐다. 지금은 반대로
+    사이트 창 쪽에서 pywebview.api.push(...) 로 '밀어' 주므로 어느 쪽도 기다리지 않는다.
+    """
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.data = {"ready": False}
+        self.req = {"teacher": cfg.get("teacher_name", ""), "week": -1}
+        self.updated = 0.0
+
+    # --- 사이트 창의 JS가 호출 ---
+    def request(self):
+        return dict(self.req)
+
+    def push(self, data_json):
+        try:
+            self.data = json.loads(data_json) if isinstance(data_json, str) else data_json
+            self.updated = time.time()
+        except Exception as e:
+            self.data = {"ready": False, "error": str(e)}
+        return True
+
+    def log(self, msg):
+        print("[tt]", msg)
+        return True
+
+
 class Api:
     def __init__(self, cfg):
         self.cfg = cfg
-        self.tt_window = None  # 시간표 사이트를 띄워두는 숨김 창
-        self._extract_js = (BASE / "web" / "tt_extract.js").read_text(encoding="utf-8")
+        self.tt_window = None  # 시간표 사이트를 띄워두는 창 (화면 밖)
+        self.bridge = TimetableBridge(cfg)
+        self._gpu = (0.0, None)   # (마지막 조회 시각, 값) — nvidia-smi 는 10초마다만
         self.watcher = MessageWatcher(cfg.get("message_apps", ["쿨메신저", "CoolMessenger"]), udb=cfg.get("udb"))
         self._net = psutil.net_io_counters()
         self._net_t = time.time()
@@ -69,19 +102,20 @@ class Api:
         return self.watcher.clear()
 
     def get_timetable(self, week=-1):
-        """숨김 창의 시간표 사이트 엔진에서 계산된 데이터만 가져온다. week: 0-based, -1이면 오늘 주차."""
-        if not self.tt_window:
-            return {"ready": False}
-        js = (self._extract_js.replace("__TEACHER__", json.dumps(self.cfg.get("teacher_name", "")))
-              .replace("__WEEK__", str(int(week) if week is not None else -1)))
-        try:
-            return self.tt_window.evaluate_js(js) or {"ready": False}
-        except Exception as e:
-            return {"ready": False, "error": str(e)}
+        """사이트 창이 밀어넣은 최신 데이터를 돌려준다 (블로킹 없음). week: 0-based, -1이면 오늘 주차.
+        요청(교사·주차)이 바뀌면 사이트 창이 다음 주기(3초 이내)에 새 데이터를 보낸다."""
+        self.bridge.req = {"teacher": self.cfg.get("teacher_name", ""), "week": int(week) if week is not None else -1}
+        d = dict(self.bridge.data or {})
+        if d.get("ready") and self.bridge.updated and time.time() - self.bridge.updated > 180:
+            d["stale"] = True
+        if not d.get("ready") and not d.get("error"):
+            d["error"] = "시간표 사이트 창 로딩 대기 중"
+        return d
 
     def set_teacher(self, name):
         self.cfg["teacher_name"] = name
         save_config(self.cfg)
+        self.bridge.req["teacher"] = name
         return True
 
     def reload_timetable(self):
@@ -99,15 +133,14 @@ class Api:
 
         mem = psutil.virtual_memory()
         disk = psutil.disk_usage("C:\\" if sys.platform == "win32" else "/")
-        gpu = None
-        if GPUtil:
+        gpu = self._gpu[1]
+        if GPUtil and now - self._gpu[0] > 10:   # nvidia-smi 호출은 10초마다
             try:
                 g = GPUtil.getGPUs()
-                if g:
-                    gpu = {"load": round(g[0].load * 100), "temp": g[0].temperature,
-                           "name": g[0].name}
+                gpu = {"load": round(g[0].load * 100), "temp": g[0].temperature, "name": g[0].name} if g else None
             except Exception:
                 gpu = None
+            self._gpu = (now, gpu)
         bat = psutil.sensors_battery() if hasattr(psutil, "sensors_battery") else None
         return {
             "cpu": psutil.cpu_percent(None),
@@ -273,6 +306,29 @@ def pick_screen(cfg):
     return None
 
 
+TT_INJECT = """
+(function () {
+  if (window.__ttLoopStarted) return; window.__ttLoopStarted = true;
+  window.__ttExtract = function (REQ_TEACHER, REQ_WEEK) { return (
+__EXTRACT__
+  ); };
+  let lastKey = '', lastAt = 0;
+  async function tick() {
+    try {
+      if (!window.pywebview || !pywebview.api) return;
+      const req = await pywebview.api.request();
+      const key = JSON.stringify(req);
+      if (key === lastKey && Date.now() - lastAt < 30000) return;   // 요청이 같으면 30초마다만
+      const data = window.__ttExtract(req.teacher || '', Number(req.week ?? -1));
+      if (data && data.ready) { lastKey = key; lastAt = Date.now(); }
+      await pywebview.api.push(JSON.stringify(data));
+    } catch (e) { try { pywebview.api.log('tick error: ' + e); } catch (_) {} }
+  }
+  setInterval(tick, 3000); setTimeout(tick, 1500);
+})();
+"""
+
+
 def main():
     cfg = load_config()
     api = Api(cfg)
@@ -284,17 +340,36 @@ def main():
         js_api=api,
         width=1920,
         height=440,
-        frameless=True,
-        easy_drag=False,
         background_color="#0b0f17",
+        # 보조모니터를 찾으면 그 화면에 테두리 없이 전체화면, 못 찾으면 일반 창
+        frameless=screen is not None,
+        easy_drag=False,
         fullscreen=fullscreen,
         screen=screen,
     )
     if screen is not None and hasattr(screen, "x"):
         kwargs.update(x=screen.x, y=screen.y)
     webview.create_window(**kwargs)
+
+    # 시간표 사이트 창: 숨기면(WebView2) 로드가 안 되므로 화면 밖에 작게 띄운다
+    extract_js = (BASE / "web" / "tt_extract.js").read_text(encoding="utf-8")
+    extract_js = extract_js.replace("__TEACHER__", "REQ_TEACHER").replace("__WEEK__", "REQ_WEEK")
+    inject = TT_INJECT.replace("__EXTRACT__", extract_js.strip().rstrip(";"))
     api.tt_window = webview.create_window(
-        "timetable-source", url=cfg["timetable_url"], hidden=True, width=400, height=800)
+        "시간표 데이터 (닫지 마세요)", url=cfg["timetable_url"], js_api=api.bridge,
+        width=420, height=720, x=-5000, y=100, minimized=True, on_top=False)
+
+    def on_loaded():
+        # 사이트가 로드될 때마다(새로고침 포함) 추출 루프를 다시 심는다
+        def _go():
+            time.sleep(2)
+            try:
+                api.tt_window.evaluate_js(inject)
+            except Exception as e:
+                print("[tt] inject failed:", e)
+        threading.Thread(target=_go, daemon=True).start()
+
+    api.tt_window.events.loaded += on_loaded
     webview.start(private_mode=False, storage_path=str(Path.home() / ".lesown_dashboard"))
 
 

@@ -343,13 +343,20 @@ async function loadWeather() {
 }
 
 /* ---------- 시간표 (사이트 엔진 데이터) ---------- */
-let tt = null, ttSel = null, ttSelAt = 0, ttWeekSel = null, ttWeekAt = 0;   // ttWeekSel: 0-based, null=오늘 주차
+let tt = null, ttSel = null, ttSelAt = 0, ttWeekSel = null, ttWeekAt = 0, ttWant = null, ttRetry = 0;   // ttWeekSel: 0-based, null=오늘 주차
 async function loadTimetable() {
   if (ttWeekSel != null && Date.now() - ttWeekAt > 3 * 60 * 1000) ttWeekSel = null;   // 3분 뒤 오늘 주차로 복귀
   const r = await pywebview.api.get_timetable(ttWeekSel ?? -1);
-  if (!r || !r.ready) { if (!tt) setTimeout(loadTimetable, 2000); return; }
+  if (!r || !r.ready) {
+    if (!tt) { $('ttList').innerHTML = `<div class="muted" style="grid-column:1/-1;align-self:center;text-align:center">${esc(r && r.error ? r.error : '시간표 불러오는 중…')}</div>`; setTimeout(loadTimetable, 3000); }
+    return;
+  }
   if (!r.teacher) { renderPicker(r.teachers); return; }
   tt = r; teacherList = r.teachers; renderTimetable();
+  // 요청한 교사·주차가 아직 반영 안 됐으면(사이트 창이 3초 주기로 밀어줌) 잠시 뒤 다시
+  const wantWeek = ttWeekSel ?? (r.currentWeek - 1);
+  const mismatch = (r.week - 1 !== wantWeek) || (ttWant && r.teacher !== ttWant);
+  if (mismatch && ttRetry < 8) { ttRetry++; setTimeout(loadTimetable, 2000); } else { ttRetry = 0; if (!mismatch) ttWant = null; }
 }
 let teacherList = [];
 function renderPicker(teachers) {
@@ -361,7 +368,7 @@ function renderPicker(teachers) {
 function changeWeek(delta) {
   if (!tt) return;
   const w = Math.max(0, Math.min(tt.totalWeeks - 1, (tt.week - 1) + delta));
-  ttWeekSel = w === tt.currentWeek - 1 ? null : w; ttWeekAt = Date.now();
+  ttWeekSel = w === tt.currentWeek - 1 ? null : w; ttWeekAt = Date.now(); ttRetry = 0;
   loadTimetable();
 }
 let panelsOn = ['weather', 'tt', 'events', 'msg'];
@@ -579,15 +586,15 @@ window.addEventListener('pywebviewready', async () => {
   $('closeBtn').onclick = () => pywebview.api.close();
   $('gear').onclick = openSettings;
   $('setCancel').onclick = closeSettings;
-  $('setReload').onclick = async () => { closeSettings(); await pywebview.api.reload_timetable(); tt = null; setTimeout(loadTimetable, 3000); };
+  $('setReload').onclick = async () => { closeSettings(); await pywebview.api.reload_timetable(); tt = null; ttRetry = 0; setTimeout(loadTimetable, 4000); };
   $('ttNav').querySelectorAll('[data-wk]').forEach(b => b.onclick = () => changeWeek(Number(b.dataset.wk)));
-  $('ttToday').onclick = () => { ttWeekSel = null; loadTimetable(); };
+  $('ttToday').onclick = () => { ttWeekSel = null; ttRetry = 0; loadTimetable(); };
   $('setSave').onclick = async () => {
     const name = $('setTeacher').value;
     panelsOn = [...$('modal').querySelectorAll('.chk input:checked')].map(i => i.value);
     closeSettings();
     await pywebview.api.set_panels(panelsOn); applyPanels();
-    if (name && (!tt || tt.teacher !== name)) { await pywebview.api.set_teacher(name); ttSel = null; loadTimetable(); }
+    if (name && (!tt || tt.teacher !== name)) { await pywebview.api.set_teacher(name); ttSel = null; ttWant = name; ttRetry = 0; loadTimetable(); }
   };
   $('pcMini').onclick = () => { if (window.openDetail) openDetail('pc'); };
   loadWeather(); loadEvents(); loadSystem(); loadTimetable(); loadMessages();

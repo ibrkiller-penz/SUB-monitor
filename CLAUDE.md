@@ -3,7 +3,8 @@
 Windows PC 옆에 두는 가로 스트립 디스플레이용 Python(pywebview) 앱. 사용자는 부산 동래고 교사(임병율, 1-4 담임).
 
 ## 구조
-- `app.py` — pywebview 창 + JS API (`get_timetable(week)`, `get_weather`, `get_events`, `add_event`, `delete_event`, `get_system`, `get_processes`, `set_teacher`, `reload_timetable`). 시간표 사이트(https://teacher-2026.vercel.app/widget)를 숨김 창으로 열고 `web/tt_extract.js`를 주입해 계산된 데이터만 가져온다.
+- `app.py` — pywebview 창 + JS API (`get_timetable(week)`, `get_weather`, `get_events`, `add_event`, `delete_event`, `get_system`, `get_processes`, `get_messages`, `set_teacher`, `set_panels`, `reload_timetable`). 시간표 사이트(https://teacher-2026.vercel.app/widget)는 **화면 밖(x=-5000) 최소화 창**으로 띄우고, 로드 시 `TT_INJECT`+`web/tt_extract.js`를 주입 → 그 창의 JS가 3초마다 `pywebview.api.push(JSON)`로 데이터를 **밀어넣는다**(`TimetableBridge`). 대시보드는 캐시만 읽으므로 블로킹이 없다. (숨김 창 + evaluate_js 당겨오기는 WebView2에서 로드가 안 돼 '응답 없음'을 냈음 — 다시 쓰지 말 것.)
+- 보조모니터(1920×440)를 못 찾으면 일반 창(테두리 있음, 전체화면 아님)으로 뜬다.
 - `web/index.html` — 허브 화면(시계·날씨·시간표·일정·PC). CSS/JS 인라인. 글자 넘침은 `fitAll()`이 자동 축소/숨김.
 - `web/detail.css`, `web/detail.js` — 패널 클릭 시 전체화면 상세 5종(오늘/날씨/시간표/일정/PC). `← 허브로`, Esc, 90초 무조작 시 복귀.
 - `web/tt_extract.js` — 사이트 엔진(`TimetableEngine`)에서 주차별 시간표·공강지도·급식지도 추출. `__TEACHER__`, `__WEEK__` 치환.
