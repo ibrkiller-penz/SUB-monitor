@@ -44,7 +44,7 @@ def log(msg):
 
 
 LOCAL_CONFIG = CONFIG_PATH.with_name("config.local.json")   # 이 PC·이 교사만의 설정 (git 에 안 올라감)
-LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb")
+LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation")
 
 
 def load_config():
@@ -108,7 +108,13 @@ class Api:
         return {
             "weather_name": self.cfg.get("weather", {}).get("name", ""),
             "panels": self.cfg.get("panels", self.DEFAULT_PANELS),
+            "orientation": self.cfg.get("orientation", "landscape"),
         }
+
+    def set_orientation(self, o):
+        self.cfg["orientation"] = "portrait" if o == "portrait" else "landscape"
+        save_config(self.cfg)
+        return self.cfg["orientation"]
 
     def set_panels(self, panels):
         self.cfg["panels"] = [p for p in panels if p in ("weather", "tt", "events", "msg", "pc")]
@@ -380,12 +386,17 @@ def main():
     api = Api(cfg)
     screen = pick_screen(cfg)
     fullscreen = cfg.get("display", {}).get("fullscreen", True) and screen is not None
+    portrait = cfg.get("orientation") == "portrait"
+    if screen is not None:
+        win_w, win_h = screen.width, screen.height          # 보조모니터 전체
+    else:
+        win_w, win_h = (470, 1000) if portrait else (1920, 480)   # 일반 창 (화면이 스스로 축소됨)
     kwargs = dict(
         title="LESOWN Dashboard",
         url=str(BASE / "web" / "index.html"),
         js_api=api,
-        width=1920,
-        height=440 if screen is not None else 480,   # 일반 창은 제목 표시줄만큼 더 (내용 영역 ≈ 440)
+        width=win_w,
+        height=win_h,
         background_color="#0b0f17",
         # 보조모니터를 찾으면 그 화면에 테두리 없이 전체화면, 못 찾으면 일반 창
         frameless=screen is not None,

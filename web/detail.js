@@ -202,9 +202,9 @@ function viewEvents() {
 function viewMessages() {
   const src = { udb: '쿨메신저 DB 직접 읽기 (tbl_recv)', notification: 'Windows 알림 수신', title: '창 제목 감지', none: '감지된 경로 없음' }[msgData.source] || msgData.source;
   const items = msgData.items.length ? msgData.items.map(m => `<div class="dli ${m.unread === false ? 'read' : 'unread'}"><span class="t">${timeAgo(m.time)}</span>
-      <span class="n"><b style="color:var(--accent);font-weight:500">${esc(m.app || '메시지')}</b> · ${esc(m.title)}${m.body ? ` <span class="muted">${esc(m.body)}</span>` : ''}</span></div>`).join('')
+      <span class="n"><b style="color:var(--accent);font-weight:500">${esc(m.title || m.app || '메시지')}</b>${m.body ? ` · ${esc(m.body)}` : ''}</span></div>`).join('')
     : '<div class="dli muted">새 메시지 없음</div>';
-  return { title: `메시지 · 안읽음 ${msgData.count}건`, html: `<div class="dgrid ev one"><div class="dcard"><div class="dc-t">최근 쪽지 ${msgData.items.length}건<b><button class="mbtn" data-msgclear>모두 지우기</button></b></div><div class="dlist">${items}</div></div>
+  return { title: `쿨메시지 · 안읽음 ${msgData.count}건`, html: `<div class="dgrid ev one"><div class="dcard"><div class="dc-t">최근 쪽지 ${msgData.items.length}건<b><button class="mbtn" data-msgclear>모두 지우기</button></b></div><div class="dlist">${items}</div></div>
     <div class="dcard"><div class="dc-t">연결 상태</div>
       <div class="dli"><span class="t">방식</span><span class="n">${esc(src)}</span></div>
       ${msgData.error ? `<div class="dli"><span class="t">안내</span><span class="n" style="white-space:normal">${esc(msgData.error)}</span></div>` : ''}
