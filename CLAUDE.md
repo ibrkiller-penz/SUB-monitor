@@ -3,12 +3,12 @@
 Windows PC 옆에 두는 가로 스트립 디스플레이용 Python(pywebview) 앱. 사용자는 부산 동래고 교사(임병율, 1-4 담임).
 
 ## 구조
-- `app.py` — pywebview 창 + JS API (`get_timetable(week)`, `get_weather`, `get_events`, `add_event`, `delete_event`, `get_system`, `get_processes`, `get_messages`, `set_teacher`, `set_panels`, `reload_timetable`). 시간표는 **별도 프로세스 `tt_worker.py`**가 맡는다: 사이트(https://teacher-2026.vercel.app/widget)를 화면 밖 최소화 창으로 띄우고 `web/tt_extract.js`를 주입, 3초마다 `~/.lesown_dashboard/tt_data.json`에 결과를 쓴다. 요청(교사·주차)은 `tt_request.json`. 대시보드는 파일만 읽으므로 블로킹이 없다. 로그: `~/.lesown_dashboard/app.log`, `tt_worker.log` (0.5초 넘는 API 호출도 기록). `app.py --debug`로 devtools.
-  - 이력: 같은 프로세스 안의 숨김 창(evaluate_js 당겨오기)은 WebView2에서 로드가 안 돼 '응답 없음', 화면 밖 두 번째 창도 모든 API가 멈추는 증상 → 프로세스 분리.
+- `app.py` — pywebview 창 + JS API (`get_timetable(week)`, `get_weather`, `get_events`, `add_event`, `delete_event`, `get_system`, `get_processes`, `get_messages`, `set_teacher`, `set_panels`, `reload_timetable`). 시간표는 **일회성 프로세스 `tt_worker.py`**가 맡는다: 사이트(https://teacher-2026.vercel.app/widget)를 화면 밖 최소화 창으로 띄우고 `web/tt_extract.js`를 `__WEEK__=-2`(전 주차)로 주입해 교사 한 명의 전 주차를 `~/.lesown_dashboard/tt_cache/<교사>.json`(미설정 `_none.json`)에 저장하고 **창을 바로 닫는다**. `app.py`는 캐시만 읽고(`get_timetable(week)`가 주차를 골라 예전 응답 형태로 돌려줌), `_tt_refresher` 스레드가 30초마다 캐시가 오래됐으면(`timetable_refresh_min` 기본 30분, 날짜 바뀜, 교사 다름) 워커를 다시 띄운다. 실패 시 2·4·8…30분 백오프(`_tt_reap`). 교사별 캐시라 교사를 바꿨다 돌아오면 안 긁는다. 캐시 날짜가 오늘이 아니면 현재 주차·요일은 `_cur_week`가 `iso` 날짜로 다시 계산. 로그: `~/.lesown_dashboard/app.log`, `tt_worker.log` (0.5초 넘는 API 호출도 기록). `app.py --debug`로 devtools.
+  - 이력: 같은 프로세스 안의 숨김 창(evaluate_js 당겨오기)은 WebView2에서 로드가 안 돼 '응답 없음', 화면 밖 두 번째 창도 모든 API가 멈추는 증상 → 프로세스 분리. 상주 창이 작업표시줄에 계속 떠 있는 게 싫다는 요구 → 긁고 바로 닫는 캐시 방식으로 변경.
 - 보조모니터(1920×440)를 못 찾으면 일반 창(테두리 있음, 전체화면 아님)으로 뜬다.
 - `web/index.html` — 허브 화면(시계·날씨·시간표·일정·PC). CSS/JS 인라인. 글자 넘침은 `fitAll()`이 자동 축소/숨김.
 - `web/detail.css`, `web/detail.js` — 패널 클릭 시 전체화면 상세 5종(오늘/날씨/시간표/일정/PC). `← 허브로`, Esc, 90초 무조작 시 복귀.
-- `web/tt_extract.js` — 사이트 엔진(`TimetableEngine`)에서 주차별 시간표·공강지도·급식지도 추출. `__TEACHER__`, `__WEEK__` 치환.
+- `web/tt_extract.js` — 사이트 엔진(`TimetableEngine`)에서 주차별 시간표·공강지도·급식지도 추출. `__TEACHER__`, `__WEEK__`(0-based / -1 오늘 주차 / -2 전 주차 → `weeks` 배열) 치환.
 - `web/bg/01~12.jpg` — 월별 배경(1920×440). `web/fonts/` — 에스코어드림 3·4·5.
 - `config.json` — 공용 기본값(날씨 좌표, 시간표 URL, udb 스키마 등). 개인 설정(teacher_name, panels, ical_urls, udb)은 `config.local.json`(gitignore)에 저장되고 로드 시 덮어쓴다 → 모든 교사가 같은 저장소로 쓸 수 있다.
 - 로컬 입력 일정: `~/.lesown_dashboard/local_events.json`.
@@ -36,7 +36,7 @@ Windows PC 옆에 두는 가로 스트립 디스플레이용 Python(pywebview) �
 
 ## exe 빌드
 - `.github/workflows/build-exe.yml`: main 푸시마다 windows-latest에서 PyInstaller(onedir) 빌드 → `latest` 릴리스에 `LesownDashboard-win.zip` 첨부. 로컬은 `build_exe.bat`.
-- exe 안에서는 `app.py --tt-worker <url>`로 같은 exe를 시간표 워커로 재실행한다(`sys.frozen`). `config.json`은 exe 옆에서 읽고, `config.local.json`도 exe 옆에 생긴다.
+- exe 안에서는 `app.py --tt-worker <url> <교사>`로 같은 exe를 시간표 워커로 재실행한다(`sys.frozen`). `config.json`은 exe 옆에서 읽고, `config.local.json`도 exe 옆에 생긴다.
 
 - GPU는 `nvidia-smi`를 `CREATE_NO_WINDOW`로 직접 호출(`read_gpu`). GPUtil은 windowed exe에서 10초마다 콘솔 창이 깜빡여서 제거함. 외부 명령은 항상 창 없이 실행할 것.
 

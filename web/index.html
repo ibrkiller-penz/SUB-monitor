@@ -268,7 +268,7 @@
   </div>
   <label for="setTeacher">교사 선택</label>
   <select id="setTeacher"></select>
-  <div class="btns"><button id="setReload">시간표 새로고침</button><button id="setCancel">취소</button><button class="pri" id="setSave">저장</button></div>
+  <div class="btns"><button id="setReload">새로고침</button><button id="setCancel">취소</button><button class="pri" id="setSave">저장</button></div>
 </div></div>
 <div id="detail"><div class="dhead"><button id="dback">← 허브로</button><span id="dtitle"></span><span id="dclock"></span></div><div id="dbody"></div></div>
 <div id="root">
@@ -419,12 +419,13 @@ async function loadWeather() {
 }
 
 /* ---------- 시간표 (사이트 엔진 데이터) ---------- */
-let tt = null, ttSel = null, ttSelAt = 0, ttWeekSel = null, ttWeekAt = 0, ttWant = null, ttRetry = 0;   // ttWeekSel: 0-based, null=오늘 주차
+let tt = null, ttSel = null, ttSelAt = 0, ttWeekSel = null, ttWeekAt = 0, ttWant = null, ttRetry = 0, ttPend = 0;   // ttWeekSel: 0-based, null=오늘 주차
 async function loadTimetable() {
   if (ttWeekSel != null && Date.now() - ttWeekAt > 3 * 60 * 1000) ttWeekSel = null;   // 3분 뒤 오늘 주차로 복귀
   const r = await pywebview.api.get_timetable(ttWeekSel ?? -1);
   if (!r || !r.ready) {
-    if (!tt) { $('ttList').innerHTML = `<div class="muted" style="grid-column:1/-1;align-self:center;text-align:center">${esc(r && r.error ? r.error : '시간표 불러오는 중…')}</div>`; setTimeout(loadTimetable, 3000); }
+    if (!tt) $('ttList').innerHTML = `<div class="muted" style="grid-column:1/-1;align-self:center;text-align:center">${esc(r && r.error ? r.error : '시간표 불러오는 중…')}</div>`;
+    if (!tt || (r && r.pending)) { clearTimeout(ttPend); ttPend = setTimeout(loadTimetable, 3000); }   // 캐시 준비될 때까지
     return;
   }
   if (!r.teacher) { renderPicker(r.teachers); return; }
@@ -736,7 +737,7 @@ window.addEventListener('pywebviewready', async () => {
   $('closeBtn').onclick = () => pywebview.api.close();
   $('gear').onclick = openSettings;
   $('setCancel').onclick = closeSettings;
-  $('setReload').onclick = async () => { closeSettings(); await pywebview.api.reload_timetable(); tt = null; ttRetry = 0; setTimeout(loadTimetable, 4000); };
+  $('setReload').onclick = async () => { closeSettings(); await pywebview.api.reload_timetable(); ttRetry = 0; setTimeout(loadTimetable, 8000); loadWeather(); loadEvents(); loadMessages(); };   // 시간표는 사이트를 다시 긁어 캐시 갱신
   $('ttNav').querySelectorAll('[data-wk]').forEach(b => b.onclick = () => changeWeek(Number(b.dataset.wk)));
   $('ttToday').onclick = () => { ttWeekSel = null; ttRetry = 0; loadTimetable(); };
   $('setSave').onclick = async () => {

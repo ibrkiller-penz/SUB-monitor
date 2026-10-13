@@ -59,8 +59,8 @@ if not CONFIG_PATH.exists():
 
 DATA_DIR = Path.home() / ".lesown_dashboard"
 LOG_FILE = DATA_DIR / "app.log"
-TT_REQ = DATA_DIR / "tt_request.json"
-TT_DATA = DATA_DIR / "tt_data.json"
+TT_CACHE_DIR = DATA_DIR / "tt_cache"   # tt_worker.py 가 교사별 전 주차 시간표를 긁어 저장 (사이트 창은 저장 후 바로 닫힘)
+WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
 
 
 def log(msg):
@@ -113,9 +113,13 @@ def timed(fn):
 class Api:
     def __init__(self, cfg):
         self.cfg = cfg
-        self.tt_proc = None   # 시간표 사이트를 띄우는 별도 프로세스 (tt_worker.py)
-        self._tt_req = {"teacher": cfg.get("teacher_name", ""), "week": -1}
-        self._write_tt_req()
+        self.tt_proc = None       # 시간표를 긁는 일회성 프로세스 (tt_worker.py)
+        self._tt_spawn_at = 0.0   # 마지막으로 띄운 시각
+        self._tt_next = 0.0       # 이 시각 전에는 다시 띄우지 않음 (실패 시 점점 길어짐)
+        self._tt_fail = 0
+        self._tt_lock = threading.Lock()
+        self._tt_mem = (None, 0.0, None)   # (경로, mtime, 캐시 내용)
+        threading.Thread(target=self._tt_refresher, daemon=True).start()
         self._gpu = (0.0, None)   # (마지막 조회 시각, 값) — nvidia-smi 는 10초마다만
         self.watcher = MessageWatcher(cfg.get("message_apps", ["쿨메신저", "CoolMessenger"]), udb=cfg.get("udb"))
         self._net = psutil.net_io_counters()
@@ -181,57 +185,152 @@ class Api:
     def clear_messages(self):
         return self.watcher.clear()
 
-    def _write_tt_req(self):
+    # ---- 시간표 (tt_worker.py 가 긁어 둔 로컬 캐시) ----
+    def _tt_path(self):
+        """현재 설정된 교사의 캐시 파일 (교사별로 따로 저장 → 바꿨다 돌아와도 바로 뜸)."""
+        from tt_worker import cache_path
+        return cache_path(self.cfg.get("teacher_name") or "")
+
+    def _tt_cache(self):
+        """현재 교사의 캐시 파일을 읽는다 (바뀐 경우에만 다시 파싱)."""
+        path = self._tt_path()
         try:
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
-            TT_REQ.write_text(json.dumps(self._tt_req, ensure_ascii=False), encoding="utf-8")
-        except Exception as e:
-            log(f"tt_request write failed: {e}")
+            m = path.stat().st_mtime
+        except FileNotFoundError:
+            return None
+        if (str(path), m) != self._tt_mem[:2]:
+            try:
+                self._tt_mem = (str(path), m, json.loads(path.read_text(encoding="utf-8")))
+            except Exception as e:
+                log(f"tt_cache read failed: {e}")
+                return None
+        return self._tt_mem[2]
+
+    def _tt_fresh(self, d):
+        """캐시가 지금 설정(교사)·오늘 날짜·갱신 주기에 맞는지."""
+        if not d or not d.get("ready"):
+            return False
+        if (d.get("teacher") or "") != (self.cfg.get("teacher_name") or ""):
+            return False
+        fetched = d.get("fetchedAt", "")
+        if fetched[:10] != date.today().isoformat():
+            return False
+        try:
+            age = time.time() - datetime.strptime(fetched, "%Y-%m-%d %H:%M:%S").timestamp()
+        except Exception:
+            return False
+        return age < max(5, int(self.cfg.get("timetable_refresh_min", 30))) * 60
+
+    def _tt_refresher(self):
+        """30초마다 캐시 상태를 보고 필요하면 워커를 띄운다. 워커 결과(성공/실패)도 여기서 정리."""
+        while True:
+            time.sleep(30)
+            try:
+                self._tt_reap()
+                if not self._tt_fresh(self._tt_cache()):
+                    self._ensure_worker()
+            except Exception as e:
+                log(f"tt refresher error: {e}")
+
+    def _tt_reap(self):
+        """끝난 워커 정리: 캐시가 새로 써졌으면 성공, 아니면 실패 횟수 증가(재시도 간격 2분→4→8…최대 30분)."""
+        p = self.tt_proc
+        if p is None or p.poll() is None:
+            return
+        self.tt_proc = None
+        path = self._tt_path()
+        ok = path.exists() and path.stat().st_mtime >= self._tt_spawn_at - 1
+        if ok:
+            self._tt_fail = 0
+            self._tt_next = 0.0
+        else:
+            self._tt_fail += 1
+            self._tt_next = time.time() + min(1800, 120 * 2 ** (self._tt_fail - 1))
+            log(f"tt_worker exited code={p.returncode} without new cache (fail {self._tt_fail})")
+
+    def _ensure_worker(self, force=False):
+        """워커가 안 돌고 있고 재시도 대기 중이 아니면 띄운다."""
+        with self._tt_lock:
+            self._tt_reap()
+            if self.tt_proc is not None:
+                return False
+            if not force and time.time() < self._tt_next:
+                return False
+            if not force and time.time() - self._tt_spawn_at < 60:
+                return False
+            self.start_worker()
+            return True
 
     @timed
     def get_timetable(self, week=-1):
-        """tt_worker.py 가 파일로 밀어넣은 최신 데이터를 돌려준다 (블로킹 없음). week: 0-based, -1이면 오늘 주차."""
-        req = {"teacher": self.cfg.get("teacher_name", ""), "week": int(week) if week is not None else -1}
-        if req != self._tt_req:
-            self._tt_req = req
-            self._write_tt_req()
-        try:
-            d = json.loads(TT_DATA.read_text(encoding="utf-8"))
-            if d.get("ready") and time.time() - TT_DATA.stat().st_mtime > 180:
-                d["stale"] = True
-        except FileNotFoundError:
-            d = {"ready": False, "error": "시간표 창 로딩 대기 중 (tt_worker)"}
-        except Exception as e:
-            d = {"ready": False, "error": f"시간표 데이터 읽기 실패: {e}"}
-        if self.tt_proc is not None and self.tt_proc.poll() is not None:
-            d.setdefault("error", f"시간표 프로세스 종료됨 (code {self.tt_proc.returncode}) — 설정 > 시간표 새로고침")
-        return d
+        """캐시에서 요청 주차를 돌려준다 (블로킹 없음). week: 0-based, -1이면 오늘 주차.
+        캐시가 없거나 교사가 다르면 워커를 띄우고 pending 을 돌려준다."""
+        d = self._tt_cache()
+        teacher = self.cfg.get("teacher_name") or ""
+        if not d or not d.get("ready") or (d.get("teacher") or "") != teacher:
+            self._ensure_worker()
+            err = "시간표 불러오는 중…"
+            if self._tt_fail:
+                err = f"시간표 사이트 연결 실패 ({self._tt_fail}회) — 잠시 후 자동 재시도"
+            teachers = (d or {}).get("teachers") or (self._tt_mem[2] or {}).get("teachers") or []   # 교사 목록은 다른 캐시에서라도
+            return {"ready": False, "pending": True, "error": err, "teachers": teachers}
+        if not self._tt_fresh(d):
+            self._ensure_worker()
+        out = {k: v for k, v in d.items() if k != "weeks"}
+        out["fetchedAt"] = (d.get("fetchedAt") or "")[11:16]
+        weeks = d.get("weeks") or []
+        if d.get("noTimetable") or d.get("teacher") is None or not weeks:
+            return out
+        # 캐시를 받은 날과 오늘이 다르면(예: 주말 동안 사이트 연결 실패) 현재 주차·요일을 날짜로 다시 계산
+        if (d.get("fetchedAt") or "")[:10] != date.today().isoformat():
+            out["currentWeek"], out["today"] = self._cur_week(weeks)
+        cur = int(out.get("currentWeek") or 1) - 1
+        w = int(week) if week is not None else -1
+        if not (0 <= w < len(weeks)):
+            w = max(0, min(cur, len(weeks) - 1))
+        out.update(weeks[w])
+        return out
+
+    @staticmethod
+    def _cur_week(weeks):
+        """오늘 날짜가 들어 있는 주차(없으면 다음 주차)와 요일."""
+        today = date.today()
+        iso = today.isoformat()
+        wd = today.weekday()
+        for i, wk in enumerate(weeks):
+            if any(v.get("iso") == iso for v in wk["days"].values()):
+                return i + 1, WEEKDAYS[wd] if wd < 5 else "월"
+        for i, wk in enumerate(weeks):
+            mon = (wk["days"].get("월") or {}).get("iso") or ""
+            if mon > iso:
+                return i + 1, "월"
+        return len(weeks), "금"
 
     def set_teacher(self, name):
         self.cfg["teacher_name"] = name
         save_config(self.cfg)
-        self._tt_req["teacher"] = name
-        self._write_tt_req()
+        if not self._tt_fresh(self._tt_cache()):   # 그 교사 캐시가 이미 있으면 긁지 않고 바로 쓴다
+            self.stop_worker()
+            self._ensure_worker(force=True)
         return True
 
     def reload_timetable(self):
-        """시간표 프로세스를 다시 띄운다."""
+        """시간표를 사이트에서 다시 긁어온다 (캐시는 새 데이터가 올 때까지 유지)."""
         self.stop_worker()
-        try:
-            TT_DATA.unlink()
-        except Exception:
-            pass
-        self.start_worker()
+        self._tt_fail = 0
+        self._ensure_worker(force=True)
         return True
 
     def start_worker(self):
         exe = sys.executable
+        teacher = self.cfg.get("teacher_name") or ""
         # exe 로 묶인 경우(PyInstaller)에는 같은 exe 를 --tt-worker 모드로 다시 띄운다
-        cmd = [exe, "--tt-worker", self.cfg["timetable_url"]] if getattr(sys, "frozen", False) \
-            else [exe, str(BASE / "tt_worker.py"), self.cfg["timetable_url"]]
+        cmd = [exe, "--tt-worker", self.cfg["timetable_url"], teacher] if getattr(sys, "frozen", False) \
+            else [exe, str(BASE / "tt_worker.py"), self.cfg["timetable_url"], teacher]
         try:
             self.tt_proc = subprocess.Popen(cmd, cwd=str(BASE), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-            log(f"tt_worker started pid={self.tt_proc.pid}")
+            self._tt_spawn_at = time.time()
+            log(f"tt_worker started pid={self.tt_proc.pid} teacher={teacher}")
         except Exception as e:
             log(f"tt_worker start failed: {e}")
             self.tt_proc = None
@@ -551,7 +650,8 @@ def main():
     log(f"start screens={[(s.width, s.height) for s in webview.screens]} picked={'yes' if screen else 'no'} pywebview={getattr(webview, '__version__', '?')}")
     win = webview.create_window(**kwargs)
     win.events.loaded += lambda: log("main window loaded")
-    api.start_worker()   # 시간표는 별도 프로세스(tt_worker.py)
+    if not api._tt_fresh(api._tt_cache()):
+        api._ensure_worker(force=True)   # 시간표 캐시가 없거나 오래됐으면 지금 긁어온다
     try:
         webview.start(private_mode=False, storage_path=str(DATA_DIR / "profile"), debug="--debug" in sys.argv)
     finally:

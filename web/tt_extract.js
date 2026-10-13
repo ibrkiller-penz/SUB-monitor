@@ -1,5 +1,6 @@
-// 시간표 사이트(숨김 창) 안에서 실행되어, 사이트 계산 엔진의 결과 데이터만 뽑아낸다.
-// __TEACHER__, __WEEK__(0-based, -1=오늘 기준) 는 Python 쪽에서 치환된다.
+// 시간표 사이트(잠깐 띄우는 창) 안에서 실행되어, 사이트 계산 엔진의 결과 데이터만 뽑아낸다.
+// __TEACHER__, __WEEK__ 는 Python 쪽에서 치환된다.
+//   __WEEK__ : 0-based 주차 / -1 = 오늘 주차 / -2 = 전 주차(캐시용, weeks 배열로 반환)
 (function () {
     try {
         if (typeof TimetableEngine === 'undefined' || !TimetableEngine.getTeachersList) return { ready: false };
@@ -20,9 +21,6 @@
         const today = TimetableEngine.getSelectedDayOfWeek() || '월';
         const total = TimetableEngine.getTotalWeeks();
         const reqW = __WEEK__;
-        const w = (reqW >= 0 && reqW < total) ? reqW : curW;
-        const merged = TimetableEngine.calculateMergedSchedule(name, w);
-        const weekDays = TimetableEngine.getWeekDays(w) || [];
         const guide = TimetableEngine.getTeacherSemesterGuidance(name) || {};
 
         const norm = cell => {
@@ -52,21 +50,36 @@
             return { type, subject: String(subject).replace(/\n/g, ' '), room: String(room).replace(/\n/g, ' ') };
         };
 
-        const days = {};
-        ['월', '화', '수', '목', '금'].forEach(d => {
-            const info = weekDays.find(x => x.dayOfWeek === d) || {};
-            days[d] = {
-                date: info.fullDateStr || '',
-                title: info.type && info.type !== 'normal' ? (info.title || '') : '',
-                periods: ((merged && merged.matrix && merged.matrix[d]) || Array(7).fill('')).slice(0, 7).map(norm),
-                jido: (guide.jidoList || []).filter(g => g.weekNum === w + 1 && g.day === d)
-                    .map(g => ({ period: g.period, target: g.target })),
-                lunchDuty: (guide.lunchList || []).some(l => l.weekNum === w + 1 && l.dayOfWeek === d),
-            };
-        });
+        // 한 주차 추출: { week(1-based), range, days }
+        const extractWeek = w => {
+            const merged = TimetableEngine.calculateMergedSchedule(name, w);
+            const weekDays = TimetableEngine.getWeekDays(w) || [];
+            const days = {};
+            ['월', '화', '수', '목', '금'].forEach(d => {
+                const info = weekDays.find(x => x.dayOfWeek === d) || {};
+                days[d] = {
+                    date: info.fullDateStr || '',
+                    iso: info.isoDate || '',
+                    title: info.type && info.type !== 'normal' ? (info.title || '') : '',
+                    periods: ((merged && merged.matrix && merged.matrix[d]) || Array(7).fill('')).slice(0, 7).map(norm),
+                    jido: (guide.jidoList || []).filter(g => g.weekNum === w + 1 && g.day === d)
+                        .map(g => ({ period: g.period, target: g.target })),
+                    lunchDuty: (guide.lunchList || []).some(l => l.weekNum === w + 1 && l.dayOfWeek === d),
+                };
+            });
+            const range = weekDays.length ? `${weekDays[0].dateStr} ~ ${weekDays[weekDays.length - 1].dateStr}` : '';
+            return { week: w + 1, range, days };
+        };
+
         const t = TimetableEngine.getTeacherByName(name) || {};
-        const range = weekDays.length ? `${weekDays[0].dateStr} ~ ${weekDays[weekDays.length - 1].dateStr}` : '';
-        return { ready: true, teachers, teacher: name, homeroom: t.homeroom || '', week: w + 1, currentWeek: curW + 1, totalWeeks: total, range, today, days };
+        const head = { ready: true, teachers, teacher: name, homeroom: t.homeroom || '', currentWeek: curW + 1, totalWeeks: total, today };
+        if (reqW === -2) {   // 전 주차 → 로컬 캐시
+            const weeks = [];
+            for (let w = 0; w < total; w++) weeks.push(extractWeek(w));
+            return Object.assign(head, { weeks });
+        }
+        const w = (reqW >= 0 && reqW < total) ? reqW : curW;
+        return Object.assign(head, extractWeek(w));
     } catch (e) {
         return { ready: false, error: String(e) };
     }

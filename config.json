@@ -1,6 +1,7 @@
 {
   "timetable_url": "https://teacher-2026.vercel.app/widget",
   "teacher_name": "",
+  "timetable_refresh_min": 30,
   "weather": {
     "name": "부산 동래구",
     "latitude": 35.2049,
