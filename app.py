@@ -42,14 +42,28 @@ def log(msg):
         pass
 
 
+LOCAL_CONFIG = CONFIG_PATH.with_name("config.local.json")   # 이 PC·이 교사만의 설정 (git 에 안 올라감)
+LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb")
+
+
 def load_config():
+    """config.json(공용 기본값) 위에 config.local.json(개인 설정)을 덮어쓴다."""
     with open(CONFIG_PATH, encoding="utf-8") as f:
-        return json.load(f)
+        cfg = json.load(f)
+    try:
+        cfg.update(json.loads(LOCAL_CONFIG.read_text(encoding="utf-8")))
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        log(f"config.local.json read failed: {e}")
+    return cfg
 
 
 def save_config(cfg):
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, ensure_ascii=False, indent=2)
+    """사용자가 바꾼 항목만 config.local.json 에 저장 (config.json 은 건드리지 않는다)."""
+    local = {k: cfg[k] for k in LOCAL_KEYS if k in cfg}
+    with open(LOCAL_CONFIG, "w", encoding="utf-8") as f:
+        json.dump(local, f, ensure_ascii=False, indent=2)
 
 
 def timed(fn):
@@ -361,7 +375,7 @@ def main():
         url=str(BASE / "web" / "index.html"),
         js_api=api,
         width=1920,
-        height=440,
+        height=440 if screen is not None else 480,   # 일반 창은 제목 표시줄만큼 더 (내용 영역 ≈ 440)
         background_color="#0b0f17",
         # 보조모니터를 찾으면 그 화면에 테두리 없이 전체화면, 못 찾으면 일반 창
         frameless=screen is not None,

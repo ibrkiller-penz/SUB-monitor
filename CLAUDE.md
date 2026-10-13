@@ -10,7 +10,7 @@ Windows PC 옆에 두는 가로 스트립 디스플레이용 Python(pywebview) �
 - `web/detail.css`, `web/detail.js` — 패널 클릭 시 전체화면 상세 5종(오늘/날씨/시간표/일정/PC). `← 허브로`, Esc, 90초 무조작 시 복귀.
 - `web/tt_extract.js` — 사이트 엔진(`TimetableEngine`)에서 주차별 시간표·공강지도·급식지도 추출. `__TEACHER__`, `__WEEK__` 치환.
 - `web/bg/01~12.jpg` — 월별 배경(1920×440). `web/fonts/` — 에스코어드림 3·4·5.
-- `config.json` — 교사명, 날씨 좌표, 구글 캘린더 iCal 주소, 표시 설정.
+- `config.json` — 공용 기본값(날씨 좌표, 시간표 URL, udb 스키마 등). 개인 설정(teacher_name, panels, ical_urls, udb)은 `config.local.json`(gitignore)에 저장되고 로드 시 덮어쓴다 → 모든 교사가 같은 저장소로 쓸 수 있다.
 - 로컬 입력 일정: `~/.lesown_dashboard/local_events.json`.
 
 ## 디자인 원칙 (사용자 요구)
