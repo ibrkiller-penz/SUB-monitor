@@ -77,7 +77,6 @@
   #dayBar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), #fff3); transition: width 1s linear; }
   #dayTxt { font-size: 15px; color: var(--muted); margin-top: 5px; text-align: right; }
   #date { font-size: 30px; margin-top: 12px; font-weight: 500; text-align: right; }
-  #dday { font-size: 18px; color: var(--muted); margin-top: 6px; text-align: right; }
 
   /* 날씨 */
   .wnow { display: flex; align-items: center; gap: 14px; }
@@ -260,7 +259,6 @@
     <div id="ampm"></div>
     <div id="time">--:--</div>
     <div id="date"></div>
-    <div id="dday"></div>
     <div id="todayBox"></div>
     <div id="pcMini" title="PC 상태 자세히"></div>
   </section>
@@ -357,8 +355,6 @@ function tickClock() {
   $('time').innerHTML = `${pad(h % 12 || 12)}:${pad(d.getMinutes())}<span>${pad(d.getSeconds())}</span>`;
   $('ampm').textContent = h < 12 ? '오전' : '오후';
   $('date').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일`;
-  const doy = Math.floor((d - new Date(d.getFullYear(), 0, 1)) / 864e5) + 1;
-  $('dday').textContent = `${d.getFullYear()} · ${doy}일째 · 올해 ${Math.round(doy / (d.getFullYear() % 4 ? 365 : 366) * 100)}%`;
   applyMonth();
   if (window.tickDetail) tickDetail(d);
 }
