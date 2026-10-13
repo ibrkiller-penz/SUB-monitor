@@ -36,8 +36,11 @@
 ## 자동 실행 (Windows 시작 시)
 `Win + R` → `shell:startup` → 열린 폴더에 `run.bat` **바로가기**를 넣습니다.
 
-## exe로 만들기 (선택)
-`build_exe.bat` 실행 → `dist\LesownDashboard.exe` 가 생성됩니다 (`config.json` 은 exe와 같은 폴더에 두세요).
+## exe 버전 (Python 설치 불필요)
+- GitHub에 올라갈 때마다 자동으로 Windows exe가 만들어집니다: **Releases → `latest` → `LesownDashboard-win.zip`** 다운로드 → 압축 해제 → `LesownDashboard.exe` 실행.
+  (https://github.com/ibrkiller-penz/SUB-monitor/releases/latest)
+- 직접 만들려면 `build_exe.bat` 실행 → `dist\LesownDashboard\` 폴더가 생깁니다. 폴더째 복사해서 쓰세요.
+- Windows SmartScreen 경고가 뜨면 "추가 정보 → 실행". 처음 실행 시 ⚙에서 이름을 고르면 `config.local.json`이 exe 옆에 생깁니다.
 
 ## 참고
 - GPU 사용률/온도는 NVIDIA 그래픽카드만 표시됩니다. CPU 온도는 Windows 제약으로 표시하지 않습니다.

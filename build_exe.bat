@@ -2,9 +2,10 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 if not exist .venv python -m venv .venv
-.venv\Scripts\python -m pip install -r requirements.txt pyinstaller
-.venv\Scripts\pyinstaller --noconfirm --onefile --windowed --name LesownDashboard --add-data "web;web" app.py
-copy /y config.json dist\config.json
+.venv\Scripts\python -m pip install -q -r requirements.txt pyinstaller
+.venv\Scripts\pyinstaller --noconfirm --clean --onedir --windowed --name LesownDashboard ^
+  --add-data "web;web" --collect-all webview --hidden-import notify --hidden-import tt_worker app.py
+copy /y config.json dist\LesownDashboard\config.json >nul
 echo.
-echo 완료: dist\LesownDashboard.exe  (config.json 은 exe 옆에 두세요)
+echo 완료: dist\LesownDashboard\LesownDashboard.exe  (폴더째 복사해서 쓰세요. config.local.json 은 처음 설정 때 생깁니다)
 pause

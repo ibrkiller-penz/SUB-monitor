@@ -188,9 +188,11 @@ class Api:
 
     def start_worker(self):
         exe = sys.executable
+        # exe 로 묶인 경우(PyInstaller)에는 같은 exe 를 --tt-worker 모드로 다시 띄운다
+        cmd = [exe, "--tt-worker", self.cfg["timetable_url"]] if getattr(sys, "frozen", False) \
+            else [exe, str(BASE / "tt_worker.py"), self.cfg["timetable_url"]]
         try:
-            self.tt_proc = subprocess.Popen([exe, str(BASE / "tt_worker.py"), self.cfg["timetable_url"]],
-                                            cwd=str(BASE), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            self.tt_proc = subprocess.Popen(cmd, cwd=str(BASE), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             log(f"tt_worker started pid={self.tt_proc.pid}")
         except Exception as e:
             log(f"tt_worker start failed: {e}")
@@ -521,4 +523,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if "--tt-worker" in sys.argv:          # exe 빌드에서 시간표 워커로 동작
+        import tt_worker
+        sys.argv = [sys.argv[0]] + [x for x in sys.argv[1:] if x != "--tt-worker"]
+        tt_worker.main()
+    else:
+        main()

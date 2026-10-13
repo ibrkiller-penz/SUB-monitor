@@ -34,6 +34,10 @@ Windows PC 옆에 두는 가로 스트립 디스플레이용 Python(pywebview) �
 - 패널은 시계 제외 최대 4개(`MAX_PANELS`), 시계 아래 요약 칩은 `summary` 설정(exam/next/duty/weather/msg/events/school).
 - 허브 패널 표시 여부는 설정(⚙)에서 고르고 `config.json`의 `panels`에 저장. PC 상태는 시계 아래 한 줄(`#pcMini`)로도 항상 보임.
 
+## exe 빌드
+- `.github/workflows/build-exe.yml`: main 푸시마다 windows-latest에서 PyInstaller(onedir) 빌드 → `latest` 릴리스에 `LesownDashboard-win.zip` 첨부. 로컬은 `build_exe.bat`.
+- exe 안에서는 `app.py --tt-worker <url>`로 같은 exe를 시간표 워커로 재실행한다(`sys.frozen`). `config.json`은 exe 옆에서 읽고, `config.local.json`도 exe 옆에 생긴다.
+
 ## 아직 확인 못 한 것
 - Windows 실기기에서 숨김 창 시간표 추출, 전체화면/모니터 자동 선택, 터치 동작.
 - Open-Meteo 7일 예보 실데이터(개발 중 429 제한).
