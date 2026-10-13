@@ -31,7 +31,7 @@
   #root { position: relative; display: flex; height: 440px; padding: 14px; gap: 14px; }
   #root > .panel { flex: var(--w, 1) 1 0; container-type: inline-size; }
   #clock { --w: 330; } #weather { --w: 380; } #tt { --w: 580; } #eventsPanel { --w: 340; } #school { --w: 360; } #msg { --w: 300; } #pc { --w: 248; }
-  #root > .panel.off { display: none; }
+  #root > .panel.off, #root > .panel.nott { display: none; }
   /* 우상단 고정 버튼 (설정·종료) */
   #topbar { position: absolute; bottom: 8px; right: 8px; z-index: 6; display: flex; gap: 4px; }
   #topbar button { all: unset; cursor: pointer; width: 34px; height: 34px; text-align: center; line-height: 34px; border-radius: 10px;
@@ -427,7 +427,10 @@ async function loadTimetable() {
     return;
   }
   if (!r.teacher) { renderPicker(r.teachers); return; }
-  tt = r; teacherList = r.teachers; renderTimetable();
+  tt = r; teacherList = r.teachers;
+  $('tt').classList.toggle('nott', !!r.noTimetable);          // 교장·교감: 시간표 패널 숨김
+  if (r.noTimetable) { renderTodayBox(); setTimeout(fitAll, 50); return; }
+  renderTimetable();
   // 요청한 교사·주차가 아직 반영 안 됐으면(사이트 창이 3초 주기로 밀어줌) 잠시 뒤 다시
   const wantWeek = ttWeekSel ?? (r.currentWeek - 1);
   const mismatch = (r.week - 1 !== wantWeek) || (ttWant && r.teacher !== ttWant);
@@ -519,7 +522,7 @@ function renderTimetable() {
 }
 function renderTodayBox() {
   const chips = [], now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes(), today0 = new Date(now.toDateString());
-  const d = tt ? tt.days[tt.today] : null, isToday = tt && WD[now.getDay()] === tt.today;
+  const d = tt && !tt.noTimetable ? tt.days[tt.today] : null, isToday = tt && WD[now.getDay()] === tt.today;
   for (const k of summaryOn) {
     if (k === 'exam' && d && d.title) chips.push(`<span class="tchip hl">📌 ${esc(d.title)}</span>`);
     if (k === 'next' && d) {

@@ -43,7 +43,7 @@ function viewToday() {
   const wpx = (s, e) => ((e - s) / (b - a) * 100).toFixed(2) + '%';
   let tl = '<div class="tl">';
   for (let hh = 8; hh <= 17; hh++) tl += `<span class="tlh" style="left:${px(hh * 60)}">${hh}시</span>`;
-  const isSchoolDay = tt && WD[d.getDay()] === tt.today;
+  const isSchoolDay = tt && !tt.noTimetable && WD[d.getDay()] === tt.today;
   if (isSchoolDay) {
     const data = tt.days[tt.today];
     PERIODS.forEach(([p, s, e]) => {
@@ -124,6 +124,7 @@ function viewWeather() {
 /* ---------- 시간표 상세: 주간 전체 ---------- */
 function viewTimetable() {
   if (!tt) return { title: '시간표', html: '<div class="dcard"><div class="muted">시간표를 불러오는 중…</div></div>' };
+  if (tt.noTimetable) return { title: '시간표', html: '<div class="dcard"><div class="muted">선택한 직위(교장·교감)는 시간표가 없습니다.</div></div>' };
   const days = ['월', '화', '수', '목', '금'], nowMin = nowMinutes(), todayReal = WD[new Date().getDay()];
   const isCurWeek = tt.week === tt.currentWeek;
   const tsel = `<select class="tsel" id="dTeacher">${(tt.teachers || []).map(t => `<option ${t === tt.teacher ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;

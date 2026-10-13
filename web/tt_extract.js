@@ -7,10 +7,12 @@
         const list = document.getElementById('widgetPeriodList');
         if (!list || !list.children.length) return { ready: false };
 
-        const teachers = TimetableEngine.getTeachersList().map(t => t.name)
-            .sort((a, b) => a.startsWith('가상') - b.startsWith('가상') || a.localeCompare(b, 'ko'));
+        const NO_TT = ['교장', '교감'];   // 시간표 없는 관리자 — 선택하면 시간표 패널은 숨김
+        const teachers = NO_TT.concat(TimetableEngine.getTeachersList().map(t => t.name)
+            .sort((a, b) => a.startsWith('가상') - b.startsWith('가상') || a.localeCompare(b, 'ko')));
         let name = __TEACHER__ || '';
         if (!name) { try { name = localStorage.getItem('dongrae_saved_teacher_name') || ''; } catch (e) {} }
+        if (NO_TT.includes(name)) return { ready: true, teachers, teacher: name, noTimetable: true, today: '월', days: {} };
         if (!name || !TimetableEngine.getTeacherByName(name)) return { ready: true, teachers, teacher: null };
 
         TimetableEngine.setCurrentWeekAndDayFromToday();
