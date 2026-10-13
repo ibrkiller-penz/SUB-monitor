@@ -4,4 +4,3 @@ requests>=2.31
 icalendar>=5.0
 recurring-ical-events>=2.1
 GPUtil>=1.4
-winsdk>=1.0; sys_platform == "win32"
