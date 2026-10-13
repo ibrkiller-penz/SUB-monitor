@@ -3,7 +3,7 @@ chcp 65001 >nul
 cd /d "%~dp0"
 if not exist .venv python -m venv .venv
 .venv\Scripts\python -m pip install -q -r requirements.txt pyinstaller
-.venv\Scripts\pyinstaller --noconfirm --clean --onedir --windowed --name LesownDashboard ^
+.venv\Scripts\pyinstaller --noconfirm --clean --onedir --windowed --name LesownDashboard --icon app.ico ^
   --add-data "web;web" --collect-all webview --hidden-import notify --hidden-import tt_worker app.py
 copy /y config.json dist\LesownDashboard\config.json >nul
 echo.
