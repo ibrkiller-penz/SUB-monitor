@@ -155,12 +155,12 @@
   .ev.local .n::before { content: '✎ '; color: var(--accent); font-size: 13px; }
 
   /* PC */
-  .ring-row { display: flex; gap: 6px; align-items: center; }
-  .ring { position: relative; flex: 1 1 0; min-width: 0; aspect-ratio: 1 / 1; max-width: 96px; }
+  .ring-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 6px; justify-items: center; }
+  .ring { position: relative; width: 100%; max-width: 104px; aspect-ratio: 1 / 1; }
   .ring svg { transform: rotate(-90deg); width: 100%; height: 100%; display: block; }
   .ring .v { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .ring .v b { font-size: 17px; font-variant-numeric: tabular-nums; }
-  .ring .v span { font-size: 12px; color: var(--muted); }
+  .ring .v b { font-size: 19px; font-variant-numeric: tabular-nums; }
+  .ring .v span { font-size: 13px; color: var(--muted); }
   #pcbody { display: flex; flex-direction: column; flex: 1; min-height: 0; }
   .net { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; font-size: 15px; color: var(--muted); line-height: 1.4; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .net b { color: var(--text); font-weight: 600; }
@@ -224,7 +224,7 @@
   }
   @container (max-width: 300px) {
     .ev { font-size: 16px; } .ev .t { font-size: 13px; min-width: 40px; }
-    .mi .b { font-size: 16px; } .ring .v b { font-size: 14px; } .ring .v span { font-size: 10px; } .ring-row { gap: 3px; }
+    .mi .b { font-size: 16px; } .ring .v b { font-size: 17px; } .ring .v span { font-size: 12px; } .ring-row { gap: 6px 4px; }
     .spark .lbl { font-size: 12px; white-space: nowrap; gap: 6px; } .spark .lbl span { overflow: hidden; text-overflow: ellipsis; }
   }
 </style>
