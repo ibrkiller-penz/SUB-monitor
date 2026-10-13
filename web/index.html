@@ -37,7 +37,9 @@
   #pcMini b { color: var(--text); font-weight: 500; }
   /* 메시지 패널 */
   #msgList { flex: 1; min-height: 0; overflow: hidden; }
-  .mi { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .mi { padding: 8px 0 8px 14px; border-bottom: 1px solid var(--line); position: relative; }
+  .mi.read { opacity: .6; }
+  .mi.unread::before { content: ''; position: absolute; left: 0; top: 16px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
   .mi .h { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); }
   .mi .h b { color: var(--accent); font-weight: 500; }
   .mi .b { font-size: 18px; margin-top: 2px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
@@ -540,10 +542,10 @@ function renderMessages() {
   const b = $('msgBadge'); b.textContent = msgData.count; b.className = 'badge' + (msgData.count ? '' : ' zero');
   if (!msgData.items.length) {
     $('msgList').innerHTML = `<div id="msgEmpty">${msgData.source === 'none'
-      ? '새 메시지 없음<br><small>' + esc(msgData.error || '쿨메신저 알림을 기다리는 중') + '</small>' : '새 메시지 없음'}</div>`;
+      ? '새 메시지 없음<br><small>' + esc(msgData.error || '쿨메신저 알림을 기다리는 중') + '</small>' : '수신 쪽지 없음'}</div>`;
     return;
   }
-  $('msgList').innerHTML = msgData.items.map(m => `<div class="mi"><div class="h"><b>${esc(m.app || '메시지')}</b><span>${timeAgo(m.time)}</span></div>
+  $('msgList').innerHTML = msgData.items.map(m => `<div class="mi ${m.unread === false ? 'read' : 'unread'}"><div class="h"><b>${esc(m.app || '메시지')}</b><span>${timeAgo(m.time)}</span></div>
     <div class="b">${esc(m.title)}${m.body ? ' · ' + esc(m.body) : ''}</div></div>`).join('');
 }
 

@@ -132,9 +132,13 @@ class UdbReader:
             if "content" not in cols and "title" not in cols:
                 self.error = f"{self.table} 컬럼을 해석하지 못함: {names}"
                 return []
-            where = ""
+            conds = []
             if self.unread_only and "read" in cols:
-                where = f"WHERE {self._unread_cond(cols['read'])}"
+                conds.append(self._unread_cond(cols["read"]))
+            del_col = next((c for c in names if c.lower().replace("_", "") in ("deleteddate", "deleted", "isdeleted", "delyn")), None)
+            if del_col:
+                conds.append(f"({del_col} IS NULL OR {del_col} IN ('', 0, '0', 'N'))")
+            where = ("WHERE " + " AND ".join(conds)) if conds else ""
             order = f"ORDER BY {cols['date']} DESC" if "date" in cols else (f"ORDER BY {cols['key']} DESC" if "key" in cols else "")
             rows = con.execute(f"SELECT * FROM {self.table} {where} {order} LIMIT {int(limit)}").fetchall()
             idx = {n: i for i, n in enumerate(names)}
@@ -150,8 +154,15 @@ class UdbReader:
                 # MessageText 는 보통 제목 문장으로 시작하므로 제목을 또 붙이지 않는다
                 title, content = str(g("title") or ""), content.strip()
                 body = content if (not title or content.startswith(title)) else " ".join(x for x in (title, content) if x)
+                rv = g("read")
+                if "read" not in cols:
+                    unread = True
+                elif "unread" in cols["read"].lower().replace("_", ""):
+                    unread = rv not in (None, 0, "0", "N", "n", "")
+                else:
+                    unread = rv in (None, 0, "0", "N", "n", "")
                 out.append({"id": f"u{g('key') if 'key' in cols else hash(r)}", "app": "쿨메신저", "title": str(g("sender") or title or "쪽지"),
-                            "body": body[:200], "time": ts})
+                            "body": body[:200], "time": ts, "unread": bool(unread)})
             self.error = ""
             return out
 
@@ -281,7 +292,10 @@ class MessageWatcher:
         return self._result()
 
     def _result(self):
-        count = sum(it.get("count", 1) for it in self.items)
+        if self.source == "udb":
+            count = sum(1 for it in self.items if it.get("unread"))
+        else:
+            count = sum(it.get("count", 1) for it in self.items)
         err = self.error or (self._listener_err if self.source == "none" else "")
         if self.source == "none" and self.udb and self.udb.error:
             err = self.udb.error + (" · " + err if err else "")
