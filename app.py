@@ -3,8 +3,8 @@
 시계 · 날씨 · 시간표(웹) · 구글 캘린더 일정 · PC 상태를 한 화면에 표시한다.
 """
 import json
+import subprocess
 import sys
-import threading
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -26,6 +26,22 @@ if not CONFIG_PATH.exists():
     CONFIG_PATH = BASE / "config.json"
 
 
+DATA_DIR = Path.home() / ".lesown_dashboard"
+LOG_FILE = DATA_DIR / "app.log"
+TT_REQ = DATA_DIR / "tt_request.json"
+TT_DATA = DATA_DIR / "tt_data.json"
+
+
+def log(msg):
+    """문제 추적용 로그 (~/.lesown_dashboard/app.log)."""
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(f"{time.strftime('%H:%M:%S')} {msg}\n")
+    except Exception:
+        pass
+
+
 def load_config():
     with open(CONFIG_PATH, encoding="utf-8") as f:
         return json.load(f)
@@ -36,42 +52,25 @@ def save_config(cfg):
         json.dump(cfg, f, ensure_ascii=False, indent=2)
 
 
-class TimetableBridge:
-    """시간표 사이트 창(화면 밖)에 주입된 스크립트가 주기적으로 데이터를 밀어넣는 통로.
-
-    예전엔 대시보드가 숨김 창에 evaluate_js 로 데이터를 '당겨' 왔는데, Windows(WebView2)에서는
-    숨김 창이 로드되지 않아 그 호출이 멈추고 앱 전체가 '응답 없음'이 됐다. 지금은 반대로
-    사이트 창 쪽에서 pywebview.api.push(...) 로 '밀어' 주므로 어느 쪽도 기다리지 않는다.
-    """
-
-    def __init__(self, cfg):
-        self.cfg = cfg
-        self.data = {"ready": False}
-        self.req = {"teacher": cfg.get("teacher_name", ""), "week": -1}
-        self.updated = 0.0
-
-    # --- 사이트 창의 JS가 호출 ---
-    def request(self):
-        return dict(self.req)
-
-    def push(self, data_json):
+def timed(fn):
+    """API 호출 시간을 로그에 남긴다 (0.5초 넘는 것만)."""
+    def wrap(self, *args, **kw):
+        t = time.time()
         try:
-            self.data = json.loads(data_json) if isinstance(data_json, str) else data_json
-            self.updated = time.time()
-        except Exception as e:
-            self.data = {"ready": False, "error": str(e)}
-        return True
-
-    def log(self, msg):
-        print("[tt]", msg)
-        return True
+            return fn(self, *args, **kw)
+        finally:
+            dt = time.time() - t
+            if dt > 0.5:
+                log(f"slow api {fn.__name__} {dt:.1f}s")
+    return wrap
 
 
 class Api:
     def __init__(self, cfg):
         self.cfg = cfg
-        self.tt_window = None  # 시간표 사이트를 띄워두는 창 (화면 밖)
-        self.bridge = TimetableBridge(cfg)
+        self.tt_proc = None   # 시간표 사이트를 띄우는 별도 프로세스 (tt_worker.py)
+        self._tt_req = {"teacher": cfg.get("teacher_name", ""), "week": -1}
+        self._write_tt_req()
         self._gpu = (0.0, None)   # (마지막 조회 시각, 값) — nvidia-smi 는 10초마다만
         self.watcher = MessageWatcher(cfg.get("message_apps", ["쿨메신저", "CoolMessenger"]), udb=cfg.get("udb"))
         self._net = psutil.net_io_counters()
@@ -80,6 +79,7 @@ class Api:
 
     DEFAULT_PANELS = ["weather", "tt", "events", "msg"]
 
+    @timed
     def get_config(self):
         return {
             "weather_name": self.cfg.get("weather", {}).get("name", ""),
@@ -92,6 +92,7 @@ class Api:
         return self.cfg["panels"]
 
     # ---- 메신저 알림 (notify.py) ----
+    @timed
     def get_messages(self):
         try:
             return self.watcher.poll()
@@ -101,28 +102,68 @@ class Api:
     def clear_messages(self):
         return self.watcher.clear()
 
+    def _write_tt_req(self):
+        try:
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            TT_REQ.write_text(json.dumps(self._tt_req, ensure_ascii=False), encoding="utf-8")
+        except Exception as e:
+            log(f"tt_request write failed: {e}")
+
+    @timed
     def get_timetable(self, week=-1):
-        """사이트 창이 밀어넣은 최신 데이터를 돌려준다 (블로킹 없음). week: 0-based, -1이면 오늘 주차.
-        요청(교사·주차)이 바뀌면 사이트 창이 다음 주기(3초 이내)에 새 데이터를 보낸다."""
-        self.bridge.req = {"teacher": self.cfg.get("teacher_name", ""), "week": int(week) if week is not None else -1}
-        d = dict(self.bridge.data or {})
-        if d.get("ready") and self.bridge.updated and time.time() - self.bridge.updated > 180:
-            d["stale"] = True
-        if not d.get("ready") and not d.get("error"):
-            d["error"] = "시간표 사이트 창 로딩 대기 중"
+        """tt_worker.py 가 파일로 밀어넣은 최신 데이터를 돌려준다 (블로킹 없음). week: 0-based, -1이면 오늘 주차."""
+        req = {"teacher": self.cfg.get("teacher_name", ""), "week": int(week) if week is not None else -1}
+        if req != self._tt_req:
+            self._tt_req = req
+            self._write_tt_req()
+        try:
+            d = json.loads(TT_DATA.read_text(encoding="utf-8"))
+            if d.get("ready") and time.time() - TT_DATA.stat().st_mtime > 180:
+                d["stale"] = True
+        except FileNotFoundError:
+            d = {"ready": False, "error": "시간표 창 로딩 대기 중 (tt_worker)"}
+        except Exception as e:
+            d = {"ready": False, "error": f"시간표 데이터 읽기 실패: {e}"}
+        if self.tt_proc is not None and self.tt_proc.poll() is not None:
+            d.setdefault("error", f"시간표 프로세스 종료됨 (code {self.tt_proc.returncode}) — 설정 > 시간표 새로고침")
         return d
 
     def set_teacher(self, name):
         self.cfg["teacher_name"] = name
         save_config(self.cfg)
-        self.bridge.req["teacher"] = name
+        self._tt_req["teacher"] = name
+        self._write_tt_req()
         return True
 
     def reload_timetable(self):
-        if self.tt_window:
-            self.tt_window.load_url(self.cfg["timetable_url"])
+        """시간표 프로세스를 다시 띄운다."""
+        self.stop_worker()
+        try:
+            TT_DATA.unlink()
+        except Exception:
+            pass
+        self.start_worker()
         return True
 
+    def start_worker(self):
+        exe = sys.executable
+        try:
+            self.tt_proc = subprocess.Popen([exe, str(BASE / "tt_worker.py"), self.cfg["timetable_url"]],
+                                            cwd=str(BASE), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            log(f"tt_worker started pid={self.tt_proc.pid}")
+        except Exception as e:
+            log(f"tt_worker start failed: {e}")
+            self.tt_proc = None
+
+    def stop_worker(self):
+        if self.tt_proc and self.tt_proc.poll() is None:
+            try:
+                self.tt_proc.terminate()
+            except Exception:
+                pass
+        self.tt_proc = None
+
+    @timed
     def get_system(self):
         now = time.time()
         net = psutil.net_io_counters()
@@ -155,6 +196,7 @@ class Api:
             "uptime": int(now - psutil.boot_time()),
         }
 
+    @timed
     def get_processes(self):
         """CPU 사용률 상위 프로세스 (상세 화면용)."""
         ncpu = psutil.cpu_count() or 1
@@ -169,6 +211,7 @@ class Api:
         out.sort(reverse=True)
         return [{"name": n, "cpu": round(c, 1), "mem": round(m, 1)} for c, m, n in out[:7]]
 
+    @timed
     def get_weather(self):
         w = self.cfg["weather"]
         params = {
@@ -247,6 +290,7 @@ class Api:
                             "all_day": False, "location": "", "local": True, "id": x["id"]})
         return out
 
+    @timed
     def get_events(self):
         urls = [u for u in self.cfg.get("ical_urls", []) if u.strip()]
         start = date.today()
@@ -284,6 +328,7 @@ class Api:
         return {"events": events, "error": "; ".join(errors) if errors else None}
 
     def close(self):
+        self.stop_worker()
         for w in webview.windows:
             w.destroy()
 
@@ -306,29 +351,6 @@ def pick_screen(cfg):
     return None
 
 
-TT_INJECT = """
-(function () {
-  if (window.__ttLoopStarted) return; window.__ttLoopStarted = true;
-  window.__ttExtract = function (REQ_TEACHER, REQ_WEEK) { return (
-__EXTRACT__
-  ); };
-  let lastKey = '', lastAt = 0;
-  async function tick() {
-    try {
-      if (!window.pywebview || !pywebview.api) return;
-      const req = await pywebview.api.request();
-      const key = JSON.stringify(req);
-      if (key === lastKey && Date.now() - lastAt < 30000) return;   // 요청이 같으면 30초마다만
-      const data = window.__ttExtract(req.teacher || '', Number(req.week ?? -1));
-      if (data && data.ready) { lastKey = key; lastAt = Date.now(); }
-      await pywebview.api.push(JSON.stringify(data));
-    } catch (e) { try { pywebview.api.log('tick error: ' + e); } catch (_) {} }
-  }
-  setInterval(tick, 3000); setTimeout(tick, 1500);
-})();
-"""
-
-
 def main():
     cfg = load_config()
     api = Api(cfg)
@@ -349,28 +371,15 @@ def main():
     )
     if screen is not None and hasattr(screen, "x"):
         kwargs.update(x=screen.x, y=screen.y)
-    webview.create_window(**kwargs)
-
-    # 시간표 사이트 창: 숨기면(WebView2) 로드가 안 되므로 화면 밖에 작게 띄운다
-    extract_js = (BASE / "web" / "tt_extract.js").read_text(encoding="utf-8")
-    extract_js = extract_js.replace("__TEACHER__", "REQ_TEACHER").replace("__WEEK__", "REQ_WEEK")
-    inject = TT_INJECT.replace("__EXTRACT__", extract_js.strip().rstrip(";"))
-    api.tt_window = webview.create_window(
-        "시간표 데이터 (닫지 마세요)", url=cfg["timetable_url"], js_api=api.bridge,
-        width=420, height=720, x=-5000, y=100, minimized=True, on_top=False)
-
-    def on_loaded():
-        # 사이트가 로드될 때마다(새로고침 포함) 추출 루프를 다시 심는다
-        def _go():
-            time.sleep(2)
-            try:
-                api.tt_window.evaluate_js(inject)
-            except Exception as e:
-                print("[tt] inject failed:", e)
-        threading.Thread(target=_go, daemon=True).start()
-
-    api.tt_window.events.loaded += on_loaded
-    webview.start(private_mode=False, storage_path=str(Path.home() / ".lesown_dashboard"))
+    log(f"start screens={[(s.width, s.height) for s in webview.screens]} picked={'yes' if screen else 'no'} pywebview={getattr(webview, '__version__', '?')}")
+    win = webview.create_window(**kwargs)
+    win.events.loaded += lambda: log("main window loaded")
+    api.start_worker()   # 시간표는 별도 프로세스(tt_worker.py)
+    try:
+        webview.start(private_mode=False, storage_path=str(DATA_DIR / "profile"), debug="--debug" in sys.argv)
+    finally:
+        api.stop_worker()
+        log("exit")
 
 
 if __name__ == "__main__":

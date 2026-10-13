@@ -1,6 +1,6 @@
 {
   "timetable_url": "https://teacher-2026.vercel.app/widget",
-  "teacher_name": "임병율",
+  "teacher_name": "강언화",
   "weather": {
     "name": "부산 동래구",
     "latitude": 35.2049,
@@ -10,8 +10,16 @@
     ""
   ],
   "calendar_days": 31,
-  "panels": ["weather", "tt", "events", "msg"],
-  "message_apps": ["쿨메신저", "CoolMessenger"],
+  "panels": [
+    "weather",
+    "tt",
+    "events",
+    "msg"
+  ],
+  "message_apps": [
+    "쿨메신저",
+    "CoolMessenger"
+  ],
   "udb": {
     "path": "%LOCALAPPDATA%/CoolMessenger/Memo/*.udb",
     "table": "tbl_recv",
