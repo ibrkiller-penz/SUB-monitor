@@ -119,9 +119,9 @@
   .slot { position: relative; border-radius: 14px; padding: 10px 12px; background: rgba(255,255,255,.05); overflow: hidden;
     border: 1px solid transparent; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
   .slot .no { font-size: 15px; color: var(--muted); display: flex; justify-content: space-between; white-space: nowrap; gap: 6px; }
-  .slot .sj { font-size: 25px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slot .sj { font-size: 28px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .slot .rm { font-size: 17px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 16px; }
-  .slot.free .sj { color: var(--muted); font-weight: 400; font-size: 20px; }
+  .slot.free .sj { color: var(--muted); font-weight: 400; font-size: 22px; }
   .slot.class { background: rgba(255,255,255,.10); }
   .slot.class .sj { color: var(--text); }
   .slot.event { background: rgba(243,216,181,.08); } .slot.event .sj { color: #f3d8b5; } .slot.event .rm { color: var(--accent); }
@@ -219,7 +219,7 @@
   @container (max-width: 500px) {
     .slot .no small { display: none; } .slot .no { font-size: 13px; }
     .slot .no span { overflow: hidden; text-overflow: ellipsis; }
-    .slot .sj { font-size: 20px; } .slot .rm { font-size: 14px; } .slot { padding: 8px 10px; }
+    .slot .sj { font-size: 23px; } .slot .rm { font-size: 14px; } .slot { padding: 8px 10px; }
     #ttName { font-size: 19px; } #ttWeek { font-size: 15px; } #ttFoot { font-size: 14px; }
     #ttDays button { width: 26px; font-size: 15px; } #ttNav button { width: 24px; }
   }
@@ -507,8 +507,6 @@ function renderTodayBox() {
   }
   d.jido.forEach(j => chips.push(`<span class="tchip">🛡 ${j.period}교시 공강지도 · ${esc(j.target)}</span>`));
   if (d.lunchDuty) chips.push(`<span class="tchip">🍱 점심 급식지도</span>`);
-  const n = d.periods.filter(c => c.type === 'class' || c.type === 'sub').length;
-  chips.push(`<span class="tchip">${esc(tt.teacher)}${tt.homeroom ? ` · ${esc(tt.homeroom)} 담임` : ''} · 오늘 ${n}시간</span>`);
   $('todayBox').innerHTML = chips.slice(0, 3).join('');
 }
 
