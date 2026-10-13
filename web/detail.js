@@ -52,7 +52,7 @@ function viewToday() {
         const c = data.periods[p - 1] || { type: 'free', subject: '공강' };
         const jido = data.jido.find(j => Number(j.period) === p);
         cls = jido && c.type === 'free' ? 'duty' : c.type;
-        label = jido && c.type === 'free' ? '공강지도' : c.subject;
+        label = jido && c.type === 'free' ? '공강지도' : shortName(c.subject);
       }
       tl += `<div class="tlb ${cls}" style="left:${px(toMin(s))};width:${wpx(toMin(s), toMin(e))}"><small>${p === '점심' ? '점심' : p + '교시'}</small><b>${esc(label)}</b></div>`;
     });
@@ -137,7 +137,7 @@ function viewTimetable() {
       const c = data.periods[p - 1] || { type: 'free', subject: '공강', room: '' };
       const jido = data.jido.find(j => Number(j.period) === p), asDuty = jido && c.type === 'free';
       const isEv = c.type === 'event' && c.room;
-      const main = asDuty ? '공강지도' : c.subject, sub = jido ? jido.target : c.room;
+      const main = asDuty ? '공강지도' : c.subject, sub = jido ? jido.target : c.room;   // 상세는 전체 표시
       h += `<div class="wt-c ${asDuty ? 'duty' : c.type} ${isEv ? 'evc' : ''} ${isNow ? 'now' : ''} ${isCurWeek && d === tt.today ? 'td' : ''}"><b>${esc(main)}</b><small>${esc(sub)}</small></div>`;
     });
   });
