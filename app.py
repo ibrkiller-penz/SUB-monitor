@@ -3,7 +3,9 @@
 시계 · 날씨 · 시간표(웹) · 구글 캘린더 일정 · PC 상태를 한 화면에 표시한다.
 """
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -17,10 +19,37 @@ import webview
 
 from notify import MessageWatcher
 
-try:
-    import GPUtil  # NVIDIA 전용, 없으면 GPU 항목 생략
-except Exception:
-    GPUtil = None
+
+def _find_nvidia_smi():
+    """NVIDIA 전용. 없으면 None → GPU 항목 생략."""
+    p = shutil.which("nvidia-smi")
+    if p:
+        return p
+    if sys.platform == "win32":
+        for c in (Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "nvidia-smi.exe",
+                  Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "NVIDIA Corporation" / "NVSMI" / "nvidia-smi.exe"):
+            if c.exists():
+                return str(c)
+    return None
+
+
+NVIDIA_SMI = _find_nvidia_smi()
+
+
+def read_gpu():
+    """nvidia-smi 를 콘솔 창 없이 호출한다 (GPUtil 은 창이 깜빡여서 직접 호출)."""
+    if not NVIDIA_SMI:
+        return None
+    kw = {}
+    if sys.platform == "win32":
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        kw = dict(startupinfo=si, creationflags=subprocess.CREATE_NO_WINDOW)
+    out = subprocess.run([NVIDIA_SMI, "--query-gpu=utilization.gpu,temperature.gpu,name", "--format=csv,noheader,nounits"],
+                         capture_output=True, text=True, timeout=5, **kw).stdout
+    line = out.strip().splitlines()[0]
+    load, temp, name = [x.strip() for x in line.split(",", 2)]
+    return {"load": int(float(load)), "temp": int(float(temp)), "name": name}
 
 BASE = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
 CONFIG_PATH = Path(sys.argv[0]).resolve().parent / "config.json"
@@ -227,10 +256,9 @@ class Api:
         mem = psutil.virtual_memory()
         disk = psutil.disk_usage("C:\\" if sys.platform == "win32" else "/")
         gpu = self._gpu[1]
-        if GPUtil and now - self._gpu[0] > 10:   # nvidia-smi 호출은 10초마다
+        if NVIDIA_SMI and now - self._gpu[0] > 10:   # nvidia-smi 호출은 10초마다
             try:
-                g = GPUtil.getGPUs()
-                gpu = {"load": round(g[0].load * 100), "temp": g[0].temperature, "name": g[0].name} if g else None
+                gpu = read_gpu()
             except Exception:
                 gpu = None
             self._gpu = (now, gpu)
