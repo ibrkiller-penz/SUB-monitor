@@ -3,7 +3,7 @@
  */
 let detailKind = null, idleT = null, calSel = null, procs = [];
 const DETAIL_IDLE = 90 * 1000;
-const PANEL_KIND = { clock: 'today', weather: 'weather', tt: 'timetable', eventsPanel: 'events', msg: 'messages', pc: 'pc' };
+const PANEL_KIND = { clock: 'today', weather: 'weather', tt: 'timetable', eventsPanel: 'events', school: 'school', msg: 'messages', pc: 'pc' };
 
 function openDetail(kind) {
   detailKind = kind; calSel = null; document.body.classList.add('detail'); $('detail').classList.add('on'); renderDetail(); bumpIdle();
@@ -11,12 +11,13 @@ function openDetail(kind) {
 }
 function closeDetail() { detailKind = null; document.body.classList.remove('detail'); $('detail').classList.remove('on'); clearTimeout(idleT); }
 function bumpIdle() { clearTimeout(idleT); if (detailKind) idleT = setTimeout(closeDetail, DETAIL_IDLE); }
-const VIEW_DEPS = { today: ['timetable', 'events'], weather: ['weather'], timetable: ['timetable'], events: ['events'], pc: ['system'], messages: ['messages'] };
+const VIEW_DEPS = { today: ['timetable', 'events'], weather: ['weather'], timetable: ['timetable'], events: ['events'], school: ['events'], pc: ['system'], messages: ['messages'] };
+let schoolDept = '';
 function onDataChange(kind) { if (detailKind && (!kind || VIEW_DEPS[detailKind].includes(kind))) renderDetail(); }
 let evDraft = { title: '', date: '', time: '', all_day: false }, evMsg = '';
 
 function renderDetail() {
-  const views = { today: viewToday, weather: viewWeather, timetable: viewTimetable, events: viewEvents, pc: viewPC, messages: viewMessages };
+  const views = { today: viewToday, weather: viewWeather, timetable: viewTimetable, events: viewEvents, school: viewSchool, pc: viewPC, messages: viewMessages };
   const v = views[detailKind]; if (!v) return;
   const { title, html } = v();
   $('dtitle').textContent = title; $('dbody').innerHTML = html;
@@ -69,13 +70,13 @@ function viewToday() {
 
   const todays = eventsCache.filter(e => { const s = new Date(e.start), en = e.end ? new Date(e.end) : s; return s < new Date(today0.getTime() + 864e5) && en > today0; });
   const list = todays.length ? todays.map(e => { const s = new Date(e.start), en = e.end ? new Date(e.end) : s;
-    return `<div class="dli ${!e.all_day && d >= s && d < en ? 'now' : ''}"><span class="t">${e.all_day ? '종일' : pad(s.getHours()) + ':' + pad(s.getMinutes())}</span><span class="n">${esc(e.title)}</span></div>`; }).join('')
+    return `<div class="dli ${!e.all_day && d >= s && d < en ? 'now' : ''}"><span class="t">${e.all_day ? '종일' : pad(s.getHours()) + ':' + pad(s.getMinutes())}</span><span class="n">${esc(e.title)}</span>${e.tag ? `<small class="tag">${esc(e.tag)}</small>` : ''}</div>`; }).join('')
     : '<div class="dli muted">오늘 일정 없음</div>';
   const title = tt && tt.days[tt.today].title && isSchoolDay ? `<div class="tchip hl" style="margin-top:8px">📌 ${esc(tt.days[tt.today].title)}</div>` : '';
   const big = `<div class="dcard tclock"><div class="bt">${pad(d.getHours() % 12 || 12)}<span>:</span>${pad(d.getMinutes())}</div>
     <div class="bs">${d.getHours() < 12 ? '오전' : '오후'} · ${pad(d.getSeconds())}초</div>
     <div class="bd">${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일</div>${title}</div>`;
-  return { title: '오늘', html: `<div class="dgrid today">${big}<div class="dcol"><div class="dcard"><div class="dc-t">오늘의 흐름<b>${isSchoolDay ? `${tt.teacher} · ${tt.week}주차` : '주말'}</b></div>${tl}</div>
+  return { title: '오늘', html: `<div class="dgrid today">${big}<div class="dcol"><div class="dcard"><div class="dc-t">오늘의 흐름<b>${isSchoolDay ? `${tt.teacher} · ${tt.week}주차` : (d.getDay() % 6 === 0 ? '주말' : '시간표 갱신 대기')}</b></div>${tl}</div>
     <div class="dcard"><div class="dc-t">오늘 일정<b>${todays.length}건</b></div><div class="dlist">${list}</div></div></div></div>` };
 }
 
@@ -162,12 +163,18 @@ function viewEvents() {
   const now = new Date(), y = now.getFullYear(), m = now.getMonth();
   const sel = calSel || now.toDateString();
   const byDay = {};
+  const first = new Date(y, m, 1), start = new Date(y, m, 1 - first.getDay());
   eventsCache.forEach(e => {
     const s = new Date(e.start);
-    if (e.all_day && e.end) { for (let d = new Date(s); d < new Date(e.end); d.setDate(d.getDate() + 1)) (byDay[d.toDateString()] ||= []).push(e); }
-    else (byDay[s.toDateString()] ||= []).push(e);
+    if (e.all_day && e.end) {
+      const en = new Date(e.end), days = Math.round((en - s) / 864e5);
+      if (days > 3) {   // 장기 일정: 첫 표시일 한 번만, 종료일 표기
+        const d0 = s < start ? new Date(start) : s;
+        const last = new Date(en.getTime() - 864e5);
+        (byDay[d0.toDateString()] ||= []).push({ ...e, title: `${e.title} ~${last.getMonth() + 1}/${last.getDate()}`, long: true });
+      } else for (let d = new Date(s); d < en; d.setDate(d.getDate() + 1)) (byDay[d.toDateString()] ||= []).push(e);
+    } else (byDay[s.toDateString()] ||= []).push(e);
   });
-  const first = new Date(y, m, 1), start = new Date(y, m, 1 - first.getDay());
   const weeks = Math.ceil((first.getDay() + new Date(y, m + 1, 0).getDate()) / 7);
   let cal = '<div class="bcal">' + WD.map(w => `<div class="wk">${w}</div>`).join('');
   for (let i = 0; i < weeks * 7; i++) {
@@ -181,10 +188,10 @@ function viewEvents() {
   const evs = byDay[sel] || [];
   const row = e => { const s = new Date(e.start), en = e.end ? new Date(e.end) : s;
     return `<div class="dli ${!e.all_day && now >= s && now < en ? 'now' : ''} ${e.local ? 'local' : ''}"><span class="t">${e.all_day ? '종일' : pad(s.getHours()) + ':' + pad(s.getMinutes())}</span>
-      <span class="n">${esc(e.title)}${e.location ? ` <small class="muted">· ${esc(e.location)}</small>` : ''}</span>${e.local ? `<button class="del" data-del="${e.id}" title="삭제">✕</button>` : ''}</div>`; };
+      <span class="n">${esc(e.title)}${e.location && !e.title.includes(e.location) ? ` <small class="muted">· ${esc(e.location)}</small>` : ''}</span>${e.tag ? `<small class="tag">${esc(e.tag)}</small>` : ''}${e.local ? `<button class="del" data-del="${e.id}" title="삭제">✕</button>` : ''}</div>`; };
   const list = evs.length ? evs.map(row).join('') : '<div class="dli muted">일정 없음</div>';
   const upcoming = eventsCache.filter(e => new Date(e.start) > new Date(sd.getTime() + 864e5)).slice(0, 8).map(e => { const s = new Date(e.start);
-    return `<div class="dli ${e.local ? 'local' : ''}"><span class="t">${s.getMonth() + 1}/${s.getDate()} ${WD[s.getDay()]}</span><span class="n">${esc(e.title)}</span></div>`; }).join('');
+    return `<div class="dli ${e.local ? 'local' : ''}"><span class="t">${s.getMonth() + 1}/${s.getDate()} ${WD[s.getDay()]}</span><span class="n">${esc(e.title)}</span>${e.tag ? `<small class="tag">${esc(e.tag)}</small>` : ''}</div>`; }).join('');
   const selIso = `${sd.getFullYear()}-${pad(sd.getMonth() + 1)}-${pad(sd.getDate())}`;
   const form = `<form id="evForm" class="evform" autocomplete="off">
       <input id="evTitle" placeholder="일정 제목" value="${esc(evDraft.title)}" maxlength="80">
@@ -196,6 +203,26 @@ function viewEvents() {
     <div class="dcard"><div class="dc-t">${label}<b>${evs.length}건</b></div><div class="dlist">${list}</div></div>
     <div class="dcard"><div class="dc-t">이후 일정</div><div class="dlist">${upcoming || '<div class="dli muted">없음</div>'}</div></div>
     <div class="dcard"><div class="dc-t">일정 추가<b style="font-size:15px;color:${evMsg ? 'var(--accent)' : 'var(--muted)'}">${esc(evMsg || '이 PC에 저장 · ✎ 표시')}</b></div>${form}</div></div></div>` };
+}
+
+/* ---------- 학교일정 상세: 부서별 필터 + 학사일정 ---------- */
+function viewSchool() {
+  const now = new Date(), today0 = new Date(now.toDateString());
+  const all = eventsCache.filter(e => e.source === 'school'), acad = eventsCache.filter(e => e.source === 'academic');
+  const depts = [...new Set(all.map(e => e.tag).filter(Boolean))];
+  const list = (schoolDept ? all.filter(e => e.tag === schoolDept) : all).filter(e => (e.end ? new Date(e.end) : new Date(e.start)) > today0);
+  const btns = `<div class="wnav deptbar"><button data-dept="" class="${schoolDept ? '' : 'today'}">전체</button>${depts.map(x => `<button data-dept="${esc(x)}" class="${schoolDept === x ? 'today' : ''}">${esc(x)}</button>`).join('')}</div>`;
+  let html = '', lastDay = '';
+  for (const e of list) {
+    const s = new Date(e.start), en = e.end ? new Date(e.end) : s;
+    const key = (s < today0 ? today0 : s).toDateString();
+    if (key !== lastDay) { const k = new Date(key), diff = Math.round((k - today0) / 864e5); html += `<div class="day">${diff === 0 ? '오늘' : diff === 1 ? '내일' : `${k.getMonth() + 1}/${k.getDate()} ${WD[k.getDay()]}요일`}</div>`; lastDay = key; }
+    const days = e.all_day ? Math.round((en - s) / 864e5) : 1, last = new Date(en.getTime() - 864e5);
+    html += `<div class="dli"><span class="t">${e.all_day ? '종일' : pad(s.getHours()) + ':' + pad(s.getMinutes())}</span><span class="n">${esc(e.title)}${days > 1 ? ` <small class="muted">~${last.getMonth() + 1}/${last.getDate()}</small>` : ''}${e.manager ? ` <small class="muted">· ${esc(e.manager)}</small>` : ''}</span><small class="tag">${esc(e.tag || '')}</small></div>`;
+  }
+  const ac = acad.filter(e => new Date(e.end || e.start) > today0).map(e => { const s = new Date(e.start); return `<div class="dli academic"><span class="t">${s.getMonth() + 1}/${s.getDate()} ${WD[s.getDay()]}</span><span class="n">${esc(e.title)}</span><small class="tag">${esc(e.tag || '')}</small></div>`; }).join('');
+  return { title: '학교일정', html: `<div class="dgrid ev one"><div class="dcard">${btns}<div class="dlist">${html || '<div class="dli muted">해당 일정 없음</div>'}</div></div>
+    <div class="dcard"><div class="dc-t">학사일정<b>${acad.length}건</b></div><div class="dlist">${ac || '<div class="dli muted">없음</div>'}</div></div></div>` };
 }
 
 /* ---------- 메시지 상세 ---------- */
@@ -261,6 +288,7 @@ window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { evMsg = ''; if (detailKind === 'events') renderDetail(); }, 3000);
   });
   $('dbody').addEventListener('click', async e => {
+    const dp = e.target.closest('[data-dept]'); if (dp) { schoolDept = dp.dataset.dept; renderDetail(); return; }
     if (e.target.closest('[data-msgclear]')) { await pywebview.api.clear_messages(); await loadMessages(); return; }
     const del = e.target.closest('[data-del]'); if (del) { await pywebview.api.delete_event(del.dataset.del); await loadEvents(); renderDetail(); return; }
     const c = e.target.closest('.bcal .c'); if (c) { calSel = c.dataset.k; evDraft.date = ''; renderDetail(); return; }

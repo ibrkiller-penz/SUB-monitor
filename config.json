@@ -10,6 +10,7 @@
     ""
   ],
   "calendar_days": 31,
+  "school_schedule_url": "https://script.google.com/macros/s/AKfycbyem8A1J8rDBozMyMTTdBv7QAFgyDjuT2ns0PFCNaxxS_bUDfn20aoEYwAdKl1KoCMS/exec",
   "panels": [
     "weather",
     "tt",

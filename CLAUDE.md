@@ -30,6 +30,8 @@ Windows PC 옆에 두는 가로 스트립 디스플레이용 Python(pywebview) �
 - **확정됨(직장 PC 실측, 커밋 b3fdf0c)**: `%LOCALAPPDATA%/CoolMessenger/Memo/<로그인명>.udb` (SQLite, WAL). `tbl_recv` 컬럼: MessageKey, Sender, Title, MessageText(평문), MessageBody({COMP} base64→zlib→UTF-16LE HTML), ReceiveDate, IsUnRead(1=안읽음), DeletedDate 등. `config.json > udb` 채워져 있고 실제 읽기 확인됨. 패널은 최근 쪽지를 보여주고 배지는 IsUnRead=1 개수(현재 수신함은 전부 읽음 상태라 0).
 - 화면은 1920×440(가로) 또는 440×1920(세로) **고정 무대(#stage)** 를 창 크기에 맞춰 `transform: scale`로 축소·확대한다(DPI 배율·일반 창 모두 대응). 방향은 설정(⚙)에서 고르고 `orientation`으로 저장, `body.portrait`로 세로 레이아웃.
 - 패널 폭에 따라 `@container` 쿼리로 글자·항목을 줄인다(스타일 끝에 있어야 기본 규칙을 덮어씀).
+- 학교일정: `school_schedule_url`(Apps Script 웹앱)의 페이지 안 `init-data` JSON(역슬래시-x 이스케이프)을 `_parse_school_page`로 풀어 `schedules`(부서 일정)·`academic`(학사)을 이벤트로 변환, `~/.lesown_dashboard/school_schedule.json`에 30분 캐시. 이벤트의 `source`: local / ical / school / academic, `tag`: 부서 또는 학사 유형.
+- 패널은 시계 제외 최대 4개(`MAX_PANELS`), 시계 아래 요약 칩은 `summary` 설정(exam/next/duty/weather/msg/events/school).
 - 허브 패널 표시 여부는 설정(⚙)에서 고르고 `config.json`의 `panels`에 저장. PC 상태는 시계 아래 한 줄(`#pcMini`)로도 항상 보임.
 
 ## 아직 확인 못 한 것

@@ -30,7 +30,7 @@
     background: linear-gradient(90deg, rgba(0,0,0,.45), rgba(0,0,0,.15) 40%, rgba(0,0,0,.15) 60%, rgba(0,0,0,.45)); }
   #root { position: relative; display: flex; height: 440px; padding: 14px; gap: 14px; }
   #root > .panel { flex: var(--w, 1) 1 0; container-type: inline-size; }
-  #clock { --w: 330; } #weather { --w: 380; } #tt { --w: 580; } #eventsPanel { --w: 340; } #msg { --w: 300; } #pc { --w: 248; }
+  #clock { --w: 330; } #weather { --w: 380; } #tt { --w: 580; } #eventsPanel { --w: 340; } #school { --w: 360; } #msg { --w: 300; } #pc { --w: 248; }
   #root > .panel.off { display: none; }
   /* 우상단 고정 버튼 (설정·종료) */
   #topbar { position: absolute; bottom: 8px; right: 8px; z-index: 6; display: flex; gap: 4px; }
@@ -142,8 +142,7 @@
   #ttPick select { font-size: 20px; padding: 6px 10px; border-radius: 8px; background: rgba(0,0,0,.4); color: var(--text); border: 1px solid var(--line); }
 
   /* 일정 */
-  #events { overflow-y: auto; flex: 1; scrollbar-width: none; }
-  #events::-webkit-scrollbar { display: none; }
+  #events, #schoolList { overflow: hidden; flex: 1; min-height: 0; }
   .day { font-size: 15px; color: var(--accent); margin: 10px 0 2px; font-weight: 600; letter-spacing: .05em; }
   .day:first-child { margin-top: 0; }
   .ev { display: flex; gap: 10px; padding: 6px 0; font-size: 20px; align-items: baseline; }
@@ -153,6 +152,8 @@
   .ev.now .n { color: var(--accent); font-weight: 600; }
   .ev.past { opacity: .55; }
   .ev.local .n::before { content: '✎ '; color: var(--accent); font-size: 13px; }
+  .ev .tag { flex: none; font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ev.academic .tag { color: var(--accent); border-color: rgba(244,162,89,.4); }
 
   /* PC */
   .ring-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 6px; justify-items: center; }
@@ -191,13 +192,16 @@
   #modal { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 10; }
   #modal.on { display: flex; }
   #modal .box { width: 520px; background: rgba(30,22,16,.92); border: 1px solid var(--line); border-radius: 18px; padding: 22px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
-  #modal h3 { font-size: 23px; font-weight: 600; margin-bottom: 14px; }
-  #modal label { font-size: 17px; color: var(--muted); display: block; margin-bottom: 6px; }
-  #modal .chk { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 4px 0 16px; }
+  #modal h3 { font-size: 21px; font-weight: 600; margin-bottom: 8px; }
+  #modal label { font-size: 16px; color: var(--muted); display: block; margin-bottom: 4px; }
+  #modal .chk { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 2px 0 10px; }
   #modal .chk label { display: flex; align-items: center; gap: 6px; color: var(--text); font-size: 17px; margin: 0; cursor: pointer; }
   #modal .chk input { width: 20px; height: 20px; accent-color: var(--accent); }
+  #modal .chk label.dis { opacity: .4; }
+  #modal .hint { font-size: 13px; color: var(--muted); margin: -6px 0 10px; }
+  #modal .box { max-height: 416px; overflow: auto; width: 640px; padding: 16px 22px; }
   #modal select { width: 100%; font: inherit; font-size: 20px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.4); color: var(--text); border: 1px solid var(--line); }
-  #modal .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  #modal .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
   #modal button { font: inherit; font-size: 18px; padding: 8px 16px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--text); cursor: pointer; }
   #modal button.pri { background: var(--accent); color: #1a120c; border-color: transparent; font-weight: 600; }
   /* 패널이 좁아지면(모든 패널을 켠 경우 등) 글자·항목 축소 */
@@ -246,8 +250,20 @@
     <label><input type="checkbox" value="weather"> 날씨</label>
     <label><input type="checkbox" value="tt"> 시간표</label>
     <label><input type="checkbox" value="events"> 일정</label>
+    <label><input type="checkbox" value="school"> 학교일정</label>
     <label><input type="checkbox" value="msg"> 쿨메시지</label>
     <label><input type="checkbox" value="pc"> PC 상태</label>
+  </div>
+  <div class="hint" id="panelHint">시계 제외 최대 4개까지 (더 켜면 칸이 너무 좁아짐)</div>
+  <label>시계 아래 요약 (최대 4개)</label>
+  <div class="chk" id="setSummary">
+    <label><input type="checkbox" value="exam"> 학사일정(시험·행사)</label>
+    <label><input type="checkbox" value="next"> 다음 수업</label>
+    <label><input type="checkbox" value="duty"> 지도 배정</label>
+    <label><input type="checkbox" value="weather"> 날씨 한 줄</label>
+    <label><input type="checkbox" value="msg"> 쿨메시지 안읽음</label>
+    <label><input type="checkbox" value="events"> 오늘 일정 수</label>
+    <label><input type="checkbox" value="school"> 다음 학교일정</label>
   </div>
   <label for="setTeacher">교사 선택</label>
   <select id="setTeacher"></select>
@@ -282,6 +298,11 @@
     <div class="ptitle"><span class="k">일정</span><span id="eupd"></span></div>
     <div id="events"><div class="muted">불러오는 중…</div></div>
     <div id="cal"></div>
+  </section>
+
+  <section class="panel" id="school">
+    <div class="ptitle"><span class="k">학교일정</span><span id="schoolCnt"></span></div>
+    <div id="schoolList" class="evlist"><div class="muted">불러오는 중…</div></div>
   </section>
 
   <section class="panel" id="msg">
@@ -354,7 +375,7 @@ function tickClock() {
   const d = new Date(), h = d.getHours();
   $('time').innerHTML = `${pad(h % 12 || 12)}:${pad(d.getMinutes())}<span>${pad(d.getSeconds())}</span>`;
   $('ampm').textContent = h < 12 ? '오전' : '오후';
-  $('date').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일`;
+  $('date').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 (${WD[d.getDay()]})`;
   applyMonth();
   if (window.tickDetail) tickDetail(d);
 }
@@ -425,16 +446,25 @@ function changeWeek(delta) {
   ttWeekSel = w === tt.currentWeek - 1 ? null : w; ttWeekAt = Date.now(); ttRetry = 0;
   loadTimetable();
 }
-let panelsOn = ['weather', 'tt', 'events', 'msg'];
+let panelsOn = ['weather', 'tt', 'events', 'msg'], summaryOn = ['exam', 'next', 'duty', 'msg'], MAX_PANELS = 4;
 function applyPanels() {
-  ['weather', 'tt', 'eventsPanel', 'msg', 'pc'].forEach(id => $(id).classList.toggle('off', !panelsOn.includes(id === 'eventsPanel' ? 'events' : id)));
+  panelsOn = panelsOn.slice(0, MAX_PANELS);
+  ['weather', 'tt', 'eventsPanel', 'school', 'msg', 'pc'].forEach(id => $(id).classList.toggle('off', !panelsOn.includes(id === 'eventsPanel' ? 'events' : id)));
+  renderEvents(); renderSchool(); renderTodayBox();
   setTimeout(fitAll, 50);
+}
+function limitChecks(box, max) {   // 체크 개수 제한: max 개가 되면 나머지는 비활성
+  const inputs = [...box.querySelectorAll('input[type=checkbox]')];
+  const n = inputs.filter(i => i.checked).length;
+  inputs.forEach(i => { i.disabled = !i.checked && n >= max; i.parentElement.classList.toggle('dis', i.disabled); });
 }
 function openSettings() {
   const list = (tt && tt.teachers) || teacherList;
   const cur = tt ? tt.teacher : '';
   $('setTeacher').innerHTML = list.map(t => `<option ${t === cur ? 'selected' : ''}>${esc(t)}</option>`).join('');
-  $('modal').querySelectorAll('.chk input[type=checkbox]').forEach(i => i.checked = panelsOn.includes(i.value));
+  $('modal').querySelectorAll('.chk:not(#setSummary):not(#setOrient) input[type=checkbox]').forEach(i => i.checked = panelsOn.includes(i.value));
+  $('setSummary').querySelectorAll('input').forEach(i => i.checked = summaryOn.includes(i.value));
+  limitChecks($('modal').querySelector('.chk:not(#setSummary):not(#setOrient)'), MAX_PANELS); limitChecks($('setSummary'), 4);
   $('modal').querySelectorAll('input[name=orient]').forEach(i => i.checked = (document.body.classList.contains('portrait') ? 'portrait' : 'landscape') === i.value);
   $('modal').classList.add('on');
 }
@@ -488,22 +518,31 @@ function renderTimetable() {
   renderTodayBox();
 }
 function renderTodayBox() {
-  if (!tt) return;
-  const d = tt.days[tt.today], chips = [];
-  const isToday = WD[new Date().getDay()] === tt.today;
-  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-  if (d.title) chips.push(`<span class="tchip hl">📌 ${esc(d.title)}</span>`);
-  if (isToday) {
-    const next = PERIODS.find(([p, s]) => typeof p === 'number' && toMin(s) > nowMin
-      && ['class', 'sub', 'dangyeo'].includes((d.periods[p - 1] || {}).type));
-    if (next) { const c = d.periods[next[0] - 1]; chips.push(`<span class="tchip">다음 수업 <b>${next[0]}교시 ${esc(c.subject)}</b> ${esc(c.room)} · ${next[1]}</span>`); }
-    else if (nowMin < toMin('16:30')) chips.push(`<span class="tchip">오늘 남은 수업 없음</span>`);
-  } else {
-    chips.push(`<span class="tchip">${tt.today}요일 시간표 표시 중</span>`);
+  const chips = [], now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes(), today0 = new Date(now.toDateString());
+  const d = tt ? tt.days[tt.today] : null, isToday = tt && WD[now.getDay()] === tt.today;
+  for (const k of summaryOn) {
+    if (k === 'exam' && d && d.title) chips.push(`<span class="tchip hl">📌 ${esc(d.title)}</span>`);
+    if (k === 'next' && d) {
+      if (isToday) {
+        const next = PERIODS.find(([p, s]) => typeof p === 'number' && toMin(s) > nowMin && ['class', 'sub', 'dangyeo'].includes((d.periods[p - 1] || {}).type));
+        if (next) { const c = d.periods[next[0] - 1]; chips.push(`<span class="tchip">다음 수업 <b>${next[0]}교시 ${esc(shortName(c.subject))}</b> ${esc(shortName(c.room))} · ${next[1]}</span>`); }
+        else if (nowMin < toMin('16:30')) chips.push(`<span class="tchip">오늘 남은 수업 없음</span>`);
+      } else chips.push(`<span class="tchip">${tt.today}요일 시간표 (갱신 대기)</span>`);
+    }
+    if (k === 'duty' && d) { d.jido.forEach(j => chips.push(`<span class="tchip">🛡 ${j.period}교시 공강지도 · ${esc(j.target)}</span>`)); if (d.lunchDuty) chips.push(`<span class="tchip">🍱 점심 급식지도</span>`); }
+    if (k === 'weather' && weatherData && weatherData.current) { const c = weatherData.current, [ic, ds] = wmo(c.weather_code, c.is_day); const pp = weatherData.daily && weatherData.daily.precipitation_probability_max ? weatherData.daily.precipitation_probability_max[0] : null;
+      chips.push(`<span class="tchip">${ic} <b>${Math.round(c.temperature_2m)}°</b> ${ds}${pp != null ? ` · 비 ${pp}%` : ''}</span>`); }
+    if (k === 'msg' && msgData.count) chips.push(`<span class="tchip hl">✉ 쿨메시지 안읽음 <b>${msgData.count}</b>건</span>`);
+    if (k === 'events') { const todays = eventsCache.filter(e => e.source !== 'school' && e.source !== 'academic' && new Date(e.start) < new Date(today0.getTime() + 864e5) && (e.end ? new Date(e.end) : new Date(e.start)) > today0);
+      const nx = todays.find(e => !e.all_day && new Date(e.start) > now);
+      chips.push(`<span class="tchip">오늘 일정 <b>${todays.length}</b>건${nx ? ` · ${pad(new Date(nx.start).getHours())}:${pad(new Date(nx.start).getMinutes())} ${esc(nx.title)}` : ''}</span>`); }
+    if (k === 'school') {
+      const sch = eventsCache.filter(e => e.source === 'school' && (e.end ? new Date(e.end) : new Date(e.start)) > now);
+      const nx = sch.find(e => new Date(e.start) >= today0) || sch[0];
+      if (nx) { const s = new Date(nx.start), en = new Date(nx.end || nx.start), ongoing = s < today0; const last = new Date(en.getTime() - 864e5);
+        chips.push(`<span class="tchip">🏫 ${ongoing ? `~${last.getMonth() + 1}/${last.getDate()}` : `${s.getMonth() + 1}/${s.getDate()}`} ${esc(nx.title)}</span>`); } }
   }
-  d.jido.forEach(j => chips.push(`<span class="tchip">🛡 ${j.period}교시 공강지도 · ${esc(j.target)}</span>`));
-  if (d.lunchDuty) chips.push(`<span class="tchip">🍱 점심 급식지도</span>`);
-  $('todayBox').innerHTML = chips.slice(0, 3).join('');
+  $('todayBox').innerHTML = chips.slice(0, 4).join('');
 }
 
 /* ---------- 일정 ---------- */
@@ -517,9 +556,10 @@ async function loadEvents() {
 }
 function renderEvents() {
   const now = new Date(), today0 = new Date(now.toDateString());
-  if (!eventsCache.length) { $('events').innerHTML = `<div class="muted">예정된 일정이 없습니다.</div>`; renderCal(); return; }
+  const list = panelsOn.includes('school') ? eventsCache.filter(e => e.source !== 'school') : eventsCache;
+  if (!list.length) { $('events').innerHTML = `<div class="muted">예정된 일정이 없습니다.</div>`; renderCal(); return; }
   let html = '', lastDay = '';
-  for (const e of eventsCache) {
+  for (const e of list) {
     const s = new Date(e.start), en = e.end ? new Date(e.end) : s;
     if (en <= today0) continue;
     const key = (s < today0 ? today0 : s).toDateString();
@@ -529,12 +569,14 @@ function renderEvents() {
       lastDay = key;
     }
     const cls = e.all_day ? '' : (now >= s && now < en ? 'now' : now >= en ? 'past' : '');
-    html += `<div class="ev ${cls} ${e.local ? 'local' : ''}"><span class="t">${e.all_day ? '종일' : `${pad(s.getHours())}:${pad(s.getMinutes())}`}</span>
-      <span class="n">${esc(e.title)}</span></div>`;
+    const days = e.all_day ? Math.round((en - s) / 864e5) : 1, last = new Date(en.getTime() - 864e5);
+    const title = days > 1 ? `${e.title} ~${last.getMonth() + 1}/${last.getDate()}` : e.title;
+    html += `<div class="ev ${cls} ${e.local ? 'local' : ''} ${e.source || ''}"><span class="t">${e.all_day ? '종일' : `${pad(s.getHours())}:${pad(s.getMinutes())}`}</span>
+      <span class="n">${esc(title)}</span>${e.tag ? `<small class="tag">${esc(e.tag)}</small>` : ''}</div>`;
   }
   if (eventsErr) html += `<div class="err" style="margin-top:8px;font-size:15px">일부 캘린더 오류</div>`;
   $('events').innerHTML = html;
-  renderCal();
+  renderCal(); renderSchool(); renderTodayBox();
   if (window.onDataChange) onDataChange('events');
 }
 function renderCal() {
@@ -550,6 +592,32 @@ function renderCal() {
     g += `<span class="${cls}">${d.getDate()}</span>`;
   }
   $('cal').innerHTML = `<div class="mh"><span>${y}년 ${m + 1}월</span></div><div class="g">${g}</div>`;
+}
+
+/* ---------- 학교일정 패널 (부서 일정 + 학사일정) ---------- */
+function renderSchool() {
+  if (!$('school') || $('school').classList.contains('off')) return;
+  const now = new Date(), today0 = new Date(now.toDateString());
+  const list = eventsCache.filter(e => e.source === 'school' || e.source === 'academic');
+  const todayN = list.filter(e => { const s = new Date(e.start), en = e.end ? new Date(e.end) : s; return s < new Date(today0.getTime() + 864e5) && en > today0; }).length;
+  $('schoolCnt').textContent = todayN ? `오늘 ${todayN}건` : '';
+  if (!list.length) { $('schoolList').innerHTML = `<div class="muted">학교 일정 없음</div>`; return; }
+  let html = '', lastDay = '';
+  for (const e of list) {
+    const s = new Date(e.start), en = e.end ? new Date(e.end) : s;
+    if (en <= today0) continue;
+    const key = (s < today0 ? today0 : s).toDateString();
+    if (key !== lastDay) {
+      const diff = Math.round((new Date(key) - today0) / 864e5), k = new Date(key);
+      html += `<div class="day">${diff === 0 ? '오늘' : diff === 1 ? '내일' : `${k.getMonth() + 1}/${k.getDate()} ${WD[k.getDay()]}`}</div>`;
+      lastDay = key;
+    }
+    const days = e.all_day ? Math.round((en - s) / 864e5) : 1, last = new Date(en.getTime() - 864e5);
+    const title = days > 1 ? `${e.title} ~${last.getMonth() + 1}/${last.getDate()}` : e.title;
+    html += `<div class="ev ${e.source}"><span class="t">${e.all_day ? '종일' : `${pad(s.getHours())}:${pad(s.getMinutes())}`}</span>
+      <span class="n">${esc(title)}</span>${e.tag ? `<small class="tag">${esc(e.tag)}</small>` : ''}</div>`;
+  }
+  $('schoolList').innerHTML = html;
 }
 
 /* ---------- PC ---------- */
@@ -600,6 +668,7 @@ async function loadMessages() {
 }
 function renderMessages() {
   const b = $('msgBadge'); b.textContent = msgData.count; b.className = 'badge' + (msgData.count ? '' : ' zero');
+  renderTodayBox();
   if (!msgData.items.length) {
     $('msgList').innerHTML = `<div id="msgEmpty">${msgData.source === 'none'
       ? '새 메시지 없음<br><small>' + esc(msgData.error || '쿨메신저 알림을 기다리는 중') + '</small>' : '수신 쪽지 없음'}</div>`;
@@ -617,12 +686,15 @@ function fitAll() {
     while (el.scrollWidth > el.clientWidth && fs > min) { fs -= 1; el.style.fontSize = fs + 'px'; }
   });
   // 세로 넘침: 목록은 스크롤 대신 아래 항목을 숨김 (허브 일정, 상세 목록)
-  document.querySelectorAll('#events, #msgList, .dlist').forEach(ev => {
+  document.querySelectorAll('#events, #schoolList, #msgList, .dlist').forEach(ev => {
     [...ev.children].forEach(c => c.style.display = '');
     if (ev.scrollHeight > ev.clientHeight) {
       const kids = [...ev.children];
       for (let i = kids.length - 1; i > 0 && ev.scrollHeight > ev.clientHeight; i--) kids[i].style.display = 'none';
     }
+    // 뒤따르는 항목이 모두 숨겨진 날짜 헤더도 숨김
+    const kids = [...ev.children];
+    kids.forEach((c, i) => { if (c.classList.contains('day')) { const nxt = kids[i + 1]; if (!nxt || nxt.style.display === 'none' || nxt.classList.contains('day')) c.style.display = 'none'; } });
   });
 }
 if (document.fonts) document.fonts.ready.then(fitAll);
@@ -652,7 +724,10 @@ tickClock(); setInterval(tickClock, 1000);
 window.addEventListener('pywebviewready', async () => {
   const cfg = await pywebview.api.get_config();
   weatherName = cfg.weather_name; $('wname').textContent = cfg.weather_name;
+  if (cfg.max_panels) MAX_PANELS = cfg.max_panels;
+  if (Array.isArray(cfg.summary)) summaryOn = cfg.summary;
   if (Array.isArray(cfg.panels)) panelsOn = cfg.panels; applyPanels();
+  $('modal').addEventListener('change', e => { const box = e.target.closest('.chk'); if (box && box.id !== 'setOrient') limitChecks(box, box.id === 'setSummary' ? 4 : MAX_PANELS); });
   setOrientation(cfg.orientation || 'landscape');
   $('closeBtn').onclick = () => pywebview.api.close();
   $('gear').onclick = openSettings;
@@ -662,7 +737,9 @@ window.addEventListener('pywebviewready', async () => {
   $('ttToday').onclick = () => { ttWeekSel = null; ttRetry = 0; loadTimetable(); };
   $('setSave').onclick = async () => {
     const name = $('setTeacher').value;
-    panelsOn = [...$('modal').querySelectorAll('.chk input[type=checkbox]:checked')].map(i => i.value);
+    panelsOn = [...$('modal').querySelectorAll('.chk:not(#setSummary):not(#setOrient) input[type=checkbox]:checked')].map(i => i.value).slice(0, MAX_PANELS);
+    summaryOn = [...$('setSummary').querySelectorAll('input:checked')].map(i => i.value).slice(0, 4);
+    if (pywebview.api.set_summary) await pywebview.api.set_summary(summaryOn);
     const orient = ($('modal').querySelector('input[name=orient]:checked') || {}).value || 'landscape';
     closeSettings();
     await pywebview.api.set_panels(panelsOn); applyPanels();

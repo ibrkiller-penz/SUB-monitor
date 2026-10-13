@@ -3,6 +3,7 @@
 시계 · 날씨 · 시간표(웹) · 구글 캘린더 일정 · PC 상태를 한 화면에 표시한다.
 """
 import json
+import re
 import subprocess
 import sys
 import threading
@@ -44,7 +45,7 @@ def log(msg):
 
 
 LOCAL_CONFIG = CONFIG_PATH.with_name("config.local.json")   # 이 PC·이 교사만의 설정 (git 에 안 올라감)
-LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation")
+LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary")
 
 
 def load_config():
@@ -102,6 +103,9 @@ class Api:
                 time.sleep(1)
 
     DEFAULT_PANELS = ["weather", "tt", "events", "msg"]
+    PANEL_IDS = ("weather", "tt", "events", "school", "msg", "pc")
+    MAX_PANELS = 4   # 시계 제외. 더 켜면 칸이 너무 좁아진다
+    DEFAULT_SUMMARY = ["exam", "next", "duty", "msg"]
 
     @timed
     def get_config(self):
@@ -109,7 +113,14 @@ class Api:
             "weather_name": self.cfg.get("weather", {}).get("name", ""),
             "panels": self.cfg.get("panels", self.DEFAULT_PANELS),
             "orientation": self.cfg.get("orientation", "landscape"),
+            "summary": self.cfg.get("summary", self.DEFAULT_SUMMARY),
+            "max_panels": self.MAX_PANELS,
         }
+
+    def set_summary(self, items):
+        self.cfg["summary"] = [x for x in items if isinstance(x, str)][:6]
+        save_config(self.cfg)
+        return self.cfg["summary"]
 
     def set_orientation(self, o):
         self.cfg["orientation"] = "portrait" if o == "portrait" else "landscape"
@@ -117,7 +128,7 @@ class Api:
         return self.cfg["orientation"]
 
     def set_panels(self, panels):
-        self.cfg["panels"] = [p for p in panels if p in ("weather", "tt", "events", "msg", "pc")]
+        self.cfg["panels"] = [p for p in panels if p in self.PANEL_IDS][: self.MAX_PANELS]
         save_config(self.cfg)
         return self.cfg["panels"]
 
@@ -320,6 +331,94 @@ class Api:
                             "all_day": False, "location": "", "local": True, "id": x["id"]})
         return out
 
+    # ---- 학교 일정 (Google Apps Script 웹앱, 페이지 안의 init-data JSON) ----
+    SCHOOL_CACHE = DATA_DIR / "school_schedule.json"
+
+    @staticmethod
+    def _parse_school_page(html):
+        """Apps Script 샌드박스 페이지 안에 역슬래시-x 로 이스케이프된 사용자 HTML 에서 init-data JSON 을 꺼낸다."""
+        i = html.find("init-data")
+        if i < 0:
+            raise ValueError("init-data 없음")
+        seg = html[max(0, i - 200): i + 400000]
+
+        def unesc(s):
+            s = re.sub(r"\\x([0-9a-fA-F]{2})", lambda m: chr(int(m.group(1), 16)), s)
+            return s.replace("\\\\", "\\").replace("\\/", "/").replace("\\'", "'").replace('\\"', '"')
+        dec = seg
+        for _ in range(3):
+            dec = unesc(dec)
+            m = re.search(r'<script id="init-data" type="application/json">(.*?)</script>', dec, re.S)
+            if m:
+                try:
+                    return json.JSONDecoder().raw_decode(m.group(1).strip())[0]
+                except Exception:
+                    continue
+        raise ValueError("init-data JSON 해석 실패")
+
+    def _school_data(self):
+        url = (self.cfg.get("school_schedule_url") or "").strip()
+        if not url:
+            return None
+        try:
+            st = self.SCHOOL_CACHE.stat()
+            if time.time() - st.st_mtime < 30 * 60:
+                return json.loads(self.SCHOOL_CACHE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+        try:
+            r = requests.get(url, timeout=20, allow_redirects=True)
+            r.raise_for_status()
+            data = self._parse_school_page(r.text)
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            self.SCHOOL_CACHE.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            return data
+        except Exception as e:
+            log(f"school schedule fetch failed: {e}")
+            try:
+                return json.loads(self.SCHOOL_CACHE.read_text(encoding="utf-8"))
+            except Exception:
+                raise
+
+    def _school_events(self, start, end):
+        data = self._school_data()
+        if not data:
+            return []
+        out = []
+        for s in data.get("schedules", []):
+            try:
+                d0 = date.fromisoformat(str(s.get("startDate", ""))[:10])
+            except Exception:
+                continue
+            try:
+                d1 = date.fromisoformat(str(s.get("endDate") or s.get("startDate"))[:10])
+            except Exception:
+                d1 = d0
+            if d1 < start - timedelta(days=1) or d0 > end:
+                continue
+            t = str(s.get("time") or "").strip()
+            title = str(s.get("title") or "").strip()
+            extra = " · ".join(x for x in (t if not re.match(r"^\d{1,2}:\d{2}", t) else "", str(s.get("place") or "").strip()) if x)
+            ev = {"title": title + (f" ({extra})" if extra else ""), "location": str(s.get("place") or ""),
+                  "source": "school", "tag": str(s.get("dept") or ""), "manager": str(s.get("manager") or ""), "id": f"s{s.get('id')}"}
+            m = re.match(r"^(\d{1,2}):(\d{2})", t)
+            if m and d0 == d1:
+                st = datetime.combine(d0, datetime.min.time()).replace(hour=int(m.group(1)), minute=int(m.group(2)))
+                ev.update(start=st.isoformat(), end=(st + timedelta(hours=1)).isoformat(), all_day=False)
+            else:
+                ev.update(start=d0.isoformat(), end=(d1 + timedelta(days=1)).isoformat(), all_day=True)
+            out.append(ev)
+        for x in data.get("academic", []):
+            try:
+                d0 = date.fromisoformat(str(x.get("date", ""))[:10])
+            except Exception:
+                continue
+            if d0 < start - timedelta(days=1) or d0 > end:
+                continue
+            out.append({"title": str(x.get("name") or ""), "start": d0.isoformat(), "end": (d0 + timedelta(days=1)).isoformat(),
+                        "all_day": True, "location": "", "source": "academic", "tag": str(x.get("type") or "학사"), "id": f"a{d0}"})
+        return out
+
     @timed
     def get_events(self):
         urls = [u for u in self.cfg.get("ical_urls", []) if u.strip()]
@@ -327,9 +426,13 @@ class Api:
         end = start + timedelta(days=int(self.cfg.get("calendar_days", 7)))
         events = self._local_events(start, end)
         errors = []
+        try:
+            events += self._school_events(start, end)
+        except Exception as e:
+            errors.append(f"학교 일정: {e}")
         if not urls:
             events.sort(key=lambda x: (x["start"][:10], not x["all_day"], x["start"]))
-            return {"events": events, "error": None if events else "config.json 의 ical_urls 에 구글 캘린더 iCal 주소를 넣거나, 일정 상세에서 직접 입력하세요."}
+            return {"events": events, "error": "; ".join(errors) if errors else (None if events else "일정이 없습니다. 일정 상세에서 직접 입력하거나 config 에 캘린더 주소를 넣으세요.")}
         import icalendar
         import recurring_ical_events
 
