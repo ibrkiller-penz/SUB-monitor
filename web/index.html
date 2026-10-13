@@ -41,7 +41,7 @@
   body.detail #topbar { display: none; }
   /* 시계 아래 PC 한 줄 */
   #pcMini { flex: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 15px; color: var(--muted); display: flex; gap: 12px;
-    white-space: nowrap; cursor: pointer; font-variant-numeric: tabular-nums; }
+    white-space: nowrap; overflow: hidden; cursor: pointer; font-variant-numeric: tabular-nums; }
   #pcMini b { color: var(--text); font-weight: 500; }
   /* 메시지 패널 */
   #msgList { flex: 1; min-height: 0; overflow: hidden; }
@@ -204,8 +204,8 @@
   /* 패널이 좁아지면(모든 패널을 켠 경우 등) 글자·항목 축소 */
   @container (max-width: 430px) {
     .ptitle { font-size: 15px; }
-    .wtemp { font-size: 58px; } .wicon { font-size: 56px; } .wnow { gap: 10px; }
-    .wdesc { font-size: 15px; } .wdesc b { font-size: 18px; }
+    .wtemp { font-size: 54px; letter-spacing: -1px; } .wicon { font-size: 50px; } .wnow { gap: 10px; }
+    .wdesc { font-size: 15px; line-height: 1.5; } .wdesc b { font-size: 18px; }
     .wmeta div { font-size: 13px; padding: 5px 2px; } .wmeta b { font-size: 16px; }
     .hourly { font-size: 14px; } .hourly .t { font-size: 16px; } .hourly .i { font-size: 20px; }
     .daily { font-size: 14px; padding-top: 6px; } .daily .i { font-size: 20px; } .daily .pp { display: none; }
@@ -214,8 +214,7 @@
   }
   @container (max-width: 340px) {
     #wupd { display: none; } .wmeta { gap: 4px; } .wmeta div { padding: 4px 1px; font-size: 12px; } .wmeta b { font-size: 15px; }
-    .wnow { flex-wrap: wrap; row-gap: 0; } .wtemp { font-size: 52px; } .wicon { font-size: 46px; }
-    .wdesc { white-space: normal; font-size: 14px; line-height: 1.6; flex: 1 1 100%; margin-top: 4px; } .wdesc b { font-size: 17px; margin-right: 6px; }
+    .wtemp { font-size: 50px; } .wicon { font-size: 44px; } .wdesc { font-size: 14px; } .wdesc b { font-size: 16px; }
   }
   @container (max-width: 500px) {
     .slot .no small { display: none; } .slot .no { font-size: 13px; }
@@ -227,6 +226,7 @@
   @container (max-width: 300px) {
     .ev { font-size: 16px; } .ev .t { font-size: 13px; min-width: 40px; }
     .mi .b { font-size: 16px; } .ring .v b { font-size: 14px; } .ring .v span { font-size: 10px; } .ring-row { gap: 3px; }
+    .spark .lbl { font-size: 12px; white-space: nowrap; gap: 6px; } .spark .lbl span { overflow: hidden; text-overflow: ellipsis; }
   }
 </style>
 <link rel="stylesheet" href="detail.css">
@@ -596,7 +596,7 @@ function renderMessages() {
 
 /* ---------- 넘치는 글자 자동 축소 ---------- */
 function fitAll() {
-  document.querySelectorAll('#time, .sj, .rm, .ev .n, .tchip, #date, #ttWeek, .wdesc b, .net, .spark .lbl span:last-child').forEach(el => {
+  document.querySelectorAll('#time, .sj, .rm, .ev .n, .tchip, #date, #ttWeek, .wdesc b, .net, .spark .lbl span:last-child, #pcMini, #ttFoot, .ptitle > :first-child').forEach(el => {
     el.style.fontSize = '';
     let fs = parseFloat(getComputedStyle(el).fontSize), min = el.classList.contains('rm') ? 13 : fs * 0.6;
     while (el.scrollWidth > el.clientWidth && fs > min) { fs -= 1; el.style.fontSize = fs + 'px'; }
