@@ -162,7 +162,7 @@
   .ring .v b { font-size: 19px; font-variant-numeric: tabular-nums; }
   .ring .v span { font-size: 13px; color: var(--muted); }
   #pcbody { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-  .net { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; font-size: 15px; color: var(--muted); line-height: 1.4; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .net { margin-top: 8px; padding-top: 8px; flex: none; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; font-size: 15px; color: var(--muted); line-height: 1.4; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .net b { color: var(--text); font-weight: 600; }
   /* 시계 아래 오늘 요약 */
   #todayBox { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; text-shadow: none; flex: 0 1 auto; min-height: 0; overflow: hidden; }
@@ -183,9 +183,9 @@
   #cal .g .has::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--accent); }
 
   /* PC 그래프 */
-  .spark { margin-top: 8px; }
+  .spark { margin-top: 8px; flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
   .spark .lbl { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); margin-bottom: 2px; }
-  .spark svg { display: block; width: 100%; height: 28px; }
+  .spark svg { display: block; width: 100%; flex: 1; min-height: 28px; height: auto; }
 
   /* 설정 */
   #modal { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 10; }
