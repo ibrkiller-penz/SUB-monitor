@@ -114,8 +114,17 @@ class Api:
             "panels": self.cfg.get("panels", self.DEFAULT_PANELS),
             "orientation": self.cfg.get("orientation", "landscape"),
             "summary": self.cfg.get("summary", self.DEFAULT_SUMMARY),
+            "school_url": self.cfg.get("school_schedule_url", ""),
             "max_panels": self.MAX_PANELS,
         }
+
+    def open_url(self, url):
+        """기본 브라우저로 링크 열기 (학교 일정 사이트 등)."""
+        import webbrowser
+        if isinstance(url, str) and url.startswith(("http://", "https://")):
+            webbrowser.open(url)
+            return True
+        return False
 
     def set_summary(self, items):
         self.cfg["summary"] = [x for x in items if isinstance(x, str)][:6]

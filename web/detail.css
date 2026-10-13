@@ -158,3 +158,8 @@ body.portrait .dhead { flex-wrap: wrap; } body.portrait #dtitle { font-size: 20p
 .deptbar button.today { background: var(--accent); color: #1a120c; font-weight: 500; margin-left: 0; }
 .dli.academic .tag { color: var(--accent); border-color: rgba(244,162,89,.4); }
 .dlist .day { font-size: 13px; color: var(--accent); margin: 8px 0 2px; font-weight: 600; }
+.dgrid.sch { grid-template-columns: 1fr 2fr 1.4fr; grid-template-rows: minmax(0, 1fr); }
+.dgrid.sch > .dcard { height: 100%; }
+.tclock.small .bt { font-size: 96px; } .tclock.small .bd { font-size: 22px; }
+.dc-t .mbtn { margin-left: auto; }
+body.portrait .dgrid.sch { grid-template-columns: 1fr !important; }

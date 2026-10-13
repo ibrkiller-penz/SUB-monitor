@@ -26,12 +26,10 @@ function renderDetail() {
 function tickDetail(d) {
   if (!detailKind) return;
   const c = $('dclock'); if (c) c.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  if (detailKind === 'today') {
-    const bt = document.querySelector('#detail .bt'), bs = document.querySelector('#detail .bs');
-    if (bt) bt.innerHTML = `${pad(d.getHours() % 12 || 12)}<span>:</span>${pad(d.getMinutes())}`;
-    if (bs) bs.textContent = `${d.getHours() < 12 ? '오전' : '오후'} · ${pad(d.getSeconds())}초`;
-    if (d.getSeconds() === 0) renderDetail();
-  }
+  const bt = document.querySelector('#detail .bt'), bs = document.querySelector('#detail .bs');
+  if (bt) bt.innerHTML = `${pad(d.getHours() % 12 || 12)}<span>:</span>${pad(d.getMinutes())}`;
+  if (bs) bs.textContent = `${d.getHours() < 12 ? '오전' : '오후'} · ${pad(d.getSeconds())}초`;
+  if (detailKind === 'today' && d.getSeconds() === 0) renderDetail();
 }
 const nowMinutes = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
 
@@ -222,8 +220,13 @@ function viewSchool() {
     html += `<div class="dli"><span class="t">${e.all_day ? '종일' : pad(s.getHours()) + ':' + pad(s.getMinutes())}</span><span class="n">${esc(e.title)}${days > 1 ? ` <small class="muted">~${last.getMonth() + 1}/${last.getDate()}</small>` : ''}${e.manager ? ` <small class="muted">· ${esc(e.manager)}</small>` : ''}</span><small class="tag">${esc(e.tag || '')}</small></div>`;
   }
   const ac = acad.filter(e => new Date(e.end || e.start) > today0).map(e => { const s = new Date(e.start); return `<div class="dli academic"><span class="t">${s.getMonth() + 1}/${s.getDate()} ${WD[s.getDay()]}</span><span class="n">${esc(e.title)}</span><small class="tag">${esc(e.tag || '')}</small></div>`; }).join('');
-  return { title: '학교일정', html: `<div class="dgrid ev one"><div class="dcard">${btns}<div class="dlist">${html || '<div class="dli muted">해당 일정 없음</div>'}</div></div>
-    <div class="dcard"><div class="dc-t">학사일정<b>${acad.length}건</b></div><div class="dlist">${ac || '<div class="dli muted">없음</div>'}</div></div></div>` };
+  const clock = `<div class="dcard tclock small"><div class="bt">${pad(now.getHours() % 12 || 12)}<span>:</span>${pad(now.getMinutes())}</div>
+    <div class="bs">${now.getHours() < 12 ? '오전' : '오후'} · ${pad(now.getSeconds())}초</div>
+    <div class="bd">${now.getMonth() + 1}월 ${now.getDate()}일 (${WD[now.getDay()]})</div>
+    ${tt && tt.days && tt.days[tt.today] && tt.days[tt.today].title ? `<div class="tchip hl" style="margin-top:10px">📌 ${esc(tt.days[tt.today].title)}</div>` : ''}</div>`;
+  const site = schoolUrl ? `<button class="mbtn" data-open="${esc(schoolUrl)}">사이트 가기 ↗</button>` : '';
+  return { title: '학교일정', html: `<div class="dgrid sch">${clock}<div class="dcard">${btns}<div class="dlist">${html || '<div class="dli muted">해당 일정 없음</div>'}</div></div>
+    <div class="dcard"><div class="dc-t">학사일정 <b class="muted" style="font-size:15px">${acad.length}건</b>${site}</div><div class="dlist">${ac || '<div class="dli muted">없음</div>'}</div></div></div>` };
 }
 
 /* ---------- 메시지 상세 ---------- */
@@ -289,6 +292,7 @@ window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { evMsg = ''; if (detailKind === 'events') renderDetail(); }, 3000);
   });
   $('dbody').addEventListener('click', async e => {
+    const op = e.target.closest('[data-open]'); if (op) { if (window.pywebview && pywebview.api.open_url) pywebview.api.open_url(op.dataset.open); else window.open(op.dataset.open, '_blank'); return; }
     const dp = e.target.closest('[data-dept]'); if (dp) { schoolDept = dp.dataset.dept; renderDetail(); return; }
     if (e.target.closest('[data-msgclear]')) { await pywebview.api.clear_messages(); await loadMessages(); return; }
     const del = e.target.closest('[data-del]'); if (del) { await pywebview.api.delete_event(del.dataset.del); await loadEvents(); renderDetail(); return; }

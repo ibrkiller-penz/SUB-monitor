@@ -391,7 +391,7 @@ const WMO = {
 };
 const wmo = (c, day = 1) => { const w = WMO[c] || ['❔', '-']; return (!day && c <= 1) ? ['🌙', w[1]] : w; };
 const grade = (v, cut) => v == null ? '-' : v <= cut[0] ? '좋음' : v <= cut[1] ? '보통' : v <= cut[2] ? '나쁨' : '매우나쁨';
-let weatherData = null, weatherName = '';
+let weatherData = null, weatherName = '', schoolUrl = '';
 async function loadWeather() {
   const d = await pywebview.api.get_weather();
   weatherData = d; if (window.onDataChange) onDataChange('weather');
@@ -727,7 +727,7 @@ addEventListener('resize', fitStage); fitStage();
 tickClock(); setInterval(tickClock, 1000);
 window.addEventListener('pywebviewready', async () => {
   const cfg = await pywebview.api.get_config();
-  weatherName = cfg.weather_name; $('wname').textContent = cfg.weather_name;
+  weatherName = cfg.weather_name; $('wname').textContent = cfg.weather_name; schoolUrl = cfg.school_url || '';
   if (cfg.max_panels) MAX_PANELS = cfg.max_panels;
   if (Array.isArray(cfg.summary)) summaryOn = cfg.summary;
   if (Array.isArray(cfg.panels)) panelsOn = cfg.panels; applyPanels();
