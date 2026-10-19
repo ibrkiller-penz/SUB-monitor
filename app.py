@@ -82,7 +82,14 @@ def load_config():
     with open(CONFIG_PATH, encoding="utf-8") as f:
         cfg = json.load(f)
     try:
-        cfg.update(json.loads(LOCAL_CONFIG.read_text(encoding="utf-8")))
+        local = json.loads(LOCAL_CONFIG.read_text(encoding="utf-8"))
+        # udb 는 통째로 덮어쓰지 않고 키별로 합친다. unread_only 는 항상 공용 설정(config.json)을 따른다
+        # (예전 버전이 설정 저장 때 udb 전체를 config.local.json 에 복사해 두어 새 기본값이 안 먹던 문제)
+        if isinstance(local.get("udb"), dict) and isinstance(cfg.get("udb"), dict):
+            u = dict(cfg["udb"])
+            u.update({k: v for k, v in local.pop("udb").items() if k != "unread_only"})
+            cfg["udb"] = u
+        cfg.update(local)
     except FileNotFoundError:
         pass
     except Exception as e:
@@ -92,7 +99,13 @@ def load_config():
 
 def save_config(cfg):
     """사용자가 바꾼 항목만 config.local.json 에 저장 (config.json 은 건드리지 않는다)."""
-    local = {k: cfg[k] for k in LOCAL_KEYS if k in cfg}
+    try:
+        with open(CONFIG_PATH, encoding="utf-8") as f:
+            base = json.load(f)
+    except Exception:
+        base = {}
+    # 공용 기본값과 같은 항목은 저장하지 않는다 → 나중에 기본값이 바뀌면 그대로 따라감
+    local = {k: cfg[k] for k in LOCAL_KEYS if k in cfg and cfg[k] != base.get(k)}
     with open(LOCAL_CONFIG, "w", encoding="utf-8") as f:
         json.dump(local, f, ensure_ascii=False, indent=2)
 
