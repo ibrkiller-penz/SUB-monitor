@@ -30,7 +30,7 @@
     background: linear-gradient(90deg, rgba(0,0,0,.45), rgba(0,0,0,.15) 40%, rgba(0,0,0,.15) 60%, rgba(0,0,0,.45)); }
   #root { position: relative; display: flex; height: 440px; padding: 14px; gap: 14px; }
   #root > .panel { flex: var(--w, 1) 1 0; container-type: inline-size; }
-  #clock { --w: 330; } #weather { --w: 380; } #tt { --w: 330; } #eventsPanel { --w: 480; } #school { --w: 440; } #msg { --w: 440; } #pc { --w: 248; }
+  #clock { --w: 330; } #weather { --w: 380; } #tt { --w: 330; } #eventsPanel { --w: 480; } #school { --w: 440; } #msg { --w: 440; } #msg.empty { --w: 150; } #pc { --w: 248; }
   #root > .panel.off, #root > .panel.nott { display: none; }
   /* 우상단 고정 버튼 (설정·종료) */
   #topbar { position: absolute; bottom: 8px; right: 8px; z-index: 6; display: flex; gap: 4px; }
@@ -55,6 +55,12 @@
   .badge { background: var(--accent); color: #1a120c; border-radius: 999px; padding: 1px 9px; font-size: 14px; font-weight: 600; }
   .badge.zero { background: rgba(255,255,255,.14); color: var(--muted); }
   #msgEmpty { color: var(--muted); font-size: 15px; line-height: 1.6; }
+  #root > .panel { transition: flex-grow .6s ease; }
+  /* 안읽은 쪽지가 없으면 좁게: 봉투 아이콘과 '없음'만 */
+  #msg.empty #msgList { display: flex; align-items: center; justify-content: center; }
+  #msg.empty #msgEmpty { text-align: center; font-size: 16px; }
+  #msg.empty #msgEmpty .ic { display: block; font-size: 40px; opacity: .5; margin-bottom: 6px; }
+  #msg.empty #msgBadge { display: none; }
   .panel { background: var(--glass); backdrop-filter: blur(14px) saturate(120%); -webkit-backdrop-filter: blur(14px) saturate(120%);
     border: 1px solid var(--line); border-radius: 20px; padding: 16px 18px; overflow: hidden; box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 10px 32px rgba(0,0,0,.28);
     display: flex; flex-direction: column; min-width: 0; text-shadow: 0 1px 2px rgba(0,0,0,.45); }
@@ -691,6 +697,10 @@ async function loadMessages() {
 function renderMessages() {
   const b = $('msgBadge'); b.textContent = msgData.count; b.className = 'badge' + (msgData.count ? '' : ' zero');
   renderTodayBox();
+  const wasEmpty = $('msg').classList.contains('empty'), isEmpty = !msgData.items.length;
+  $('msg').classList.toggle('empty', isEmpty);
+  if (wasEmpty !== isEmpty) setTimeout(fitAll, 700);
+  if (isEmpty && msgData.source !== 'none') { $('msgList').innerHTML = '<div id="msgEmpty"><span class="ic">✉</span>새 쪽지<br>없음</div>'; return; }
   if (!msgData.items.length) {
     $('msgList').innerHTML = `<div id="msgEmpty">${msgData.source === 'none'
       ? '새 메시지 없음<br><small>' + esc(msgData.error || '쿨메신저 알림을 기다리는 중') + '</small>' : '안읽은 쪽지 없음'}</div>`;
