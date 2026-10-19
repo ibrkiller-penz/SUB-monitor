@@ -74,7 +74,7 @@ def log(msg):
 
 
 LOCAL_CONFIG = CONFIG_PATH.with_name("config.local.json")   # 이 PC·이 교사만의 설정 (git 에 안 올라감)
-LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary")
+LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary", "dragon_min")
 
 
 def load_config():
@@ -162,7 +162,29 @@ class Api:
             "summary": self.cfg.get("summary", self.DEFAULT_SUMMARY),
             "school_url": self.cfg.get("school_schedule_url", ""),
             "max_panels": self.MAX_PANELS,
+            "dragon_min": int(self.cfg.get("dragon_min", 10)),
+            "dragon_video": self._dragon_video(),
         }
+
+    @staticmethod
+    def _dragon_video():
+        """exe(또는 app.py) 옆에 dragon.mp4 를 두면 화면 보호 용으로 쓴다. 화면 폴더(web)로 복사해 둔다."""
+        src = CONFIG_PATH.parent / "dragon.mp4"
+        dst = BASE / "web" / "dragon.mp4"
+        try:
+            if src.exists() and (not dst.exists() or dst.stat().st_size != src.stat().st_size or dst.stat().st_mtime < src.stat().st_mtime):
+                import shutil as _sh
+                _sh.copy2(src, dst)
+            if dst.exists():
+                return f"dragon.mp4?v={int(dst.stat().st_mtime)}"
+        except Exception as e:
+            log(f"dragon video copy failed: {e}")
+        return ""
+
+    def set_dragon(self, minutes):
+        self.cfg["dragon_min"] = max(0, min(120, int(minutes or 0)))
+        save_config(self.cfg)
+        return self.cfg["dragon_min"]
 
     def open_url(self, url):
         """기본 브라우저로 링크 열기 (학교 일정 사이트 등)."""
@@ -328,7 +350,11 @@ class Api:
         return True
 
     def reload_timetable(self):
-        """시간표를 사이트에서 다시 긁어온다 (캐시는 새 데이터가 올 때까지 유지)."""
+        """시간표를 사이트에서 다시 긁어온다 (캐시는 새 데이터가 올 때까지 유지). 학교 일정 캐시도 비운다."""
+        try:
+            self.SCHOOL_CACHE.unlink()
+        except Exception:
+            pass
         self.stop_worker()
         self._tt_fail = 0
         self._ensure_worker(force=True)
@@ -513,7 +539,7 @@ class Api:
             return None
         try:
             st = self.SCHOOL_CACHE.stat()
-            if time.time() - st.st_mtime < 30 * 60:
+            if time.time() - st.st_mtime < 10 * 60:   # 10분 캐시
                 return json.loads(self.SCHOOL_CACHE.read_text(encoding="utf-8"))
         except Exception:
             pass
@@ -573,8 +599,9 @@ class Api:
     @timed
     def get_events(self):
         urls = [u for u in self.cfg.get("ical_urls", []) if u.strip()]
-        start = date.today()
-        end = start + timedelta(days=int(self.cfg.get("calendar_days", 7)))
+        today = date.today()
+        start = today.replace(day=1)            # 이번 달 1일부터 (상세 달력에 지난 일정도 보이게)
+        end = today + timedelta(days=int(self.cfg.get("calendar_days", 7)))
         events = self._local_events(start, end)
         errors = []
         try:

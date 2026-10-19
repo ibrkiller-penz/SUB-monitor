@@ -5,3 +5,4 @@ dist/
 *.spec
 *.log
 config.local.json
+web/dragon.mp4
