@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SUB모니터 연수 기획</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+:root{--bg:#f6f4f0;--panel:#fff;--ink:#1f2430;--muted:#5d6474;--line:#e2ddd4;--accent:#b85f16;--soft:#f7e6d3;--code:#f1ede6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15171c;--panel:#1d2027;--ink:#e9e6e0;--muted:#a2a7b3;--line:#2e323b;--accent:#f4a259;--soft:#3a2a1b;--code:#23262e;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#15171c;--panel:#1d2027;--ink:#e9e6e0;--muted:#a2a7b3;--line:#2e323b;--accent:#f4a259;--soft:#3a2a1b;--code:#23262e;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans KR","Malgun Gothic",sans-serif;font-size:16px;line-height:1.75;padding:0 16px}
+main{max-width:920px;margin:0 auto;padding:40px 0 80px;display:grid;gap:44px}
+h1{font-size:clamp(28px,5vw,40px);line-height:1.3;margin:0}
+h2{font-size:24px;margin:0 0 6px;padding-top:10px;border-top:2px solid var(--accent)}
+h3{font-size:18px;margin:18px 0 6px}
+p{margin:6px 0}
+ul,ol{margin:6px 0;padding-left:22px}
+li{margin:2px 0}
+.eyebrow{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:1px}
+.lead{color:var(--muted);font-size:17px}
+.note{font-size:14px;color:var(--muted);background:var(--code);border-radius:8px;padding:10px 14px}
+nav{display:flex;flex-wrap:wrap;gap:8px}
+nav a{font-size:14px;padding:4px 12px;border:1px solid var(--line);border-radius:99px;color:var(--ink);text-decoration:none;background:var(--panel)}
+nav a:hover{border-color:var(--accent)}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel);margin:8px 0}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--code);font-weight:700;font-size:13.5px;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.meet{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+.meta{font-size:14px;color:var(--muted)}
+.say{margin:4px 0;padding-left:12px;border-left:3px solid var(--line)}
+.say b{color:var(--accent)}
+.dec{background:var(--soft);border-radius:8px;padding:10px 14px;margin-top:10px}
+.dec b{display:block;margin-bottom:2px}
+.doc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px 24px}
+.doc h3{border-left:4px solid var(--accent);padding-left:8px}
+.card{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.card div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:14.5px}
+.card div b{display:block;color:var(--accent)}
+code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.9em}
+@media print{body{background:#fff;color:#000;padding:0}main{padding:0;gap:24px}nav{display:none}.meet,.doc{break-inside:auto;border-color:#ccc}h2{break-after:avoid}}
+</style>
+</head>
+<body>
+<main>
+
+<header style="display:grid;gap:12px">
+  <div class="eyebrow">SUB모니터 · 개선 방향 및 교원 연수 기획</div>
+  <h1>SUB모니터 연수 기획 회의록과 연수운영계획서</h1>
+  <p class="lead">기획팀 5명, 연수운영팀 5명, 총무과 2명이 다섯 번 회의해 SUB모니터의 개선 방향과 교원 연수자료를 정하고, 연수운영계획서를 작성했습니다.</p>
+  <p class="note">이 회의는 AI가 역할을 나눠 진행한 <b>가상 회의</b>입니다. 참석자는 역할 이름(기획1~5, 운영1~5, 총무1~2)으로만 적었고, 실제 인물·학교와 관계가 없습니다. 날짜·예산·인원은 실제 일정과 규정에 맞춰 고쳐 쓰세요. 연수운영팀 인원은 따로 정해 주지 않아 5명으로 두었습니다.</p>
+  <nav>
+    <a href="#sum">한눈에 보기</a><a href="#m1">1차</a><a href="#m2">2차</a><a href="#m3">3차</a><a href="#m4">4차</a><a href="#m5">5차</a>
+    <a href="#plan">연수운영계획서</a><a href="#mat">붙임: 연수자료 초안</a><a href="#idea">더 좋은 아이디어</a>
+  </nav>
+</header>
+
+<section id="sum">
+  <h2>한눈에 보기</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>회차</th><th>주제</th><th>결론</th></tr></thead>
+    <tbody>
+      <tr><td>1차</td><td>현황 진단·목표</td><td>연수 목표를 "설치해서 쓰기"에서 "AI와 대화로 내 업무 화면을 고쳐 보기"까지 두 단계로 정함</td></tr>
+      <tr><td>2차</td><td>프로그램 개선 방향</td><td>첫 실행 설정 마법사, 업데이트 알림, 화면 가리기(개인정보), 일반 모니터 모드 등 7개 과제 우선순위 확정</td></tr>
+      <tr><td>3차</td><td>연수 설계</td><td>3시간 1회(필수) + 2시간 심화(선택), 3트랙(활용·수정·제작), 15명 이하 소그룹, 짝 실습</td></tr>
+      <tr><td>4차</td><td>연수자료 검토</td><td>교재 6장, 실습 미션 3개, 프롬프트 카드 12장, 문제 해결 FAQ, 사전·사후 설문 확정</td></tr>
+      <tr><td>5차</td><td>리허설 점검·최종안</td><td>내부 리허설 계획과 점검표 확정, 연수운영계획서 최종 승인, 역할 분담</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ───────────── 1차 ───────────── -->
+<section id="m1">
+  <h2>1차 회의 — 현황 진단과 연수 목표</h2>
+  <div class="meet">
+    <p class="meta">참석: 기획1~5, 운영1~5, 총무1~2 (12명) · 진행: 기획1 · 기록: 운영5</p>
+    <h3>안건</h3>
+    <ol><li>SUB모니터가 지금 할 수 있는 것과 실제 사용에서 드러난 문제</li><li>연수 대상과 목표</li></ol>
+    <h3>논의</h3>
+    <p class="say"><b>기획1</b> 지금 SUB모니터는 시계·날씨·시간표·학교 일정·쿨메신저 안읽은 쪽지·PC 상태·바로가기를 한 화면에 띄웁니다. 시간표는 학교 시간표 사이트의 계산 결과를, 쪽지는 쿨메신저 PC의 로컬 DB를 읽기 전용으로 가져옵니다.</p>
+    <p class="say"><b>기획2</b> 실제 사용에서 막힌 곳을 정리했습니다. ① 업데이트 zip을 풀었는데 예전 exe가 실행됨(압축 구조 문제, 해결됨) ② 저장된 설정 때문에 새 메뉴가 안 보임(해결됨) ③ 프로그램 경로가 PC마다 다름 ④ 교사 이름·일정 주소를 처음에 손으로 넣어야 함. 대부분 "설치와 첫 설정"에서 막힙니다.</p>
+    <p class="say"><b>운영1</b> 연수에서 가장 걱정되는 건 PC 환경 차이입니다. 보안 프로그램, 관리자 권한, 쿨메신저 버전이 다 다릅니다. 연수 시간의 절반이 설치에 쓰이면 실패합니다.</p>
+    <p class="say"><b>운영2</b> 그래서 목표를 둘로 나누자는 의견입니다. 1단계는 누구나 "설치해서 쓰기", 2단계는 원하는 사람만 "Claude와 대화로 내 화면 고치기". 처음부터 만들기는 심화로 돌립니다.</p>
+    <p class="say"><b>기획3</b> 이 프로그램의 진짜 가치는 "교사가 AI와 대화로 자기 업무 도구를 만들 수 있다"는 경험입니다. 설치만 하고 끝나면 앱 하나 보급하는 것과 같습니다. 2단계를 반드시 맛보게 해야 합니다.</p>
+    <p class="say"><b>총무1</b> 1920×440 서브모니터를 전원에게 사 줄 수는 없습니다. 연수용 몇 대만 준비하고, 평소에는 일반 모니터에서도 쓸 수 있어야 보급이 됩니다.</p>
+    <p class="say"><b>기획4</b> 개인정보도 짚어야 합니다. 쪽지 내용이 화면에 그대로 보이니, 수업 중 화면 공유나 학생이 오가는 자리에서는 가릴 수 있어야 합니다.</p>
+    <div class="dec"><b>결정</b>
+      <ul>
+        <li>연수 목표 2단계: ① 설치·활용(전원) ② AI와 대화로 고치기(전원 맛보기, 심화는 선택)</li>
+        <li>연수 전에 프로그램을 "설치와 첫 설정이 막히지 않게" 고친다 (2차 회의 안건)</li>
+        <li>서브모니터는 연수용으로 소수만 준비하고, 일반 모니터 모드를 만든다</li>
+      </ul>
+    </div>
+    <div class="dec"><b>할 일</b>
+      <ul><li>기획2: 사용 중 문제 목록을 과제 카드로 정리</li><li>운영1: 교내 PC 환경 조사표(OS, 권한, 쿨메신저 버전, 보안 프로그램) 작성</li><li>총무1: 서브모니터 견적, 연수 장소 확인</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── 2차 ───────────── -->
+<section id="m2">
+  <h2>2차 회의 — 프로그램 개선 방향</h2>
+  <div class="meet">
+    <p class="meta">참석: 12명 · 진행: 기획1 · 기록: 운영5</p>
+    <h3>안건</h3>
+    <ol><li>개선 과제 우선순위</li><li>개인정보·보안 기준</li></ol>
+    <h3>논의</h3>
+    <p class="say"><b>기획2</b> 과제 카드 12장을 "연수 성공에 꼭 필요한가 / 만드는 데 드는 품"으로 나눴습니다.</p>
+    <p class="say"><b>운영1</b> 환경 조사 결과: 대부분 Windows 10·11, 일부는 관리자 권한 없음, 쿨메신저는 버전에 따라 설치 폴더가 다름. 시작 메뉴 바로가기는 공통으로 있습니다.</p>
+    <p class="say"><b>기획5</b> 그래서 바로가기 경로는 "알려진 경로 → 시작 메뉴 바로가기 → 레지스트리 → 폴더 검색" 순으로 찾는 지금 방식이 맞습니다. 아이콘은 프로그램에 넣어 둔 공식 이미지를 쓰고요.</p>
+    <p class="say"><b>기획4</b> 쪽지는 내용을 읽기만 하고 외부로 보내지 않는다는 것을 설명서와 화면에 분명히 적어야 합니다. 그리고 "가리기" 버튼으로 쪽지 본문을 보낸 사람만 보이게 바꾸는 기능을 넣읍시다.</p>
+    <p class="say"><b>운영3</b> 관리자 권한이 없어도 설치되어야 합니다. 지금처럼 압축만 풀면 되는 방식은 유지하되, 설치 명령을 한 줄로 줄이고 설정 파일은 덮어쓰지 않게 해야 합니다.</p>
+    <p class="say"><b>총무2</b> 업데이트할 때마다 담당자가 전화를 받는 일이 없게, 프로그램이 새 버전이 있으면 알려 주고 버튼 하나로 받게 해 주세요.</p>
+    <h3>개선 과제 (우선순위)</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>순위</th><th>과제</th><th>내용</th><th>연수 전 필수</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>첫 실행 설정 마법사</td><td>처음 켜면 교사 이름(목록에서 선택), 학교 일정 주소, 쿨메신저 자동 연결, 메뉴 고르기를 4단계로 안내</td><td>예</td></tr>
+        <tr><td>2</td><td>업데이트 알림·한 번에 받기</td><td>새 버전이 있으면 설정 화면에 표시, 누르면 받아서 설정 유지한 채 교체</td><td>예</td></tr>
+        <tr><td>3</td><td>화면 가리기(개인정보)</td><td>쪽지 본문·일정 내용을 가리는 버튼, 정해진 시간(수업 시간)에 자동 가리기</td><td>예</td></tr>
+        <tr><td>4</td><td>일반 모니터 모드</td><td>서브모니터가 없으면 큰 모니터 아래쪽에 얇은 띠로 띄우거나 작은 창으로 띄움</td><td>예</td></tr>
+        <tr><td>5</td><td>바로가기 편집 화면</td><td>설정에서 아이콘 추가·삭제·순서 바꾸기(파일 끌어 놓기)</td><td>아니오</td></tr>
+        <tr><td>6</td><td>문제 신고 버튼</td><td>로그와 설정(개인정보 제외)을 묶어 파일로 저장 → 담당자에게 전달</td><td>예</td></tr>
+        <tr><td>7</td><td>학교 공용 설정 파일</td><td>학교마다 일정 주소·시간표 주소를 담은 설정 파일 하나만 나눠 주면 끝나도록</td><td>아니오</td></tr>
+      </tbody>
+    </table></div>
+    <div class="dec"><b>결정</b>
+      <ul>
+        <li>1·2·3·4·6번은 연수 4주 전까지 완료, 5·7번은 연수 후 2차 업데이트</li>
+        <li>보안 원칙: 읽기 전용, 외부 전송 없음, 개인 설정은 내 PC에만 저장 — 연수 교재 첫 장과 프로그램 설정 화면에 명시</li>
+        <li>정보보안 담당자에게 사전 검토 요청(쿨메신저 DB 읽기, 자동 실행 등록)</li>
+      </ul>
+    </div>
+    <div class="dec"><b>할 일</b>
+      <ul><li>기획5: 1~4번 개발, 기획2: 6번 개발</li><li>기획4: 보안 설명문 초안, 정보보안 담당 검토 요청</li><li>운영 전원: 3차 회의 전까지 연수 형태 안 각자 1개씩</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── 3차 ───────────── -->
+<section id="m3">
+  <h2>3차 회의 — 연수 설계</h2>
+  <div class="meet">
+    <p class="meta">참석: 12명 · 진행: 운영1 · 기록: 운영5</p>
+    <h3>안건</h3>
+    <ol><li>연수 형태·시간·인원</li><li>트랙 구성</li><li>장소·장비·예산</li></ol>
+    <h3>논의</h3>
+    <p class="say"><b>운영2</b> 안 5개를 비교했습니다. 강의식 2시간은 만족도는 높지만 다음 날 아무도 안 씁니다. 실습 중심 3시간 + 선택 심화 2시간이 가장 현실적입니다.</p>
+    <p class="say"><b>운영4</b> 수준 차이가 큽니다. 트랙을 셋으로 나눕시다. A(활용): 설치·설정·쓰기 / B(수정): Claude에게 말해 화면 하나 바꾸기 / C(제작): 나만의 패널 하나 새로 만들기.</p>
+    <p class="say"><b>운영3</b> 한 반 15명 이하, 둘씩 짝을 지어야 합니다. 막힌 사람을 짝이 먼저 돕고, 그래도 안 되면 보조 강사가 갑니다. 보조 강사는 4~5명당 1명.</p>
+    <p class="say"><b>기획3</b> B트랙에서 Claude에게 처음부터 만들라고 하면 시간 안에 못 끝납니다. 완성된 프로그램의 화면 파일(<code>web/index.html</code>)을 주고 "이 부분을 이렇게 바꿔 줘"를 연습하는 게 성공률이 높습니다.</p>
+    <p class="say"><b>운영1</b> 브라우저 데모를 먼저 쓰면 설치 없이도 B트랙 실습을 할 수 있습니다. 데모에서 고친 걸 본인 PC에 옮기는 건 숙제로.</p>
+    <p class="say"><b>총무1</b> 장소는 컴퓨터실(30석)을 반으로 나눠 씁니다. 서브모니터 견적은 업체 두 곳에 요청했습니다. 연수용 4대(조별 1대)면 충분합니다. 예산 항목은 장비, 강사 수당, 교재 인쇄, 다과입니다. 금액은 규정 확인 후 넣겠습니다.</p>
+    <p class="say"><b>총무2</b> 연수 시간 인정(학교 자율연수)은 연수원 등록 절차가 필요합니다. 출석은 서명부와 사후 설문 제출로 확인합니다.</p>
+    <p class="say"><b>기획1</b> Claude 계정이 없는 선생님이 많을 겁니다. 무료 계정으로 실습이 되는지 미리 확인하고, 계정 만들기는 사전 과제로 돌립시다.</p>
+    <div class="dec"><b>결정</b>
+      <ul>
+        <li>본 연수 3시간(필수, 실습 중심) + 심화 2시간(선택, C트랙)</li>
+        <li>회당 15명 이하, 짝 실습, 보조 강사 4~5명당 1명</li>
+        <li>사전 과제: Claude 계정 만들기, PC 환경 체크(5분 점검표)</li>
+        <li>설치 없이 브라우저 데모로도 B트랙을 할 수 있게 자료 구성</li>
+      </ul>
+    </div>
+    <div class="dec"><b>할 일</b>
+      <ul><li>운영2: 차시별 진행안, 운영4: 트랙별 미션</li><li>총무1: 장소 예약, 장비 견적 비교, 예산안 / 총무2: 연수 등록·이수 처리 절차 확인</li><li>기획1: 무료 계정 실습 가능 여부 확인</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── 4차 ───────────── -->
+<section id="m4">
+  <h2>4차 회의 — 연수자료 검토</h2>
+  <div class="meet">
+    <p class="meta">참석: 12명 · 진행: 운영1 · 기록: 운영5</p>
+    <h3>안건</h3>
+    <ol><li>교재·미션·프롬프트 카드 검토</li><li>평가 방법</li></ol>
+    <h3>논의</h3>
+    <p class="say"><b>운영2</b> 교재는 6장입니다. 1장 무엇을 하는 프로그램인가(5분) → 2장 설치와 첫 설정 → 3장 화면 읽기 → 4장 AI와 대화로 고치기 → 5장 문제가 생기면 → 6장 더 해 보기. 글은 줄이고 화면 사진 위주로 갑니다.</p>
+    <p class="say"><b>기획3</b> 4장의 핵심은 "좋은 요청 문장"입니다. 무엇을, 어디에, 어떻게 보이게, 하지 말 것. 이 네 칸을 채우는 프롬프트 카드를 만들었습니다.</p>
+    <p class="say"><b>운영4</b> 미션은 쉬운 순서로 셋입니다. ① 글자 크기·색 바꾸기 ② 요약 칩에 D-day 추가 ③ 나만의 패널(급식, 오늘의 명언 등) 새로 만들기. ①은 누구나 10분 안에 성공해야 합니다.</p>
+    <p class="say"><b>기획2</b> 문제 해결 FAQ는 실제로 겪은 문제부터 넣었습니다. 예전 화면이 뜰 때, 메뉴가 안 보일 때, 시간표가 비어 있을 때, 쪽지가 0건일 때, 바로가기가 안 열릴 때.</p>
+    <p class="say"><b>기획4</b> 교재와 화면 사진에 실명·학교명이 나오면 안 됩니다. 모든 사진은 가상 데이터(홍길동, 우리 동네, 가상 일정)로 다시 찍었습니다.</p>
+    <p class="say"><b>운영3</b> 평가는 시험이 아니라 "성공 여부"입니다. 사전 설문(경험·기대), 현장 체크(미션 성공 개수), 사후 설문(만족도, 2주 뒤 계속 쓰는지)으로 봅시다.</p>
+    <p class="say"><b>총무1</b> 교재는 컬러 인쇄 대신 화면(QR 링크)으로 보고, 프롬프트 카드와 점검표만 인쇄하면 비용이 크게 줄어듭니다.</p>
+    <div class="dec"><b>결정</b>
+      <ul>
+        <li>교재 6장(웹 페이지 + PDF), 실습 미션 3개, 프롬프트 카드 12장, FAQ, 사전·사후 설문 확정 → 붙임 참고</li>
+        <li>모든 자료의 사진·예시는 가상 데이터만 사용</li>
+        <li>인쇄물은 프롬프트 카드·점검표만, 나머지는 QR로 제공</li>
+      </ul>
+    </div>
+    <div class="dec"><b>할 일</b>
+      <ul><li>운영2·4: 교재·미션 최종본 / 기획3: 프롬프트 카드 / 기획2: FAQ</li><li>운영3: 설문지(구글 폼) / 총무1: 인쇄 의뢰</li><li>운영1: 내부 리허설 일정 잡기</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── 5차 ───────────── -->
+<section id="m5">
+  <h2>5차 회의 — 리허설 점검과 최종안</h2>
+  <div class="meet">
+    <p class="meta">참석: 12명 · 진행: 기획1 · 기록: 운영5</p>
+    <h3>안건</h3>
+    <ol><li>내부 리허설 계획·점검표</li><li>연수운영계획서 최종 승인</li><li>역할 분담</li></ol>
+    <h3>논의</h3>
+    <p class="say"><b>운영1</b> 리허설은 팀원 중 프로그램을 처음 보는 사람 4명을 학습자로 두고 실제 시간대로 3시간 진행합니다. 시간 초과 구간, 막힌 지점, 질문을 기록합니다.</p>
+    <p class="say"><b>운영4</b> 미리 예상되는 위험은 세 가지입니다. ① 설치에서 15분 이상 지연 ② Claude 응답을 그대로 붙였다가 화면이 깨짐 ③ 학교 네트워크에서 외부 사이트가 막힘. 대비책을 정해 둬야 합니다.</p>
+    <p class="say"><b>기획5</b> ①은 연수 전날 연수용 PC에 미리 설치해 두고, 개인 PC 설치는 연수 끝 30분에 짝과 함께. ②는 "고치기 전에 원본 복사해 두기"를 미션 첫 단계에 넣고, 되돌리기 방법을 카드에 적습니다.</p>
+    <p class="say"><b>총무2</b> ③은 전산 담당에게 claude.ai, github.com, 날씨 서버 주소의 접속 허용을 미리 요청하겠습니다. 안 되면 휴대폰 핫스팟 2대를 준비합니다.</p>
+    <p class="say"><b>운영3</b> 연수 직후 2주간 "질문 게시판"을 열고, 2주 뒤 사후 설문을 보냅니다. 잘 고친 화면은 공유 갤러리에 올려 다음 기수 예시로 씁니다.</p>
+    <p class="say"><b>기획1</b> 계획서를 함께 읽고 승인합니다. 수정 의견: 심화 과정은 신청자가 6명 미만이면 다음 학기로 미룬다는 조건을 넣읍시다.</p>
+    <div class="dec"><b>결정</b>
+      <ul>
+        <li>연수운영계획서 최종 승인(수정 의견 반영)</li>
+        <li>리허설 점검표 확정, 리허설 뒤 1주 안에 자료 수정</li>
+        <li>위험 대비: 연수용 PC 사전 설치, 원본 복사 습관화, 접속 허용 요청 + 핫스팟 예비</li>
+      </ul>
+    </div>
+    <h3>리허설 점검표</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>구분</th><th>점검 항목</th><th>기준</th></tr></thead>
+      <tbody>
+        <tr><td>설치</td><td>압축 풀기~첫 화면까지 걸린 시간</td><td>10분 이내</td></tr>
+        <tr><td>설정</td><td>첫 실행 마법사만으로 시간표·일정·쪽지가 뜨는가</td><td>설명 없이 가능</td></tr>
+        <tr><td>미션 ①</td><td>글자 크기·색 바꾸기</td><td>10분 안 전원 성공</td></tr>
+        <tr><td>미션 ②</td><td>D-day 칩 추가</td><td>20분 안 80% 성공</td></tr>
+        <tr><td>미션 ③</td><td>나만의 패널</td><td>심화에서 50% 이상</td></tr>
+        <tr><td>네트워크</td><td>claude.ai, github.com, 날씨 서버 접속</td><td>연수 1주 전 확인</td></tr>
+        <tr><td>개인정보</td><td>화면·자료에 실명·학교명·쪽지 원문 노출 없음</td><td>0건</td></tr>
+        <tr><td>되돌리기</td><td>화면이 깨졌을 때 원본으로 복구</td><td>2분 이내</td></tr>
+      </tbody>
+    </table></div>
+    <h3>역할 분담</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>팀</th><th>담당</th><th>업무</th></tr></thead>
+      <tbody>
+        <tr><td>기획팀</td><td>기획1</td><td>총괄, 계획서·결과보고서</td></tr>
+        <tr><td></td><td>기획2</td><td>문제 신고 기능, FAQ, 현장 기술 지원</td></tr>
+        <tr><td></td><td>기획3</td><td>프롬프트 카드, B트랙 진행</td></tr>
+        <tr><td></td><td>기획4</td><td>보안·개인정보 검토, 자료 가명 처리 확인</td></tr>
+        <tr><td></td><td>기획5</td><td>프로그램 개선(설정 마법사·업데이트·가리기·일반 모니터 모드), C트랙 진행</td></tr>
+        <tr><td>연수운영팀</td><td>운영1</td><td>연수 진행 총괄, 리허설</td></tr>
+        <tr><td></td><td>운영2</td><td>교재·차시 진행안, A트랙 진행</td></tr>
+        <tr><td></td><td>운영3</td><td>설문·평가, 질문 게시판 운영</td></tr>
+        <tr><td></td><td>운영4</td><td>실습 미션, 보조 강사 배치</td></tr>
+        <tr><td></td><td>운영5</td><td>회의 기록, 출석·이수 자료 정리</td></tr>
+        <tr><td>총무과</td><td>총무1</td><td>장소·장비·예산·인쇄</td></tr>
+        <tr><td></td><td>총무2</td><td>연수 등록·이수 처리, 네트워크 접속 허용 요청, 다과</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ───────────── 계획서 ───────────── -->
+<section id="plan">
+  <h2>연수운영계획서</h2>
+  <div class="doc">
+    <p style="text-align:center;font-size:20px;font-weight:700;margin:4px 0 2px">2026학년도 「AI와 함께 만드는 내 업무 화면」 교원 연수 운영 계획</p>
+    <p style="text-align:center" class="meta">— SUB모니터 활용과 수정 실습 중심 —</p>
+
+    <h3>Ⅰ. 목적</h3>
+    <ul>
+      <li>교사가 시간표·학교 일정·쪽지·날씨를 한 화면에서 확인해 업무 확인 시간을 줄인다.</li>
+      <li>AI(Claude)와 대화로 자기 업무 도구를 직접 고쳐 보는 경험을 통해 디지털 업무 역량을 기른다.</li>
+      <li>교사가 만든 도구를 서로 나누는 학교 문화를 만든다.</li>
+    </ul>
+
+    <h3>Ⅱ. 방침</h3>
+    <ul>
+      <li>강의는 짧게, 실습은 길게. 모든 차시는 "직접 해 보고 성공하는 것"을 목표로 한다.</li>
+      <li>수준별 3트랙(A 활용, B 수정, C 제작)으로 운영하고, 짝 실습과 보조 강사로 막힘을 줄인다.</li>
+      <li>개인정보 보호: 읽기 전용·외부 전송 없음·개인 설정은 본인 PC에만 저장. 연수 자료의 예시는 모두 가상 데이터로 한다.</li>
+      <li>연수 뒤 2주간 질문 게시판과 공유 갤러리로 현장 적용을 돕는다.</li>
+    </ul>
+
+    <h3>Ⅲ. 운영 개요</h3>
+    <div class="tbl"><table>
+      <tbody>
+        <tr><th>연수명</th><td>AI와 함께 만드는 내 업무 화면 (SUB모니터)</td></tr>
+        <tr><th>대상·인원</th><td>희망 교원, 회당 15명 이하 (2회 운영, 총 30명 내외)</td></tr>
+        <tr><th>일시</th><td>본 연수: 2026년 11월 중 2회(각 3시간, 방과 후) / 심화: 12월 중 1회(2시간, 신청자 6명 이상일 때)</td></tr>
+        <tr><th>장소</th><td>컴퓨터실 (조별 서브모니터 1대, 1인 1PC)</td></tr>
+        <tr><th>형태</th><td>학교 자율연수, 실습 중심 (본 연수 3시간 + 심화 2시간)</td></tr>
+        <tr><th>강사</th><td>주 강사 1명(기획팀), 보조 강사 3~4명(기획·연수운영팀)</td></tr>
+        <tr><th>사전 과제</th><td>Claude 계정 만들기, PC 환경 점검표(5분) 제출</td></tr>
+        <tr><th>이수 기준</th><td>출석 + 미션 ① 성공 + 사후 설문 제출</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Ⅳ. 연수 내용</h3>
+    <p><b>본 연수 (3시간)</b></p>
+    <div class="tbl"><table>
+      <thead><tr><th>시간</th><th>주제</th><th>내용</th><th>형태</th></tr></thead>
+      <tbody>
+        <tr><td>15:00–15:15</td><td>열기</td><td>완성된 화면 시연, 무엇을 하고 무엇을 하지 않는가(개인정보 원칙)</td><td>시연</td></tr>
+        <tr><td>15:15–15:45</td><td>설치와 첫 설정</td><td>연수용 PC에서 실행 → 설정 마법사(교사 이름, 일정 주소, 쿨메신저 연결, 메뉴 고르기)</td><td>실습</td></tr>
+        <tr><td>15:45–16:05</td><td>화면 읽기</td><td>패널별 의미, 상세 화면, 야간 모드·화면 가리기, 바로가기</td><td>실습</td></tr>
+        <tr><td>16:05–16:15</td><td colspan="3">쉬는 시간</td></tr>
+        <tr><td>16:15–16:30</td><td>좋은 요청 문장</td><td>프롬프트 카드 4칸(무엇을·어디에·어떻게·하지 말 것), 원본 복사·되돌리기</td><td>강의</td></tr>
+        <tr><td>16:30–17:15</td><td>AI와 대화로 고치기</td><td>미션 ① 글자 크기·색 → 미션 ② D-day 칩 추가 (트랙별 진행)</td><td>짝 실습</td></tr>
+        <tr><td>17:15–17:45</td><td>내 PC로 옮기기</td><td>개인 PC 설치(한 줄 명령), 자동 실행 켜기, 문제 신고 버튼 사용법</td><td>실습</td></tr>
+        <tr><td>17:45–18:00</td><td>나누기</td><td>고친 화면 공유, 사후 설문, 질문 게시판 안내</td><td>공유</td></tr>
+      </tbody>
+    </table></div>
+    <p><b>심화 (2시간, 선택)</b> — 미션 ③ 나만의 패널 만들기(급식·D-day 보드·학급 공지 등), Claude에게 기능 설계부터 요청하기, 고친 프로그램을 exe로 묶는 흐름 이해.</p>
+
+    <h3>Ⅴ. 준비와 역할</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>구분</th><th>내용</th><th>담당</th><th>기한</th></tr></thead>
+      <tbody>
+        <tr><td>프로그램</td><td>설정 마법사, 업데이트 알림, 화면 가리기, 일반 모니터 모드, 문제 신고 버튼</td><td>기획팀</td><td>연수 4주 전</td></tr>
+        <tr><td>보안 검토</td><td>정보보안 담당 사전 검토(쪽지 DB 읽기, 자동 실행)</td><td>기획4</td><td>연수 4주 전</td></tr>
+        <tr><td>교재·미션</td><td>교재 6장, 미션 3개, 프롬프트 카드 12장, FAQ</td><td>연수운영팀·기획3</td><td>연수 3주 전</td></tr>
+        <tr><td>리허설</td><td>내부 리허설(학습자 4명) 및 자료 수정</td><td>운영1</td><td>연수 2주 전</td></tr>
+        <tr><td>장소·장비</td><td>컴퓨터실 예약, 서브모니터 4대, 연수용 PC 사전 설치</td><td>총무1</td><td>연수 1주 전</td></tr>
+        <tr><td>네트워크</td><td>claude.ai·github.com·날씨 서버 접속 허용, 핫스팟 2대 예비</td><td>총무2</td><td>연수 1주 전</td></tr>
+        <tr><td>연수 등록</td><td>자율연수 등록, 서명부, 이수 처리</td><td>총무2·운영5</td><td>연수 2주 전 / 종료 후 1주</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Ⅵ. 예산 (항목)</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>항목</th><th>산출 기준</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td>장비</td><td>서브모니터 4대 (견적 2곳 비교)</td><td>연수 후 교무실 공용으로 활용</td></tr>
+        <tr><td>강사 수당</td><td>주 강사·보조 강사, 시간 수 × 규정 단가</td><td>교내 강사 수당 규정 확인</td></tr>
+        <tr><td>인쇄</td><td>프롬프트 카드·점검표 (30부 + 예비)</td><td>교재는 QR로 제공</td></tr>
+        <tr><td>다과</td><td>회당 인원 × 규정 단가</td><td>2회 + 심화 1회</td></tr>
+      </tbody>
+    </table></div>
+    <p class="meta">금액은 학교 예산 편성과 규정 단가를 확인한 뒤 총무과에서 적는다.</p>
+
+    <h3>Ⅶ. 평가와 환류</h3>
+    <ul>
+      <li>사전 설문: AI 도구 사용 경험, 기대, PC 환경</li>
+      <li>현장 점검: 미션 성공 개수(①·②·③), 설치 소요 시간</li>
+      <li>사후 설문(직후): 만족도, 어려웠던 점, 더 배우고 싶은 것</li>
+      <li>2주 뒤 설문: 계속 쓰는지, 스스로 고친 것이 있는지</li>
+      <li>결과를 프로그램 2차 업데이트(바로가기 편집, 학교 공용 설정)와 다음 기수 자료에 반영</li>
+    </ul>
+
+    <h3>Ⅷ. 기대 효과</h3>
+    <ul>
+      <li>여러 프로그램·사이트를 오가던 업무 확인이 한 화면으로 줄어든다.</li>
+      <li>교사가 AI와 대화로 도구를 고칠 수 있다는 자신감을 얻고, 수업·업무의 다른 도구로 확장한다.</li>
+      <li>교사가 만든 화면을 서로 나누며 학교 단위의 디지털 협업 문화가 생긴다.</li>
+    </ul>
+
+    <h3>Ⅸ. 추진 일정</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>시기</th><th>내용</th></tr></thead>
+      <tbody>
+        <tr><td>10월 4주</td><td>1~2차 회의(현황 진단, 개선 방향), 프로그램 개선 착수</td></tr>
+        <tr><td>11월 1주</td><td>3~4차 회의(연수 설계, 자료 검토), 보안 검토, 연수 등록·안내</td></tr>
+        <tr><td>11월 2주</td><td>5차 회의, 내부 리허설, 자료 수정</td></tr>
+        <tr><td>11월 3~4주</td><td>본 연수 1·2회</td></tr>
+        <tr><td>12월 1~2주</td><td>질문 게시판 운영, 2주 뒤 설문, 심화 과정(신청 6명 이상)</td></tr>
+        <tr><td>12월 3주</td><td>결과 보고, 프로그램 2차 업데이트 계획</td></tr>
+      </tbody>
+    </table></div>
+    <p class="meta">붙임: 연수자료 초안(교재 목차, 실습 미션, 프롬프트 카드, FAQ, 설문 문항)</p>
+  </div>
+</section>
+
+<!-- ───────────── 붙임 ───────────── -->
+<section id="mat">
+  <h2>붙임 — 연수자료 초안</h2>
+
+  <h3>1. 교재 목차 (6장)</h3>
+  <ol>
+    <li><b>SUB모니터는 무엇을 하나</b> — 화면 한 장으로 보는 시계·날씨·시간표·일정·쪽지·PC·바로가기. 하지 않는 것: 쪽지 보내기, 외부 전송, 내 정보 서버 저장</li>
+    <li><b>설치와 첫 설정</b> — 한 줄 설치 명령, 설정 마법사 4단계, 자동 실행 켜기</li>
+    <li><b>화면 읽기</b> — 패널별 의미, 누르면 나오는 상세 화면, 야간 모드·화면 가리기, 메뉴 5개 고르기와 순서 바꾸기</li>
+    <li><b>AI와 대화로 고치기</b> — 원본 복사 → 요청 문장 4칸 → 결과 붙이기 → 확인 → 안 되면 되돌리기</li>
+    <li><b>문제가 생기면</b> — FAQ, 문제 신고 버튼, 질문 게시판</li>
+    <li><b>더 해 보기</b> — 나만의 패널, 다른 업무 도구로 넓히기, 공유 갤러리</li>
+  </ol>
+
+  <h3>2. 실습 미션</h3>
+  <div class="card">
+    <div><b>미션 ① 글자 크기·색 바꾸기 (10분)</b>시간표 과목 글자를 조금 더 크게, 지금 교시 테두리 색을 초록으로. 성공 기준: 다시 실행했을 때 바뀐 모습이 보인다.</div>
+    <div><b>미션 ② D-day 칩 추가 (20분)</b>시계 아래 요약 칩에 "기말고사 D-12"처럼 날짜를 세는 칩을 하나 넣는다. 날짜는 설정에서 바꿀 수 있게.</div>
+    <div><b>미션 ③ 나만의 패널 (심화, 60분)</b>급식, 학급 공지, 오늘의 할 일 중 하나를 새 패널로. Claude에게 먼저 "어떻게 만들지 설계부터 알려 줘"라고 묻기.</div>
+  </div>
+
+  <h3>3. 프롬프트 카드 (12장 중 일부)</h3>
+  <div class="card">
+    <div><b>기본 틀</b>무엇을: ___ / 어디에: ___ 패널 / 어떻게 보이게: ___ / 하지 말 것: 다른 패널·글자색은 그대로</div>
+    <div><b>크기 바꾸기</b>"시간표 패널의 과목 글자만 지금보다 20% 크게 해 줘. 다른 패널은 건드리지 마."</div>
+    <div><b>색 바꾸기</b>"지금 진행 중인 교시 테두리를 초록색으로 바꿔 줘. 바꾼 줄만 알려 줘."</div>
+    <div><b>칩 추가</b>"시계 아래 요약 칩에 D-day 칩을 추가해 줘. 날짜는 설정 화면에서 고를 수 있게."</div>
+    <div><b>오류 났을 때</b>"화면이 하얗게 나와. 방금 고친 부분에서 원인을 찾아 고쳐 줘. 아래는 오류 메시지야: ___"</div>
+    <div><b>되돌리기</b>"방금 바꾼 것을 취소하고 원래대로 돌린 코드를 줘."</div>
+    <div><b>설계 먼저</b>"급식 패널을 만들고 싶어. 코드 쓰기 전에 어떤 순서로 만들지 3단계로 설명해 줘."</div>
+    <div><b>개인정보</b>"예시 데이터는 실명 대신 홍길동 같은 가명으로 써 줘."</div>
+  </div>
+
+  <h3>4. 문제 해결 FAQ</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>증상</th><th>원인</th><th>해결</th></tr></thead>
+    <tbody>
+      <tr><td>업데이트했는데 예전 화면</td><td>압축을 다른 곳에 풀고 옛 exe 실행</td><td>안내된 한 줄 명령으로 설치, <code>바탕화면\SUBmonitor</code> 폴더의 exe 실행</td></tr>
+      <tr><td>새 메뉴가 안 보임</td><td>예전에 저장한 메뉴 설정</td><td>⚙ 설정에서 해당 메뉴 체크 (최대 5개)</td></tr>
+      <tr><td>시간표가 비어 있음</td><td>교사 이름 미설정 또는 첫 수집 중</td><td>설정에서 이름 선택 후 1~2분 대기, ⚙ → 시간표 새로고침</td></tr>
+      <tr><td>쪽지가 0건</td><td>안읽은 쪽지만 보이는 설정</td><td>정상. 쿨메신저에 안읽은 쪽지가 오면 표시</td></tr>
+      <tr><td>바로가기가 안 열림</td><td>설치 위치가 다름</td><td>문제 신고 버튼으로 파일 저장 후 담당자에게 전달</td></tr>
+      <tr><td>AI가 준 코드로 화면이 깨짐</td><td>일부만 붙였거나 다른 곳을 고침</td><td>원본 복사본으로 되돌리고, "바꾼 줄만 알려 줘"로 다시 요청</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>5. 설문 문항 (요약)</h3>
+  <ul>
+    <li><b>사전</b>: AI 도구 사용 경험(없음/가끔/자주), 연수에서 기대하는 것, 서브모니터 유무, 관리자 권한 유무</li>
+    <li><b>사후(직후)</b>: 만족도(5점), 성공한 미션, 가장 어려웠던 단계, 다음에 배우고 싶은 것</li>
+    <li><b>2주 뒤</b>: 계속 사용 여부, 스스로 고친 것, 동료에게 추천 의향</li>
+  </ul>
+</section>
+
+<!-- ───────────── 아이디어 ───────────── -->
+<section id="idea">
+  <h2>더 좋은 아이디어</h2>
+  <p>회의 안건 밖에서 나온 제안입니다. 연수보다 효과가 클 수 있어 따로 적습니다.</p>
+  <div class="card">
+    <div><b>1. "만들기"보다 "고치기" 연수</b>완성품을 주고 내 업무에 맞게 한 군데 고치는 미션형 연수가 성공률이 가장 높습니다. 처음 만들기는 다음 단계로.</div>
+    <div><b>2. 학교 공용 설정 한 장</b>교무부가 학교 일정 웹앱·시간표 주소를 담은 설정 파일 하나만 배포하면, 교사는 이름만 고르면 끝. 설치 문의가 크게 줄어듭니다.</div>
+    <div><b>3. 교실용 SUB모니터</b>같은 화면을 교실 TV·전자칠판용으로: 오늘 시간표, 급식, 다음 수업 준비물, 시험 D-day. 학생용이라 쪽지는 빼고.</div>
+    <div><b>4. 일반 모니터 띠 모드</b>서브모니터가 없어도 큰 모니터 아래 80px 띠로 띄우면 장비 예산 없이 전원 보급 가능.</div>
+    <div><b>5. 동료 멘토제</b>1기 수료자 중 미션 ③ 성공자를 다음 기수 보조 강사로. 같은 학교 선생님이 옆에서 도와주는 게 가장 빠릅니다.</div>
+    <div><b>6. 공유 갤러리</b>교사가 고친 화면과 사용한 요청 문장을 함께 모아 두는 페이지. 다음 기수는 "남이 한 요청"을 복사해 시작.</div>
+    <div><b>7. 짧은 영상 교재</b>설치·설정·미션 ①을 각 2분 영상으로. 연수 당일 결석자나 신규 교사도 혼자 따라 할 수 있습니다.</div>
+    <div><b>8. 업무 도구로 넓히기</b>같은 방식(AI와 대화로 작은 도구 만들기)을 출결 확인, 수행평가 체크, 학급 공지 등으로 넓히는 후속 연수 시리즈.</div>
+  </div>
+</section>
+
+</main>
+</body>
+</html>
