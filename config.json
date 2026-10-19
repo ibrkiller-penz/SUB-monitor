@@ -33,7 +33,7 @@
       "read": "IsUnRead",
       "key": "MessageKey"
     },
-    "unread_only": false
+    "unread_only": true
   },
   "display": {
     "target_width": 1920,

@@ -263,7 +263,7 @@ class MessageWatcher:
         if self.udb:
             try:
                 items = self.udb.poll(self.keep)
-                if items:
+                if items or not self.udb.error:   # DB를 읽었으면 안읽은 쪽지가 0건이어도 그대로(창 제목으로 넘어가지 않음)
                     self.source = "udb"
                     # DB에서 읽은 것은 매번 전체 목록을 다시 받으므로 누적하지 않고 교체
                     self.items = [it for it in items if it["time"] >= self.cleared_at]
