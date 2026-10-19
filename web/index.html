@@ -505,7 +505,7 @@ function openSettings() {
   $('modal').querySelectorAll('input[name=orient]').forEach(i => i.checked = (document.body.classList.contains('portrait') ? 'portrait' : 'landscape') === i.value);
   $('nightOn').checked = NIGHT.on; $('nightStart').value = NIGHT.start; $('nightEnd').value = NIGHT.end;
   $('setDragon').value = String(window.DRAGON_CFG ? DRAGON_CFG.min : 10);
-  $('dragonSrc').textContent = window.DRAGON_CFG && DRAGON_CFG.video ? '영상(dragon.mp4) 사용 중' : '기본 그림 용 · exe 옆에 dragon.mp4(초록 배경) 를 두면 영상으로';
+  $('dragonSrc').textContent = window.DRAGON_CFG && DRAGON_CFG.video ? '영상 용 사용 중 · exe 옆에 dragon.mp4(초록 배경)를 두면 그 영상으로 바뀜' : '그림 용';
   $('modal').classList.add('on');
   checkNight();
 }

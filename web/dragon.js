@@ -60,11 +60,14 @@
       (function step(now) {
         const p = (now - t0) / dur;
         if (p >= 1) { dim.style.opacity = '0'; out.style.opacity = '0'; setTimeout(cleanup, 1000); return; }
+        octx.clearRect(0, 0, vw, vh);
         octx.drawImage(v, 0, 0, vw, vh);
         if (!mode) {   // 모서리 네 곳 평균 색으로 배경 판단
           let r = 0, g = 0, b = 0;
           for (const [x, y] of [[2, 2], [vw - 3, 2], [2, vh - 3], [vw - 3, vh - 3]]) { const d = octx.getImageData(x, y, 1, 1).data; r += d[0]; g += d[1]; b += d[2]; }
-          mode = (g > 4 * 150 && g > r * 1.4 && g > b * 1.4) ? 'green' : 'black';
+          const a0 = octx.getImageData(2, 2, 1, 1).data[3];
+          mode = a0 < 20 ? 'alpha'                                  // 투명 배경 영상(webm): 그대로
+            : (g > 4 * 150 && g > r * 1.4 && g > b * 1.4) ? 'green' : 'black';
           out.style.mixBlendMode = mode === 'black' ? 'screen' : 'normal';
         }
         if (mode === 'green') {
@@ -72,8 +75,7 @@
           for (let k = 0; k < d.length; k += 4) {
             const r = d[k], g = d[k + 1], b = d[k + 2], m = Math.max(r, b);
             const ex = g - m;                         // 초록이 얼마나 튀는지
-            if (ex > 40 && g > 70) d[k + 3] = 0;      // 확실한 초록 → 투명
-            else if (ex > 12) { d[k + 3] = Math.max(0, 255 - (ex - 12) * 9); d[k + 1] = m; }   // 가장자리 → 반투명 + 초록 번짐 제거
+            if (ex > 24) { d[k + 3] = Math.max(0, 255 - (ex - 24) * 7); d[k + 1] = Math.min(g, m + 8); }   // 초록이 튀는 만큼 투명 + 초록 번짐 제거
           }
           octx.putImageData(img, 0, 0);
         }

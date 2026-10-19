@@ -169,15 +169,20 @@ class Api:
 
     @staticmethod
     def _dragon_video():
-        """exe(또는 app.py) 옆에 dragon.mp4 를 두면 화면 보호 용으로 쓴다. 화면 폴더(web)로 복사해 둔다."""
-        src = CONFIG_PATH.parent / "dragon.mp4"
-        dst = BASE / "web" / "dragon.mp4"
+        """화면 보호 용 영상. exe(또는 app.py) 옆에 dragon.mp4 / dragon.webm 을 두면 그걸 쓰고(web 폴더로 복사),
+        없으면 기본으로 들어 있는 web/dragon.webm(투명 배경)을 쓴다."""
         try:
-            if src.exists() and (not dst.exists() or dst.stat().st_size != src.stat().st_size or dst.stat().st_mtime < src.stat().st_mtime):
-                import shutil as _sh
-                _sh.copy2(src, dst)
-            if dst.exists():
-                return f"dragon.mp4?v={int(dst.stat().st_mtime)}"
+            for name in ("dragon.webm", "dragon.mp4"):
+                src = CONFIG_PATH.parent / name
+                if src.exists() and src.resolve() != (BASE / "web" / name).resolve():
+                    dst = BASE / "web" / ("user_" + name)
+                    if not dst.exists() or dst.stat().st_size != src.stat().st_size or dst.stat().st_mtime < src.stat().st_mtime:
+                        import shutil as _sh
+                        _sh.copy2(src, dst)
+                    return f"{dst.name}?v={int(dst.stat().st_mtime)}"
+            dflt = BASE / "web" / "dragon.webm"
+            if dflt.exists():
+                return f"dragon.webm?v={int(dflt.stat().st_size)}"
         except Exception as e:
             log(f"dragon video copy failed: {e}")
         return ""
