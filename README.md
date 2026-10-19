@@ -34,7 +34,7 @@
 - **날씨 지역**: `latitude` / `longitude` 값을 바꾸면 됩니다.
 
 ## 자동 실행 (Windows 시작 시)
-`Win + R` → `shell:startup` → 열린 폴더에 `run.bat` **바로가기**를 넣습니다.
+⚙ 설정 → **컴퓨터 켤 때 자동 실행**을 체크하고 저장하면 됩니다(현재 사용자 레지스트리 Run 키에 등록, 끄면 삭제). exe 폴더를 옮겼다면 다시 체크해 주세요.
 
 ## exe 버전 (Python 설치 불필요)
 - GitHub에 올라갈 때마다 자동으로 Windows exe가 만들어집니다: **Releases → `latest` → `SUBmonitor-win.zip`** 다운로드 → 압축 해제 → `SUBmonitor.exe` 실행.

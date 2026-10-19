@@ -164,6 +164,7 @@ class Api:
             "max_panels": self.MAX_PANELS,
             "dragon_min": int(self.cfg.get("dragon_min", 10)),
             "weather_fx": bool(self.cfg.get("weather_fx", True)),
+            "autostart": self.get_autostart(),
             "night": self.cfg.get("night", {"on": True, "start": "22:00", "end": "08:00"}),
             "dragon_video": self._dragon_video(),
         }
@@ -187,6 +188,47 @@ class Api:
         except Exception as e:
             log(f"dragon video copy failed: {e}")
         return ""
+
+    # ---- Windows 시작 시 자동 실행 (현재 사용자 레지스트리 Run 키) ----
+    RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    RUN_NAME = "SUBmonitor"
+
+    @staticmethod
+    def _launch_cmd():
+        if getattr(sys, "frozen", False):                      # exe
+            return f'"{sys.executable}"'
+        pyw = Path(sys.executable).with_name("pythonw.exe")     # 소스 실행: 콘솔 창 없이
+        exe = pyw if pyw.exists() else Path(sys.executable)
+        return f'"{exe}" "{Path(__file__).resolve()}"'
+
+    def get_autostart(self):
+        if sys.platform != "win32":
+            return False
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, self.RUN_KEY) as k:
+                val, _ = winreg.QueryValueEx(k, self.RUN_NAME)
+            return bool(val)
+        except Exception:
+            return False
+
+    def set_autostart(self, on):
+        if sys.platform != "win32":
+            return False
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, self.RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
+                if on:
+                    winreg.SetValueEx(k, self.RUN_NAME, 0, winreg.REG_SZ, self._launch_cmd())
+                else:
+                    try:
+                        winreg.DeleteValue(k, self.RUN_NAME)
+                    except FileNotFoundError:
+                        pass
+            log(f"autostart {'on' if on else 'off'}: {self._launch_cmd()}")
+        except Exception as e:
+            log(f"autostart failed: {e}")
+        return self.get_autostart()
 
     def set_weather_fx(self, on):
         self.cfg["weather_fx"] = bool(on)

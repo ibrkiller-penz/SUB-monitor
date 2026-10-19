@@ -290,6 +290,8 @@
   <label for="setDragon">화면 보호 용 (잔상 방지)</label>
   <div class="dragonRow"><select id="setDragon"><option value="0">끄기</option><option value="5">5분마다</option><option value="10">10분마다</option><option value="20">20분마다</option><option value="30">30분마다</option><option value="60">1시간마다</option></select>
     <button type="button" id="dragonTest">지금 보기</button><span class="hint" id="dragonSrc"></span></div>
+  <label>컴퓨터 켤 때 자동 실행</label>
+  <div class="dragonRow"><label class="nchk"><input type="checkbox" id="autoStart"> Windows 시작 시 SUB모니터 자동 실행</label><span class="hint" id="autoHint"></span></div>
   <label>날씨 효과</label>
   <div class="dragonRow"><label class="nchk"><input type="checkbox" id="wfxOn"> 사용</label>
     <select id="wfxKind"><option value="rain">비(부슬부슬)</option><option value="storm">뇌우</option><option value="snow">눈</option><option value="cloud">흐림</option><option value="fog">안개</option><option value="sunny">맑은 낮</option><option value="night">맑은 밤</option><option value="wind">바람</option></select>
@@ -509,6 +511,7 @@ function openSettings() {
   limitChecks($('modal').querySelector('.chk:not(#setSummary):not(#setOrient)'), MAX_PANELS); limitChecks($('setSummary'), 4);
   $('modal').querySelectorAll('input[name=orient]').forEach(i => i.checked = (document.body.classList.contains('portrait') ? 'portrait' : 'landscape') === i.value);
   $('wfxOn').checked = !window.WEATHER_FX || WEATHER_FX.on;
+  $('autoStart').checked = !!AUTOSTART; $('autoHint').textContent = AUTOSTART ? '켜져 있음' : '';
   $('nightOn').checked = NIGHT.on; $('nightStart').value = NIGHT.start; $('nightEnd').value = NIGHT.end;
   $('setDragon').value = String(window.DRAGON_CFG ? DRAGON_CFG.min : 10);
   $('dragonSrc').textContent = window.DRAGON_CFG && DRAGON_CFG.video ? '영상 용 사용 중 · exe 옆에 dragon.mp4(초록 배경)를 두면 그 영상으로 바뀜' : '그림 용';
@@ -522,6 +525,7 @@ function applyBgLight() {
   $('bg').style.filter = `brightness(${seg[2]}) saturate(${seg[2] < .6 ? .85 : 1})`;
 }
 /* 야간 모드: NIGHT.start ~ NIGHT.end (자정을 넘겨도 됨) 동안 검은 화면 */
+let AUTOSTART = false;
 let NIGHT = { on: true, start: '22:00', end: '08:00' }, nightWakeUntil = 0;
 function inNight() {
   if (!NIGHT.on) return false;
@@ -796,6 +800,7 @@ window.addEventListener('pywebviewready', async () => {
   weatherName = cfg.weather_name; $('wname').textContent = cfg.weather_name; schoolUrl = cfg.school_url || '';
   if (cfg.max_panels) MAX_PANELS = cfg.max_panels;
   if (cfg.night) NIGHT = Object.assign(NIGHT, cfg.night);
+  AUTOSTART = !!cfg.autostart;
   if (window.WEATHER_FX && cfg.weather_fx === false) WEATHER_FX.on = false;
   checkNight(); setInterval(checkNight, 20 * 1000);
   applyBgLight(); setInterval(applyBgLight, 60 * 1000);
@@ -828,6 +833,7 @@ window.addEventListener('pywebviewready', async () => {
     NIGHT = { on: $('nightOn').checked, start: $('nightStart').value || '22:00', end: $('nightEnd').value || '08:00' };
     if (pywebview.api.set_night) pywebview.api.set_night(NIGHT); checkNight();
     if (window.weatherFxOn) weatherFxOn($('wfxOn').checked);
+    if (pywebview.api.set_autostart && $('autoStart').checked !== !!AUTOSTART) pywebview.api.set_autostart($('autoStart').checked).then(v => { AUTOSTART = !!v; });
     if (pywebview.api.set_weather_fx) pywebview.api.set_weather_fx($('wfxOn').checked);
     const dmin = Number($('setDragon').value); if (window.DRAGON_CFG) DRAGON_CFG.min = dmin;
     if (pywebview.api.set_dragon) pywebview.api.set_dragon(dmin);
