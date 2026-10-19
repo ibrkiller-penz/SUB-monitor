@@ -18,6 +18,7 @@ import requests
 import webview
 
 from notify import MessageWatcher
+from launcher import Launchers
 
 
 def _find_nvidia_smi():
@@ -134,6 +135,8 @@ class Api:
         self._tt_mem = (None, 0.0, None)   # (경로, mtime, 캐시 내용)
         threading.Thread(target=self._tt_refresher, daemon=True).start()
         self._gpu = (0.0, None)   # (마지막 조회 시각, 값) — nvidia-smi 는 10초마다만
+        self.launchers = Launchers(cfg.get("launchers") or None, log=log)
+        self.launchers.refresh()
         self.watcher = MessageWatcher(cfg.get("message_apps", ["쿨메신저", "CoolMessenger"]), udb=cfg.get("udb"))
         self._net = psutil.net_io_counters()
         self._net_t = time.time()
@@ -149,8 +152,8 @@ class Api:
                 time.sleep(1)
 
     DEFAULT_PANELS = ["weather", "tt", "events", "msg"]
-    PANEL_IDS = ("weather", "tt", "events", "school", "msg", "pc")
-    MAX_PANELS = 4   # 시계 제외. 더 켜면 칸이 너무 좁아진다
+    PANEL_IDS = ("weather", "tt", "events", "school", "msg", "pc", "apps")
+    MAX_PANELS = 5   # 시계 제외. 바로가기(가는 띠)를 포함해 5개까지
     DEFAULT_SUMMARY = ["exam", "next", "duty", "msg"]
 
     @timed
@@ -272,6 +275,15 @@ class Api:
         self.cfg["panels"] = [p for p in panels if p in self.PANEL_IDS][: self.MAX_PANELS]
         save_config(self.cfg)
         return self.cfg["panels"]
+
+    # ---- 바로가기 (launcher.py) ----
+    def get_launchers(self):
+        return self.launchers.list()
+
+    def launch_app(self, lid):
+        r = self.launchers.launch(lid)
+        log(f"launch {lid}: {r}")
+        return r
 
     # ---- 메신저 알림 (notify.py) ----
     @timed
