@@ -667,7 +667,7 @@ def main():
         api._ensure_worker(force=True)   # 시간표 캐시가 없거나 오래됐으면 지금 긁어온다
     # 화면 파일이 바뀌면(새 버전) WebView2 프로필을 새로 써서 예전 화면이 캐시에서 뜨지 않게 한다
     import hashlib
-    ver = hashlib.md5(b"".join((BASE / "web" / f).read_bytes() for f in ("index.html", "detail.js", "detail.css"))).hexdigest()[:8]
+    ver = hashlib.md5(b"".join((BASE / "web" / f).read_bytes() for f in ("index.html", "detail.js", "detail.css", "dragon.js"))).hexdigest()[:8]
     log(f"web version {ver}")
     try:
         webview.start(private_mode=False, storage_path=str(DATA_DIR / "profile" / ver), debug="--debug" in sys.argv)
