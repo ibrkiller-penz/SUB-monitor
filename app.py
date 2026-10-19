@@ -74,7 +74,7 @@ def log(msg):
 
 
 LOCAL_CONFIG = CONFIG_PATH.with_name("config.local.json")   # 이 PC·이 교사만의 설정 (git 에 안 올라감)
-LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary", "dragon_min", "night")
+LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary", "dragon_min", "night", "weather_fx")
 
 
 def load_config():
@@ -163,6 +163,7 @@ class Api:
             "school_url": self.cfg.get("school_schedule_url", ""),
             "max_panels": self.MAX_PANELS,
             "dragon_min": int(self.cfg.get("dragon_min", 10)),
+            "weather_fx": bool(self.cfg.get("weather_fx", True)),
             "night": self.cfg.get("night", {"on": True, "start": "22:00", "end": "08:00"}),
             "dragon_video": self._dragon_video(),
         }
@@ -186,6 +187,11 @@ class Api:
         except Exception as e:
             log(f"dragon video copy failed: {e}")
         return ""
+
+    def set_weather_fx(self, on):
+        self.cfg["weather_fx"] = bool(on)
+        save_config(self.cfg)
+        return self.cfg["weather_fx"]
 
     def set_night(self, night):
         """야간 모드: 지정 시간 동안 화면을 검게 (화면 수명·잔상 보호)."""
@@ -710,7 +716,7 @@ def main():
         api._ensure_worker(force=True)   # 시간표 캐시가 없거나 오래됐으면 지금 긁어온다
     # 화면 파일이 바뀌면(새 버전) WebView2 프로필을 새로 써서 예전 화면이 캐시에서 뜨지 않게 한다
     import hashlib
-    ver = hashlib.md5(b"".join((BASE / "web" / f).read_bytes() for f in ("index.html", "detail.js", "detail.css", "dragon.js"))).hexdigest()[:8]
+    ver = hashlib.md5(b"".join((BASE / "web" / f).read_bytes() for f in ("index.html", "detail.js", "detail.css", "dragon.js", "weatherfx.js"))).hexdigest()[:8]
     log(f"web version {ver}")
     try:
         webview.start(private_mode=False, storage_path=str(DATA_DIR / "profile" / ver), debug="--debug" in sys.argv)
