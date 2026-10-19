@@ -20,10 +20,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
-      - name: Launcher self-test
-        continue-on-error: true
-        run: |
-          python -c "import launcher, time, json; L = launcher.Launchers([{'id':'edge','name':'Edge','exe':['msedge.exe'],'keys':['Microsoft Edge']},{'id':'chrome','name':'Chrome','exe':['chrome.exe'],'keys':['Google Chrome']}] + launcher.DEFAULT_LAUNCHERS, log=print); L.refresh(force=True); time.sleep(1); [time.sleep(1) for _ in range(170) if L._busy]; print(json.dumps(L.found, ensure_ascii=False, indent=1)); print([(a['id'], a['found'], len(a['icon'])) for a in L.list()])"
       - name: Build
         run: |
           pyinstaller --noconfirm --clean --onedir --windowed --name SUBmonitor --icon app.ico --add-data "web;web" --collect-all webview --hidden-import notify --hidden-import tt_worker --hidden-import launcher app.py
