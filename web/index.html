@@ -310,6 +310,7 @@
     <button type="button" id="dragonTest">지금 보기</button><span class="hint" id="dragonSrc"></span></div>
   <label>컴퓨터 켤 때 자동 실행</label>
   <div class="dragonRow"><label class="nchk"><input type="checkbox" id="autoStart"> Windows 시작 시 SUB모니터 자동 실행</label><span class="hint" id="autoHint"></span></div>
+  <div class="dragonRow"><span>바로가기 아이콘</span><button type="button" id="appsRescan">컴퓨터에서 다시 찾기</button><span class="hint" id="appsHint"></span></div>
   <label>날씨 효과</label>
   <div class="dragonRow"><label class="nchk"><input type="checkbox" id="wfxOn"> 사용</label>
     <select id="wfxKind"><option value="rain">비(부슬부슬)</option><option value="storm">뇌우</option><option value="snow">눈</option><option value="cloud">흐림</option><option value="fog">안개</option><option value="sunny">맑은 낮</option><option value="night">맑은 밤</option><option value="wind">바람</option></select>
@@ -761,6 +762,9 @@ let launchers = [];
 async function loadLaunchers() {
   if (!pywebview.api.get_launchers) return;
   try { launchers = await pywebview.api.get_launchers(); } catch (e) { return; }
+  const busy = launchers.some(a => a.busy);
+  $('appsHint').textContent = busy ? '찾는 중… (최대 1~2분)' : `${launchers.filter(a => a.found).length}/${launchers.length}개 찾음`;
+  clearTimeout(loadLaunchers._t); if (busy) loadLaunchers._t = setTimeout(loadLaunchers, 4000);   // 찾는 동안 계속 다시 읽기
   $('appsList').innerHTML = launchers.map(a => `<button type="button" data-app="${a.id}" title="${esc(a.name)}" class="${a.found ? '' : 'miss'}">
     ${a.icon ? `<img src="${a.icon}" alt="${esc(a.name)}">` : `<span class="badge2" style="background:${a.color};color:${a.fg}">${esc(a.abbr)}</span>`}</button>`).join('');
 }
@@ -874,7 +878,8 @@ window.addEventListener('pywebviewready', async () => {
   };
   $('pcMini').onclick = () => { if (window.openDetail) openDetail('pc'); };
   loadWeather(); loadEvents(); loadSystem(); loadTimetable(); loadMessages(); loadLaunchers();
-  setTimeout(loadLaunchers, 8000); setInterval(loadLaunchers, 10 * 60 * 1000);   // 아이콘은 처음 실행 때 뒤에서 뽑으므로 잠시 뒤 다시
+  setTimeout(loadLaunchers, 3000); setInterval(loadLaunchers, 10 * 60 * 1000);   // 아이콘은 처음 실행 때 뒤에서 뽑으므로 잠시 뒤 다시
+  $('appsRescan').onclick = async () => { if (pywebview.api.refresh_launchers) { await pywebview.api.refresh_launchers(); setTimeout(loadLaunchers, 500); } };
   $('appsList').addEventListener('click', async e => {
     const b = e.target.closest('[data-app]'); if (!b) return; e.stopPropagation();
     b.classList.remove('go'); void b.offsetWidth; b.classList.add('go');

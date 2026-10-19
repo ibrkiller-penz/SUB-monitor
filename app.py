@@ -280,6 +280,10 @@ class Api:
     def get_launchers(self):
         return self.launchers.list()
 
+    def refresh_launchers(self):
+        self.launchers.refresh(force=True)
+        return True
+
     def launch_app(self, lid):
         r = self.launchers.launch(lid)
         log(f"launch {lid}: {r}")
