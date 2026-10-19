@@ -360,5 +360,5 @@
 
   window.dragonFly = fly;   // 시험용·설정의 '지금 보기'
   let last = Date.now();
-  setInterval(() => { if (CFG.min > 0 && Date.now() - last >= CFG.min * 60000) { last = Date.now(); fly(); } }, 15000);
+  setInterval(() => { if (CFG.min > 0 && !window.NIGHT_ON && Date.now() - last >= CFG.min * 60000) { last = Date.now(); fly(); } }, 15000);
 })();

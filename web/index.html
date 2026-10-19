@@ -210,6 +210,13 @@
   #modal .dragonRow { display: flex; align-items: center; gap: 10px; margin: 2px 0 10px; }
   #modal .dragonRow select { width: auto; margin: 0; }
   #modal .dragonRow .hint { margin: 0; }
+  #modal .dragonRow button { white-space: nowrap; flex: none; }
+  #modal .dragonRow input[type=time] { font: inherit; font-size: 18px; padding: 5px 8px; border-radius: 10px; background: rgba(0,0,0,.4); color: var(--text); border: 1px solid var(--line); color-scheme: dark; }
+  #modal .nchk { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text); font-size: 17px; }
+  #modal .nchk input { width: 20px; height: 20px; accent-color: var(--accent); }
+  /* 야간 모드: 화면 전체를 검게. 누르면 잠시 켜짐 */
+  #night { position: absolute; inset: 0; z-index: 80; background: #000; display: none; cursor: pointer; }
+  #night.on { display: block; }
   #setPanels label.ord { background: rgba(255,255,255,.06); border-radius: 10px; padding: 3px 4px; }
   #setPanels .mv { all: unset; cursor: pointer; font-size: 13px; color: var(--muted); width: 22px; height: 26px; text-align: center; line-height: 26px; border-radius: 6px; }
   #setPanels .mv:hover { background: rgba(255,255,255,.14); color: var(--text); }
@@ -283,10 +290,14 @@
   <label for="setDragon">화면 보호 용 (잔상 방지)</label>
   <div class="dragonRow"><select id="setDragon"><option value="0">끄기</option><option value="5">5분마다</option><option value="10">10분마다</option><option value="20">20분마다</option><option value="30">30분마다</option><option value="60">1시간마다</option></select>
     <button type="button" id="dragonTest">지금 보기</button><span class="hint" id="dragonSrc"></span></div>
+  <label>야간 모드 (화면 끄기)</label>
+  <div class="dragonRow"><label class="nchk"><input type="checkbox" id="nightOn"> 사용</label>
+    <input type="time" id="nightStart"> ~ <input type="time" id="nightEnd"><span class="hint">꺼진 동안 화면을 누르면 5분간 켜짐</span></div>
   <label for="setTeacher">교사 선택</label>
   <select id="setTeacher"></select>
   <div class="btns"><button id="setReload">새로고침</button><button id="setCancel">취소</button><button class="pri" id="setSave">저장</button></div>
 </div></div>
+<div id="night" title="누르면 5분간 켜짐"></div>
 <div id="detail"><div class="dhead"><button id="dback">← 허브로</button><span id="dtitle"></span><span id="dclock"></span></div><div id="dbody"></div></div>
 <div id="root">
   <section class="panel" id="clock">
@@ -492,11 +503,26 @@ function openSettings() {
   $('setSummary').querySelectorAll('input').forEach(i => i.checked = summaryOn.includes(i.value));
   limitChecks($('modal').querySelector('.chk:not(#setSummary):not(#setOrient)'), MAX_PANELS); limitChecks($('setSummary'), 4);
   $('modal').querySelectorAll('input[name=orient]').forEach(i => i.checked = (document.body.classList.contains('portrait') ? 'portrait' : 'landscape') === i.value);
+  $('nightOn').checked = NIGHT.on; $('nightStart').value = NIGHT.start; $('nightEnd').value = NIGHT.end;
   $('setDragon').value = String(window.DRAGON_CFG ? DRAGON_CFG.min : 10);
   $('dragonSrc').textContent = window.DRAGON_CFG && DRAGON_CFG.video ? '영상(dragon.mp4) 사용 중' : '기본 그림 용 · exe 옆에 dragon.mp4(초록 배경) 를 두면 영상으로';
   $('modal').classList.add('on');
+  checkNight();
 }
-function closeSettings() { $('modal').classList.remove('on'); }
+/* 야간 모드: NIGHT.start ~ NIGHT.end (자정을 넘겨도 됨) 동안 검은 화면 */
+let NIGHT = { on: true, start: '22:00', end: '08:00' }, nightWakeUntil = 0;
+function inNight() {
+  if (!NIGHT.on) return false;
+  const m = s => { const [h, mi] = String(s).split(':').map(Number); return h * 60 + (mi || 0); };
+  const now = new Date(), n = now.getHours() * 60 + now.getMinutes(), a = m(NIGHT.start), b = m(NIGHT.end);
+  return a === b ? false : a < b ? (n >= a && n < b) : (n >= a || n < b);
+}
+function checkNight() {
+  const on = inNight() && Date.now() > nightWakeUntil && !$('modal').classList.contains('on');
+  $('night').classList.toggle('on', on);
+  window.NIGHT_ON = on;   // 용 화면 보호도 쉬게
+}
+function closeSettings() { $('modal').classList.remove('on'); checkNight(); }
 function renderTimetable() {
   if (!tt) return;
   // 다른 요일을 눌러봤다면 60초 뒤 오늘로 복귀
@@ -757,6 +783,9 @@ window.addEventListener('pywebviewready', async () => {
   const cfg = await pywebview.api.get_config();
   weatherName = cfg.weather_name; $('wname').textContent = cfg.weather_name; schoolUrl = cfg.school_url || '';
   if (cfg.max_panels) MAX_PANELS = cfg.max_panels;
+  if (cfg.night) NIGHT = Object.assign(NIGHT, cfg.night);
+  checkNight(); setInterval(checkNight, 20 * 1000);
+  $('night').onclick = () => { nightWakeUntil = Date.now() + 5 * 60 * 1000; checkNight(); };
   if (window.DRAGON_CFG) { if (cfg.dragon_min != null) DRAGON_CFG.min = cfg.dragon_min; DRAGON_CFG.video = cfg.dragon_video || ''; }
   if (Array.isArray(cfg.summary)) summaryOn = cfg.summary;
   if (Array.isArray(cfg.panels)) panelsOn = cfg.panels; applyPanels();
@@ -781,6 +810,8 @@ window.addEventListener('pywebviewready', async () => {
     summaryOn = [...$('setSummary').querySelectorAll('input:checked')].map(i => i.value).slice(0, 4);
     if (pywebview.api.set_summary) await pywebview.api.set_summary(summaryOn);
     const orient = ($('modal').querySelector('input[name=orient]:checked') || {}).value || 'landscape';
+    NIGHT = { on: $('nightOn').checked, start: $('nightStart').value || '22:00', end: $('nightEnd').value || '08:00' };
+    if (pywebview.api.set_night) pywebview.api.set_night(NIGHT); checkNight();
     const dmin = Number($('setDragon').value); if (window.DRAGON_CFG) DRAGON_CFG.min = dmin;
     if (pywebview.api.set_dragon) pywebview.api.set_dragon(dmin);
     closeSettings();

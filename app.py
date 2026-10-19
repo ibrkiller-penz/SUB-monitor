@@ -74,7 +74,7 @@ def log(msg):
 
 
 LOCAL_CONFIG = CONFIG_PATH.with_name("config.local.json")   # 이 PC·이 교사만의 설정 (git 에 안 올라감)
-LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary", "dragon_min")
+LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary", "dragon_min", "night")
 
 
 def load_config():
@@ -163,6 +163,7 @@ class Api:
             "school_url": self.cfg.get("school_schedule_url", ""),
             "max_panels": self.MAX_PANELS,
             "dragon_min": int(self.cfg.get("dragon_min", 10)),
+            "night": self.cfg.get("night", {"on": True, "start": "22:00", "end": "08:00"}),
             "dragon_video": self._dragon_video(),
         }
 
@@ -180,6 +181,16 @@ class Api:
         except Exception as e:
             log(f"dragon video copy failed: {e}")
         return ""
+
+    def set_night(self, night):
+        """야간 모드: 지정 시간 동안 화면을 검게 (화면 수명·잔상 보호)."""
+        ok = lambda s: isinstance(s, str) and re.match(r"^\d{1,2}:\d{2}$", s)
+        n = night if isinstance(night, dict) else {}
+        self.cfg["night"] = {"on": bool(n.get("on", True)),
+                             "start": n.get("start") if ok(n.get("start")) else "22:00",
+                             "end": n.get("end") if ok(n.get("end")) else "08:00"}
+        save_config(self.cfg)
+        return self.cfg["night"]
 
     def set_dragon(self, minutes):
         self.cfg["dragon_min"] = max(0, min(120, int(minutes or 0)))
