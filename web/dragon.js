@@ -41,25 +41,34 @@
     const dim = document.createElement('div');
     dim.style.cssText = 'position:absolute;inset:0;z-index:49;pointer-events:none;background:#000;opacity:0;transition:opacity 1s';
     const out = document.createElement('canvas');
-    out.style.cssText = 'position:absolute;left:0;top:0;z-index:50;pointer-events:none;transform-origin:0 0';
-    st.appendChild(v); st.appendChild(dim); st.appendChild(out);
+    out.style.cssText = 'position:absolute;left:0;top:0;z-index:50;pointer-events:none;transform-origin:0 0;opacity:0;transition:opacity .9s;'
+      + 'filter:drop-shadow(0 0 10px rgba(255,196,80,.55)) drop-shadow(0 0 28px rgba(255,170,60,.25)) saturate(1.12) contrast(1.05)';
+    // 금빛 가루 꼬리: 용 몸통 뒤로 반짝이는 입자가 흩날린다
+    const dust = document.createElement('canvas');
+    dust.width = W; dust.height = H;
+    dust.style.cssText = 'position:absolute;inset:0;z-index:50;pointer-events:none;mix-blend-mode:screen';
+    const dctx = dust.getContext('2d');
+    const motes = [];
+    st.appendChild(v); st.appendChild(dim); st.appendChild(dust); st.appendChild(out);
     const octx = out.getContext('2d', { willReadFrequently: true });
     running = true;
     let started = false, mode = '';
-    const cleanup = () => { dim.remove(); v.remove(); out.remove(); running = false; };
+    const cleanup = () => { dim.remove(); v.remove(); out.remove(); dust.remove(); running = false; };
     v.onerror = () => { cleanup(); CFG.video = ''; fly(); };
     v.onloadeddata = () => {
       if (started) return; started = true;
       const ar = v.videoWidth / v.videoHeight || 16 / 9;
-      const vh = Math.round((portrait ? W : H) * 1.2), vw = Math.round(vh * ar);   // 크게. 몸·꼬리는 화면 밖으로 나가도 되고 머리만 화면 안에
+      const vh = Math.round((portrait ? W : H) * 1.1), vw = Math.round(vh * ar);   // 크게. 몸·꼬리는 화면 밖으로 나가도 되고 머리만 화면 안에
       // 크로마키 계산량을 줄이려고 영상은 화면 크기로 줄여서 처리
       out.width = vw; out.height = vh;
-      dim.style.opacity = '.38';
+      dim.style.opacity = '.38'; out.style.opacity = '1';
+      let lastNow = performance.now();
       v.play().catch(() => {});
       const t0 = performance.now(), dur = DURATION + 2000, Lz = (portrait ? H : W) + vw;
       (function step(now) {
         const p = (now - t0) / dur;
-        if (p >= 1) { dim.style.opacity = '0'; out.style.opacity = '0'; setTimeout(cleanup, 1000); return; }
+        if (p >= 1) { dim.style.opacity = '0'; out.style.opacity = '0'; dust.style.transition = 'opacity .9s'; dust.style.opacity = '0'; setTimeout(cleanup, 1000); return; }
+        const dt = Math.min(.05, (now - lastNow) / 1000); lastNow = now;
         octx.clearRect(0, 0, vw, vh);
         octx.drawImage(v, 0, 0, vw, vh);
         if (!mode) {   // 모서리 네 곳 평균 색으로 배경 판단
@@ -81,16 +90,30 @@
         }
         const s = (portrait ? H : W) - p * Lz;
         // 물결 비행: 크게 오르내리고, 내려갈 때는 머리를 숙이고 올라갈 때는 머리를 든다
-        // 영상 속 머리 위치(가로 22%, 세로 30%)가 화면 높이의 20~78% 안에서만 움직이게
-        const side = portrait ? W : H, A = side * 0.22, w = Math.PI * 2 * 2.2;
-        const base = side * 0.49 - vh * 0.30 - (side - vh) / 2;            // 머리가 화면 가운데쯤 오는 기준 위치
+        // 영상 속 머리 위치(가로 10%, 세로 22%)가 화면 안에서만 움직이게. 영상 자체가 머리를 들고 숙이므로 앱 쪽 움직임은 적당히
+        const side = portrait ? W : H, A = side * 0.15, w = Math.PI * 2 * 2;
+        const base = side * 0.42 - vh * 0.22 - (side - vh) / 2;            // 머리가 화면 가운데 조금 위에 오는 기준 위치
         const yy = base + A * Math.sin(w * p) + A * 0.25 * Math.sin(w * 2.3 * p + 1);
         const vy = A * w * Math.cos(w * p) + A * 0.25 * w * 2.3 * Math.cos(w * 2.3 * p + 1);   // 세로 속도(진행 1당)
-        const tilt = Math.max(-18, Math.min(18, -Math.atan2(vy, Lz) * 180 / Math.PI * 2.4));   // 기울기(도)
-        out.style.transformOrigin = '22% 30%';   // 머리를 중심으로 기울여 머리가 화면 밖으로 안 나가게
+        const tilt = Math.max(-12, Math.min(12, -Math.atan2(vy, Lz) * 180 / Math.PI * 2));   // 기울기(도)
+        out.style.transformOrigin = '10% 22%';   // 머리를 중심으로 기울여 머리가 화면 밖으로 안 나가게
         out.style.transform = portrait
           ? `translate(${(W - vw) / 2 + yy}px, ${s + vw / 2 - vh / 2}px) rotate(${90 + tilt}deg)`
           : `translate(${s}px, ${(H - vh) / 2 + yy}px) rotate(${tilt}deg)`;
+        // 금빛 가루: 몸통(영상 가로 20~90%, 세로 35~70%) 자리에서 생겨 뒤쪽 위로 흩어지며 사라진다
+        if (!portrait) {
+          for (let k = 0; k < 5; k++) motes.push({ x: s + vw * (.2 + Math.random() * .7), y: (H - vh) / 2 + yy + vh * (.35 + Math.random() * .35),
+            vx: 30 + Math.random() * 60, vy: -10 - Math.random() * 25, life: 0, max: .8 + Math.random() * 1.2, r: .8 + Math.random() * 2.2 });
+          dctx.clearRect(0, 0, W, H);
+          for (let k = motes.length - 1; k >= 0; k--) {
+            const m = motes[k]; m.life += dt; if (m.life > m.max) { motes.splice(k, 1); continue; }
+            m.x += m.vx * dt; m.y += m.vy * dt;
+            const a = Math.sin(Math.PI * m.life / m.max) * .9;
+            const g = dctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r * 4);
+            g.addColorStop(0, `rgba(255,236,170,${a})`); g.addColorStop(.35, `rgba(255,190,80,${a * .5})`); g.addColorStop(1, 'rgba(255,170,60,0)');
+            dctx.fillStyle = g; dctx.beginPath(); dctx.arc(m.x, m.y, m.r * 4, 0, 7); dctx.fill();
+          }
+        }
         requestAnimationFrame(step);
       })(t0);
     };
