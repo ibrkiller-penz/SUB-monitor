@@ -56,7 +56,7 @@
     const w = rnd(W * .14, W * .26), h = w * rnd(.35, .5);
     // 덩어리 3~4개를 겹쳐 모양이 둥글지 않고 자연스럽게
     const blobs = Array.from({ length: 3 + Math.floor(Math.random() * 2) }, () => [rnd(-.3, .3), rnd(-.18, .18), rnd(.45, .7)]);
-    const dens = FX.kind === 'storm' ? .42 : FX.kind === 'cloud' ? [0, .22, .27, .31][FX.level] : isRain(FX.kind) ? .34 : .28;
+    const dens = FX.kind === 'storm' ? .42 : FX.kind === 'cloud' ? [0, .176, .216, .248][FX.level] : isRain(FX.kind) ? .34 : .28;
     return { x: any ? rnd(-w, W) : W + rnd(20, 240), y: rnd(H * .08, H * .92), w, h, blobs,
              col: dark ? '150,158,170' : '236,240,246', a: dens * rnd(.85, 1.1),
              v: rnd(9, 18) * (FX.wind ? 1 + FX.wind * 1.5 : 1), ph: rnd(0, 6.3), bob: rnd(5, 12), bs: rnd(.25, .45) };
