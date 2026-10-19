@@ -4,7 +4,7 @@
   ① config 의 path  ② 시작 메뉴·바탕화면 바로가기(.lnk) — 대상 exe·아이콘 위치까지 풀어 봄
   ③ 레지스트리 App Paths  ④ 레지스트리 설치 목록(Uninstall: DisplayIcon·InstallLocation)
   ⑤ Program Files·AppData 폴더 안 exe 이름 검색  ⑥ 스토어 앱(Get-StartApps / Appx 로고)
-아이콘: user32 PrivateExtractIcons 로 128px 를 뽑아 ~/.lesown_dashboard/icons2/<id>.png. 찾은 결과는 found.json 에 남긴다.
+아이콘: 기본 6개는 web/apps/<id>.png 에 넣어 둔 공식 아이콘을 쓴다. 그 밖의 항목은 user32 PrivateExtractIcons 로 128px 를 뽑아 ~/.lesown_dashboard/icons2/<id>.png. 찾은 결과는 found.json 에 남긴다.
 목록은 config.json > launchers 로 바꿀 수 있다 (id, name, exe[], keys[], path).
 """
 import base64
@@ -18,6 +18,7 @@ from pathlib import Path
 IS_WIN = sys.platform == "win32"
 ICON_DIR = Path.home() / ".lesown_dashboard" / "icons2"
 FOUND = ICON_DIR / "found.json"
+APPS_WEB = Path(getattr(sys, "_MEIPASS", Path(__file__).parent)) / "web" / "apps"   # 프로그램에 넣어 둔 아이콘 (web/apps/<id>.png)
 
 # 기본 바로가기 6개. exe: 실행 파일 이름, keys: 바로가기·설치 목록에서 찾을 이름(앞부분 일치)
 DEFAULT_LAUNCHERS = [
@@ -229,7 +230,9 @@ class Launchers:
         for it in self.items:
             png = ICON_DIR / f"{it['id']}.png"
             icon = ""
-            if png.exists():
+            if (APPS_WEB / f"{it['id']}.png").exists():                   # 넣어 둔 아이콘이 우선
+                icon = f"apps/{it['id']}.png"
+            elif png.exists():
                 try:
                     icon = "data:image/png;base64," + base64.b64encode(png.read_bytes()).decode()
                 except Exception:
