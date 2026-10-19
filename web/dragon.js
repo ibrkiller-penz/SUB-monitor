@@ -51,7 +51,7 @@
     v.onloadeddata = () => {
       if (started) return; started = true;
       const ar = v.videoWidth / v.videoHeight || 16 / 9;
-      const vh = Math.round((portrait ? W : H) * 1.05), vw = Math.round(vh * ar);
+      const vh = Math.round((portrait ? W : H) * 0.8), vw = Math.round(vh * ar);   // 위아래로 크게 움직일 여유를 두고 조금 작게
       // 크로마키 계산량을 줄이려고 영상은 화면 크기로 줄여서 처리
       out.width = vw; out.height = vh;
       dim.style.opacity = '.38';
@@ -80,10 +80,15 @@
           octx.putImageData(img, 0, 0);
         }
         const s = (portrait ? H : W) - p * Lz;
-        const yy = Math.sin(p * Math.PI * 3) * (portrait ? W : H) * 0.06;
+        // 물결 비행: 크게 오르내리고, 내려갈 때는 머리를 숙이고 올라갈 때는 머리를 든다
+        const side = portrait ? W : H, A = side * 0.1, w = Math.PI * 2 * 2.2;
+        const yy = A * Math.sin(w * p) + A * 0.25 * Math.sin(w * 2.3 * p + 1);
+        const vy = A * w * Math.cos(w * p) + A * 0.25 * w * 2.3 * Math.cos(w * 2.3 * p + 1);   // 세로 속도(진행 1당)
+        const tilt = Math.max(-14, Math.min(14, -Math.atan2(vy, Lz) * 180 / Math.PI * 2.4));   // 기울기(도)
+        out.style.transformOrigin = '50% 50%';
         out.style.transform = portrait
-          ? `translate(${(W + vh) / 2 + yy}px, ${s + vw}px) rotate(90deg) translateX(-${vw}px)`
-          : `translate(${s}px, ${(H - vh) / 2 + yy}px)`;
+          ? `translate(${(W - vw) / 2 + yy}px, ${s + vw / 2 - vh / 2}px) rotate(${90 + tilt}deg)`
+          : `translate(${s}px, ${(H - vh) / 2 + yy}px) rotate(${tilt}deg)`;
         requestAnimationFrame(step);
       })(t0);
     };
