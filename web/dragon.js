@@ -51,7 +51,7 @@
     v.onloadeddata = () => {
       if (started) return; started = true;
       const ar = v.videoWidth / v.videoHeight || 16 / 9;
-      const vh = Math.round((portrait ? W : H) * 0.8), vw = Math.round(vh * ar);   // 위아래로 크게 움직일 여유를 두고 조금 작게
+      const vh = Math.round((portrait ? W : H) * 1.2), vw = Math.round(vh * ar);   // 크게. 몸·꼬리는 화면 밖으로 나가도 되고 머리만 화면 안에
       // 크로마키 계산량을 줄이려고 영상은 화면 크기로 줄여서 처리
       out.width = vw; out.height = vh;
       dim.style.opacity = '.38';
@@ -81,11 +81,13 @@
         }
         const s = (portrait ? H : W) - p * Lz;
         // 물결 비행: 크게 오르내리고, 내려갈 때는 머리를 숙이고 올라갈 때는 머리를 든다
-        const side = portrait ? W : H, A = side * 0.1, w = Math.PI * 2 * 2.2;
-        const yy = A * Math.sin(w * p) + A * 0.25 * Math.sin(w * 2.3 * p + 1);
+        // 영상 속 머리 위치(가로 22%, 세로 30%)가 화면 높이의 20~78% 안에서만 움직이게
+        const side = portrait ? W : H, A = side * 0.22, w = Math.PI * 2 * 2.2;
+        const base = side * 0.49 - vh * 0.30 - (side - vh) / 2;            // 머리가 화면 가운데쯤 오는 기준 위치
+        const yy = base + A * Math.sin(w * p) + A * 0.25 * Math.sin(w * 2.3 * p + 1);
         const vy = A * w * Math.cos(w * p) + A * 0.25 * w * 2.3 * Math.cos(w * 2.3 * p + 1);   // 세로 속도(진행 1당)
-        const tilt = Math.max(-14, Math.min(14, -Math.atan2(vy, Lz) * 180 / Math.PI * 2.4));   // 기울기(도)
-        out.style.transformOrigin = '50% 50%';
+        const tilt = Math.max(-18, Math.min(18, -Math.atan2(vy, Lz) * 180 / Math.PI * 2.4));   // 기울기(도)
+        out.style.transformOrigin = '22% 30%';   // 머리를 중심으로 기울여 머리가 화면 밖으로 안 나가게
         out.style.transform = portrait
           ? `translate(${(W - vw) / 2 + yy}px, ${s + vw / 2 - vh / 2}px) rotate(${90 + tilt}deg)`
           : `translate(${s}px, ${(H - vh) / 2 + yy}px) rotate(${tilt}deg)`;
