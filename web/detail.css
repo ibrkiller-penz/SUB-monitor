@@ -71,6 +71,7 @@ body.detail #root { visibility: hidden; }
 .wt-c.class { background: rgba(255,255,255,.12); }
 .wt-c.free b { color: var(--muted); font-weight: 400; font-size: 14px; }
 .wt-c.event b { color: #f3d8b5; font-size: 15px; }
+.wt-c.exam { background: rgba(219,39,119,.16); } .wt-c.exam b { color: #f7a8c8; }
 .wt-c.evc { background: rgba(243,216,181,.10); } .wt-c.evc::before { background: #f3d8b5; } .wt-c.evc b { color: var(--text); font-size: 18px; } .wt-c.evc small { color: var(--accent); }
 .wt-c.holiday b { color: #f3b5a5; font-size: 14px; }
 .wt-c.duty, .wt-c.sub, .wt-c.dangyeo, .wt-c.lunch.dutyon { background: rgba(244,162,89,.18); }
@@ -128,6 +129,7 @@ body.detail #root { visibility: hidden; }
 .tlb.class, .tlb.sub { background: rgba(255,255,255,.14); border-left-color: var(--accent); }
 .tlb.free { opacity: .6; } .tlb.free b { font-weight: 400; font-size: 14px; }
 .tlb.event b, .tlb.holiday b { font-size: 13px; color: #f3d8b5; }
+.tlb.exam b { font-size: 13px; color: #f7a8c8; }
 .tlb.duty, .tlb.dangyeo, .tlb.lunch.dutyon { background: rgba(244,162,89,.22); }
 .tlb.absent { background: rgba(239,123,107,.22); }
 .tlb.lunch { background: rgba(255,255,255,.03); }

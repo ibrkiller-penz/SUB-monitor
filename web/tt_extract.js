@@ -39,7 +39,11 @@
                 const ev = () => { const label = cell.badgeText || subject;
                     if (oSub) { subject = oSub; room = [oRoom, label].filter(Boolean).join(' · '); } else { subject = label; room = ''; } };
                 if (cell.isHoliday) { type = 'holiday'; subject = cell.badgeText || subject; room = ''; }
-                else if (cell.isFestival || cell.isFieldTrip || cell.isGradeExam) { type = 'event'; ev(); }
+                else if (cell.isGradeExam) {   // 학평·정기고사: 사이트처럼 시험을 크게, 원래 수업은 작게
+                    const t = `${cell.displaySubject || ''} ${cell.badgeText || ''}`;
+                    type = 'exam'; subject = /학평/.test(t) ? '학평' : /정기|지필/.test(t) ? '정기고사' : '시험';
+                    room = oSub ? `원래 ${oSub === '수업' ? `${oRoom} ${oSub}` : oSub}` : (cell.badgeText || ''); }
+                else if (cell.isFestival || cell.isFieldTrip) { type = 'event'; ev(); }
                 else if (cell.isGonggangJido) { type = 'duty'; }
                 else if (cell.isDangyeo) { type = 'dangyeo'; }
                 else if (cell.isAbsent) { type = 'absent'; subject = `결강 (대강: ${cell.substituteTeacher})`; room = cell.modReason || ''; }

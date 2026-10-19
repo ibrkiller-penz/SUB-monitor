@@ -61,6 +61,7 @@ if not CONFIG_PATH.exists():
 DATA_DIR = Path.home() / ".lesown_dashboard"
 LOG_FILE = DATA_DIR / "app.log"
 TT_CACHE_DIR = DATA_DIR / "tt_cache"   # tt_worker.py 가 교사별 전 주차 시간표를 긁어 저장 (사이트 창은 저장 후 바로 닫힘)
+TT_VER = 2   # 시간표 캐시 변환 규칙 버전 (tt_worker.py 와 같게). 바뀌면 캐시를 다시 긁는다
 WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
 
 
@@ -332,6 +333,8 @@ class Api:
         if not d or not d.get("ready"):
             return False
         if (d.get("teacher") or "") != (self.cfg.get("teacher_name") or ""):
+            return False
+        if d.get("ver", 1) != TT_VER:   # 추출 규칙이 바뀌면 바로 다시 받는다
             return False
         fetched = d.get("fetchedAt", "")
         if fetched[:10] != date.today().isoformat():
