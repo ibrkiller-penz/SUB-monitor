@@ -3,7 +3,7 @@
 찾는 순서 (PowerShell 한 번, 창 없이):
   ① config 의 path  ② 시작 메뉴·바탕화면 바로가기(.lnk) — 대상 exe·아이콘 위치까지 풀어 봄
   ③ 레지스트리 App Paths  ④ 레지스트리 설치 목록(Uninstall: DisplayIcon·InstallLocation)
-  ⑤ Program Files·AppData 폴더 안 exe 이름 검색  ⑥ 스토어 앱(Get-StartApps / Appx 로고)
+  ⑤ 스토어 앱(Get-StartApps → shell:AppsFolder)  ⑥ Program Files·AppData 폴더 안 exe 이름 검색
 아이콘: 기본 6개는 web/apps/<id>.png 에 넣어 둔 공식 아이콘을 쓴다. 그 밖의 항목은 user32 PrivateExtractIcons 로 128px 를 뽑아 ~/.lesown_dashboard/icons2/<id>.png. 찾은 결과는 found.json 에 남긴다.
 목록은 config.json > launchers 로 바꿀 수 있다 (id, name, exe[], keys[], path).
 """
@@ -20,20 +20,20 @@ ICON_DIR = Path.home() / ".lesown_dashboard" / "icons2"
 FOUND = ICON_DIR / "found.json"
 APPS_WEB = Path(getattr(sys, "_MEIPASS", Path(__file__).parent)) / "web" / "apps"   # 프로그램에 넣어 둔 아이콘 (web/apps/<id>.png)
 
-# 기본 바로가기 6개. exe: 실행 파일 이름, keys: 바로가기·설치 목록에서 찾을 이름(앞부분 일치)
+# 기본 바로가기 6개 (paths: 선생님 PC 실측 경로, 버전 폴더는 * 로). exe: 실행 파일 이름, keys: 바로가기·설치 목록에서 찾을 이름(앞부분 일치)
 DEFAULT_LAUNCHERS = [
     {"id": "cool", "name": "쿨메신저", "abbr": "쿨", "color": "#2b7de9", "fg": "#fff",
-     "exe": ["CoolMessenger.exe", "CoolMsg.exe"], "keys": ["쿨메신저", "CoolMessenger", "Cool Messenger"]},
+     "exe": ["CoolMessenger.exe", "CoolMsg.exe"], "paths": ["%ProgramFiles(x86)%\\CoolMessenger Gentoo\\CoolMessenger.exe", "%ProgramFiles(x86)%\\CoolMessenger*\\CoolMessenger*.exe", "%ProgramFiles%\\CoolMessenger*\\CoolMessenger*.exe"], "keys": ["쿨메신저", "CoolMessenger", "Cool Messenger"]},
     {"id": "kakao", "name": "카카오톡", "abbr": "톡", "color": "#fee500", "fg": "#3a1d1d",
-     "exe": ["KakaoTalk.exe"], "keys": ["카카오톡", "KakaoTalk"]},
+     "exe": ["KakaoTalk.exe"], "paths": ["%ProgramFiles%\\Kakao\\KakaoTalk\\KakaoTalk.exe", "%ProgramFiles(x86)%\\Kakao\\KakaoTalk\\KakaoTalk.exe"], "keys": ["카카오톡", "KakaoTalk"]},
     {"id": "claude", "name": "Claude", "abbr": "C", "color": "#d97757", "fg": "#fff",
-     "exe": ["claude.exe"], "keys": ["Claude"]},
+     "exe": ["claude.exe"], "paths": ["%LOCALAPPDATA%\\AnthropicClaude\\claude.exe"], "keys": ["Claude"]},
     {"id": "hwp", "name": "한글", "abbr": "한", "color": "#2a6fd6", "fg": "#fff",
-     "exe": ["Hwp.exe"], "keys": ["한글", "한컴오피스 한글", "Hwp", "Hancom Office Hanword"]},
+     "exe": ["Hwp.exe"], "paths": ["%ProgramFiles(x86)%\\Hnc\\Office 2024\\HOffice130\\Bin\\Hwp.exe", "%ProgramFiles(x86)%\\Hnc\\Office*\\HOffice*\\Bin\\Hwp.exe", "%ProgramFiles%\\Hnc\\Office*\\HOffice*\\Bin\\Hwp.exe"], "keys": ["한글", "한컴오피스 한글", "Hwp", "Hancom Office Hanword"]},
     {"id": "excel", "name": "엑셀", "abbr": "X", "color": "#1d6f42", "fg": "#fff",
-     "exe": ["EXCEL.EXE"], "keys": ["Excel"]},
+     "exe": ["EXCEL.EXE"], "paths": ["%ProgramFiles%\\Microsoft Office\\root\\Office16\\EXCEL.EXE", "%ProgramFiles%\\Microsoft Office\\root\\Office*\\EXCEL.EXE", "%ProgramFiles(x86)%\\Microsoft Office\\root\\Office*\\EXCEL.EXE"], "keys": ["Excel"]},
     {"id": "ppt", "name": "파워포인트", "abbr": "P", "color": "#c43e1c", "fg": "#fff",
-     "exe": ["POWERPNT.EXE"], "keys": ["PowerPoint"]},
+     "exe": ["POWERPNT.EXE"], "paths": ["%ProgramFiles%\\Microsoft Office\\root\\Office16\\POWERPNT.EXE", "%ProgramFiles%\\Microsoft Office\\root\\Office*\\POWERPNT.EXE", "%ProgramFiles(x86)%\\Microsoft Office\\root\\Office*\\POWERPNT.EXE"], "keys": ["PowerPoint"]},
 ]
 
 # 찾기·아이콘 뽑기 스크립트. 인자: spec.json 경로, 아이콘 폴더, 결과 json 경로
@@ -108,6 +108,13 @@ foreach ($it in $spec) {
   $iconSrc = $null
   # ① 지정 경로
   if ($it.path) { $p = [Environment]::ExpandEnvironmentVariables($it.path); if (Test-Path -LiteralPath $p) { $r.path = $p; $r.how = 'config' } }
+  # ①-2 알려진 경로 (와일드카드 → 최신 버전 폴더)
+  if (-not $r.path) {
+    foreach ($kp in $it.paths) {
+      $hit = Get-Item -Path ([Environment]::ExpandEnvironmentVariables($kp)) -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+      if ($hit) { $r.path = $hit.FullName; $r.how = 'known'; break }
+    }
+  }
   # ② 바로가기(.lnk) — 이름이 짧은 것(가장 기본 항목) 우선
   if (-not $r.path) {
     $best = $lnks | Where-Object { Name-Ok $_.BaseName $it.keys } | Sort-Object { $_.BaseName.Length } | Select-Object -First 1
@@ -139,11 +146,7 @@ foreach ($it in $spec) {
       if ($x) { $r.path = $x; $r.how = 'uninstall'; break }
     }
   }
-  # ⑤ 폴더 검색
-  if (-not $r.path) {
-    foreach ($root in $scanRoots) { $d = 5; if ($root -eq 'C:\') { $d = 3 }; $x = Find-Exe $root $it.exe $d; if ($x) { $r.path = $x; $r.how = 'scan'; break } }
-  }
-  # ⑥ 스토어 앱
+  # ⑤ 스토어 앱 (shell:AppsFolder — 버전 폴더가 바뀌어도 됨)
   if (-not $r.path) {
     $sa = $startApps | Where-Object { Name-Ok $_.Name $it.keys } | Sort-Object { $_.Name.Length } | Select-Object -First 1
     if ($sa) {
@@ -164,6 +167,10 @@ foreach ($it in $spec) {
         }
       }
     }
+  }
+  # ⑥ 폴더 검색
+  if (-not $r.path -and -not $r.launch) {
+    foreach ($root in $scanRoots) { $d = 5; if ($root -eq 'C:\') { $d = 3 }; $x = Find-Exe $root $it.exe $d; if ($x) { $r.path = $x; $r.how = 'scan'; break } }
   }
   if (-not $iconSrc -and $r.path) { $iconSrc = @($r.path, 0) }
   if ($iconSrc) { $r.icon = Save-Icon $iconSrc[0] $iconSrc[1] $png; $r.iconsrc = $iconSrc[0] }
@@ -206,7 +213,7 @@ class Launchers:
                 if force:
                     for it in self.items:
                         (ICON_DIR / f"{it['id']}.png").unlink(missing_ok=True)
-                spec = [{"id": it["id"], "exe": it.get("exe", []), "keys": it.get("keys", [it["name"]]), "path": it.get("path", "")} for it in self.items]
+                spec = [{"id": it["id"], "exe": it.get("exe", []), "keys": it.get("keys", [it["name"]]), "path": it.get("path", ""), "paths": it.get("paths", [])} for it in self.items]
                 sp, ps, rp = ICON_DIR / "spec.json", ICON_DIR / "find.ps1", ICON_DIR / "result.json"
                 sp.write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
                 ps.write_text(PS_SCRIPT, encoding="utf-8-sig")              # PowerShell 5.1 은 BOM 있어야 한글을 읽음
