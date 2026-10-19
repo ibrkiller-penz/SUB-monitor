@@ -760,8 +760,10 @@ async function loadMessages() {
 /* 바로가기 */
 let launchers = [];
 async function loadLaunchers() {
-  if (!pywebview.api.get_launchers) return;
-  try { launchers = await pywebview.api.get_launchers(); } catch (e) { return; }
+  const BUILTIN = [['cool', '쿨메신저'], ['kakao', '카카오톡'], ['claude', 'Claude'], ['hwp', '한글'], ['excel', '엑셀'], ['ppt', '파워포인트']]
+    .map(([id, name]) => ({ id, name, abbr: name[0], color: '#555', fg: '#fff', icon: `apps/${id}.png`, found: true }));
+  try { launchers = (pywebview.api.get_launchers && await pywebview.api.get_launchers()) || BUILTIN; } catch (e) { launchers = BUILTIN; }
+  if (!launchers.length) launchers = BUILTIN;
   const busy = launchers.some(a => a.busy);
   $('appsHint').textContent = busy ? '찾는 중… (최대 1~2분)' : `${launchers.filter(a => a.found).length}/${launchers.length}개 찾음`;
   clearTimeout(loadLaunchers._t); if (busy) loadLaunchers._t = setTimeout(loadLaunchers, 4000);   // 찾는 동안 계속 다시 읽기

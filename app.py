@@ -75,7 +75,7 @@ def log(msg):
 
 
 LOCAL_CONFIG = CONFIG_PATH.with_name("config.local.json")   # 이 PC·이 교사만의 설정 (git 에 안 올라감)
-LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary", "dragon_min", "night", "weather_fx")
+LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary", "dragon_min", "night", "weather_fx", "apps_added")
 
 
 def load_config():
@@ -151,13 +151,19 @@ class Api:
             except Exception:
                 time.sleep(1)
 
-    DEFAULT_PANELS = ["weather", "tt", "events", "msg"]
+    DEFAULT_PANELS = ["weather", "tt", "events", "msg", "apps"]
     PANEL_IDS = ("weather", "tt", "events", "school", "msg", "pc", "apps")
     MAX_PANELS = 5   # 시계 제외. 바로가기(가는 띠)를 포함해 5개까지
     DEFAULT_SUMMARY = ["exam", "next", "duty", "msg"]
 
     @timed
     def get_config(self):
+        if not self.cfg.get("apps_added"):   # 바로가기가 생기기 전 저장된 패널 목록에도 한 번은 켜 준다
+            pl = [p for p in self.cfg.get("panels", self.DEFAULT_PANELS) if p in self.PANEL_IDS]
+            if "apps" not in pl:
+                pl = pl[: self.MAX_PANELS - 1] + ["apps"]
+            self.cfg["panels"], self.cfg["apps_added"] = pl, True
+            save_config(self.cfg)
         return {
             "weather_name": self.cfg.get("weather", {}).get("name", ""),
             "panels": self.cfg.get("panels", self.DEFAULT_PANELS),

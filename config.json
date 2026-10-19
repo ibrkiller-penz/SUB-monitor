@@ -16,7 +16,8 @@
     "weather",
     "tt",
     "events",
-    "msg"
+    "msg",
+    "apps"
   ],
   "message_apps": [
     "쿨메신저",
