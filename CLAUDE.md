@@ -35,7 +35,7 @@ Windows PC 옆에 두는 가로 스트립 디스플레이용 Python(pywebview) �
 - 허브 패널 표시 여부는 설정(⚙)에서 고르고 `config.json`의 `panels`에 저장. PC 상태는 시계 아래 한 줄(`#pcMini`)로도 항상 보임.
 
 ## exe 빌드
-- `.github/workflows/build-exe.yml`: main 푸시마다 windows-latest에서 PyInstaller(onedir) 빌드 → `latest` 릴리스에 `LesownDashboard-win.zip` 첨부. 로컬은 `build_exe.bat`.
+- `.github/workflows/build-exe.yml`: main 푸시마다 windows-latest에서 PyInstaller(onedir) 빌드 → `latest` 릴리스에 `SUBmonitor-win.zip` 첨부. 로컬은 `build_exe.bat`.
 - exe 안에서는 `app.py --tt-worker <url> <교사>`로 같은 exe를 시간표 워커로 재실행한다(`sys.frozen`). `config.json`은 exe 옆에서 읽고, `config.local.json`도 exe 옆에 생긴다.
 
 - GPU는 `nvidia-smi`를 `CREATE_NO_WINDOW`로 직접 호출(`read_gpu`). GPUtil은 windowed exe에서 10초마다 콘솔 창이 깜빡여서 제거함. 외부 명령은 항상 창 없이 실행할 것.
