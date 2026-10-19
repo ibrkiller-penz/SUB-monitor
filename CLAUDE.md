@@ -31,7 +31,7 @@ Windows PC 옆에 두는 가로 스트립 디스플레이용 Python(pywebview) �
 - 화면은 1920×440(가로) 또는 440×1920(세로) **고정 무대(#stage)** 를 창 크기에 맞춰 `transform: scale`로 축소·확대한다(DPI 배율·일반 창 모두 대응). 방향은 설정(⚙)에서 고르고 `orientation`으로 저장, `body.portrait`로 세로 레이아웃.
 - 패널 폭에 따라 `@container` 쿼리로 글자·항목을 줄인다(스타일 끝에 있어야 기본 규칙을 덮어씀).
 - 학교일정: `school_schedule_url`(Apps Script 웹앱)의 페이지 안 `init-data` JSON(역슬래시-x 이스케이프)을 `_parse_school_page`로 풀어 `schedules`(부서 일정)·`academic`(학사)을 이벤트로 변환, `~/.lesown_dashboard/school_schedule.json`에 30분 캐시. 이벤트의 `source`: local / ical / school / academic, `tag`: 부서 또는 학사 유형.
-- 패널은 시계 제외 최대 5개(`MAX_PANELS`). `launcher.py` 바로가기 띠(쿨메신저·카톡·Claude·한글·엑셀·PPT, 아이콘은 `web/apps/<id>.png`(공식 아이콘 128px)를 프로그램에 넣어 씀. 실행은 사용자가 준 고정 경로만 씀(검색 안 함, Claude 는 실패 시 shell:AppsFolder), `config.json > launchers`로 변경), 시계 아래 요약 칩은 `summary` 설정(exam/next/duty/weather/msg/events/school).
+- 패널은 시계 제외 최대 5개(`MAX_PANELS`). `launcher.py` 바로가기 띠(쿨메신저·카톡·Claude·한글·엑셀·PPT, 아이콘은 `web/apps/<id>.png`(공식 아이콘 128px)를 프로그램에 넣어 씀. 실행 경로는 PowerShell 한 번으로 바로가기·레지스트리·폴더·스토어 앱을 뒤져 찾음, 그 외 항목은 아이콘 추출 → `~/.lesown_dashboard/icons2`, 설정 "컴퓨터에서 다시 찾기", `config.json > launchers`로 변경), 시계 아래 요약 칩은 `summary` 설정(exam/next/duty/weather/msg/events/school).
 - 허브 패널 표시 여부는 설정(⚙)에서 고르고 `config.json`의 `panels`에 저장. PC 상태는 시계 아래 한 줄(`#pcMini`)로도 항상 보임.
 
 ## exe 빌드

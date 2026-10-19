@@ -136,6 +136,7 @@ class Api:
         threading.Thread(target=self._tt_refresher, daemon=True).start()
         self._gpu = (0.0, None)   # (마지막 조회 시각, 값) — nvidia-smi 는 10초마다만
         self.launchers = Launchers(cfg.get("launchers") or None, log=log)
+        self.launchers.refresh()
         self.watcher = MessageWatcher(cfg.get("message_apps", ["쿨메신저", "CoolMessenger"]), udb=cfg.get("udb"))
         self._net = psutil.net_io_counters()
         self._net_t = time.time()
@@ -284,6 +285,10 @@ class Api:
     # ---- 바로가기 (launcher.py) ----
     def get_launchers(self):
         return self.launchers.list()
+
+    def refresh_launchers(self):
+        self.launchers.refresh(force=True)
+        return True
 
     def launch_app(self, lid):
         r = self.launchers.launch(lid)
