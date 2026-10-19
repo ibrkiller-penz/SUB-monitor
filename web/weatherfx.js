@@ -1,5 +1,5 @@
 // 날씨 연출: 지금 날씨에 맞춰 화면 맨 앞에 그린다. 글자를 크게 가리지 않게 반투명·가장자리 위주.
-//   구름   — 위에서 빛을 받은 입체 구름 덩어리가 둥둥 떠다니며 천천히 지나감 (흐림일수록 많고 진하게)
+//   구름   — 안개보다 조금 진하고 작은 솜털 구름이 둥둥 떠다니며 지나감 (흐림일수록 많고 진하게)
 //   비     — 부슬부슬 가는 빗줄기 + 액정에 맺히는 물방울(굴절 반짝임, 커지면 주르륵 흘러내림) + 위쪽 비구름
 //   뇌우   — 비 + 짙은 구름 + 갈라지는 번개 줄기와 번쩍임
 //   눈     — 화면 전체 3겹 눈송이 + 패널 위에 쌓이는 눈 + 네 모서리 성에
@@ -49,66 +49,30 @@
     if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; caps = []; frost = null; }
   }
 
-  // ---------- 구름: 노이즈로 만든 뭉게구름(위는 빛받아 밝고 몽글몽글, 아래는 평평하고 그늘) ----------
-  // 값 노이즈 + 프랙탈(fBm)로 가장자리를 자연스럽게 깎는다. 구름마다 한 번 그려 두고 움직이기만 한다.
-  function hash(x, y, s) { const n = Math.sin(x * 127.1 + y * 311.7 + s * 74.7) * 43758.5453; return n - Math.floor(n); }
-  function vnoise(x, y, s) {
-    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
-    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
-    const a = hash(xi, yi, s), b = hash(xi + 1, yi, s), c2 = hash(xi, yi + 1, s), d = hash(xi + 1, yi + 1, s);
-    return a + (b - a) * u + (c2 - a) * v + (a - b - c2 + d) * u * v;
-  }
-  const fbm = (x, y, s) => vnoise(x, y, s) * .5 + vnoise(x * 2.1, y * 2.1, s + 1) * .27 + vnoise(x * 4.3, y * 4.3, s + 2) * .15 + vnoise(x * 8.7, y * 8.7, s + 3) * .08;
-  const sstep = (a, b, x) => { const t2 = Math.min(1, Math.max(0, (x - a) / (b - a))); return t2 * t2 * (3 - 2 * t2); };
-  function makeCloudSprite(w, dark) {
-    const h = Math.round(w * .56), c = document.createElement('canvas'); c.width = w; c.height = h;
-    const g = c.getContext('2d'), img = g.createImageData(w, h), d = img.data, seed = Math.random() * 100;
-    const baseY = h * .78;                                   // 평평한 바닥선
-    // 뭉게 덩어리: 가운데가 높이 솟고 양 끝은 낮게 (전부 그림 안쪽에 들어오게)
-    const puffs = [], n = 7 + Math.floor(Math.random() * 4);
-    for (let i = 0; i < n; i++) {
-      const u = (i + .5) / n + rnd(-.04, .04), hump = Math.sin(Math.PI * u);
-      const r = h * (.16 + .2 * hump) * rnd(.85, 1.15);
-      puffs.push([w * (.14 + .72 * u), baseY - r * .55 - hump * h * .2, r]);
-    }
-    const sc = 3.2 / w;                                       // 노이즈 크기
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      let dens = 0;
-      for (const [px, py, r] of puffs) { const dx = (x - px) / r, dy = (y - py) / r; dens += Math.exp(-(dx * dx + dy * dy) * 1.6); }
-      const nz = fbm(x * sc * 3, y * sc * 3, seed);
-      dens = dens * (.62 + .55 * nz) * sstep(baseY + h * .08, baseY - h * .02, y);   // 노이즈로 가장자리 깎고 바닥은 평평하게
-      const a = sstep(.42, .78, dens);
-      if (a <= 0) continue;
-      // 명암: 위쪽은 햇빛 받아 밝게, 아래로 갈수록 회청색 그늘, 노이즈로 몽글몽글한 결
-      const top = 1 - Math.min(1, Math.max(0, (y - h * .1) / (baseY - h * .1)));
-      const lit = Math.min(1, .55 + .45 * top + (nz - .5) * .35 + (dens > 1.2 ? .08 : 0));
-      const k = dark ? .66 : 1;
-      const k4 = (x + y * w) * 4;
-      d[k4] = (150 + 105 * lit) * k; d[k4 + 1] = (158 + 97 * lit) * k; d[k4 + 2] = (176 + 79 * lit) * k; d[k4 + 3] = a * 245;
-    }
-    g.putImageData(img, 0, 0);
-    return c;
-  }
-  function newCloud(any, idx) {
-    const dark = FX.kind === 'storm' || (isRain(FX.kind) && Math.random() < .55);
-    const w = Math.round(rnd(240, 470) * (FX.kind === 'storm' ? 1.1 : 1));
-    const h = w * .56;
-    // 위쪽 가장자리에 걸쳐 떠다님 (글자 가림 최소화). 흐림이 짙으면 아래쪽에도 하나둘
-    const low = FX.kind === 'cloud' && FX.level === 3 && idx % 4 === 3;
-    const y = low ? rnd(H - h * .55, H - h * .35) : (FX.kind === 'storm' || isRain(FX.kind)) ? rnd(-h * .55, -h * .3) : rnd(-h * .45, -h * .15) + rnd(0, H * .06);
-    const strength = FX.kind === 'storm' ? .92 : FX.kind === 'cloud' ? [0, .7, .82, .9][FX.level] : isRain(FX.kind) ? .85 : FX.kind === 'snow' ? .75 : .8;
-    return { sprite: makeCloudSprite(w, dark), x: any ? rnd(-w * .5, W) : W + rnd(20, 260), y, w, h,
-             v: rnd(7, 15) * (FX.wind ? 2.5 : 1), a: strength * rnd(.85, 1), ph: rnd(0, 6.3), bob: rnd(4, 9), bs: rnd(.25, .45) };
+  // ---------- 구름: 안개보다 조금 진하고 작은 솜털 같은 구름 덩어리가 둥둥 떠다닌다 ----------
+  // (윤곽이 있는 그림 구름은 쓰지 않는다 — 사용자 요청)
+  function newCloud(any) {
+    const dark = FX.kind === 'storm' || (isRain(FX.kind) && Math.random() < .6);
+    const w = rnd(W * .14, W * .26), h = w * rnd(.35, .5);
+    // 덩어리 3~4개를 겹쳐 모양이 둥글지 않고 자연스럽게
+    const blobs = Array.from({ length: 3 + Math.floor(Math.random() * 2) }, () => [rnd(-.3, .3), rnd(-.18, .18), rnd(.45, .7)]);
+    const dens = FX.kind === 'storm' ? .42 : FX.kind === 'cloud' ? [0, .22, .27, .31][FX.level] : isRain(FX.kind) ? .34 : .28;
+    return { x: any ? rnd(-w, W) : W + rnd(20, 240), y: rnd(H * .08, H * .92), w, h, blobs,
+             col: dark ? '150,158,170' : '236,240,246', a: dens * rnd(.85, 1.1),
+             v: rnd(9, 18) * (FX.wind ? 1 + FX.wind * 1.5 : 1), ph: rnd(0, 6.3), bob: rnd(5, 12), bs: rnd(.25, .45) };
   }
   function stepClouds(dt) {
     for (let i = 0; i < clouds.length; i++) {
       const c = clouds[i]; c.x -= c.v * dt; c.ph += dt * c.bs;
-      if (c.x < -c.w - 20) clouds[i] = newCloud(false, i);
-      const s = 1 + Math.sin(c.ph * .7) * .025;               // 살짝 부풀었다 줄었다
-      const y = c.y + Math.sin(c.ph) * c.bob;                  // 둥둥 오르내림
-      ctx.globalAlpha = c.a;
-      ctx.drawImage(c.sprite, c.x - c.w * (s - 1) / 2, y, c.w * s, c.h * s);
-      ctx.globalAlpha = 1;
+      if (c.x < -c.w * 1.4) clouds[i] = newCloud(false);
+      const cy = c.y + Math.sin(c.ph) * c.bob, s = 1 + Math.sin(c.ph * .7) * .04;   // 둥둥 오르내리며 살짝 부풀었다 줄었다
+      for (const [dx, dy, r] of c.blobs) {
+        const x = c.x + dx * c.w, y = cy + dy * c.h * 2, rx = c.w * r * s, ry = c.h * r * s * 1.6;
+        ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx);
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+        g.addColorStop(0, `rgba(${c.col},${c.a})`); g.addColorStop(.5, `rgba(${c.col},${c.a * .6})`); g.addColorStop(1, `rgba(${c.col},0)`);
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rx, 0, 7); ctx.fill(); ctx.restore();
+      }
     }
   }
 
@@ -354,8 +318,8 @@
       for (let i = 0; i < 25; i++) beads.push(newBead());
     }
     if (kind === 'snow') { const n = Math.round([0, 90, 160, 240][level] * area); for (let i = 0; i < n; i++) flakes.push(newFlake(true)); }
-    const nc = kind === 'cloud' ? [0, 4, 6, 8][level] : kind === 'storm' ? 8 : isRain(kind) ? 6 : kind === 'snow' ? 4 : kind === 'fog' ? 2 : 0;
-    for (let i = 0; i < nc; i++) clouds.push(newCloud(true, i));
+    const nc = kind === 'cloud' ? [0, 4, 6, 7][level] : kind === 'storm' ? 8 : isRain(kind) ? 6 : kind === 'snow' ? 4 : kind === 'fog' ? 3 : 0;
+    for (let i = 0; i < nc; i++) clouds.push(newCloud(true));
     if (kind === 'fog') for (let i = 0; i < 7; i++) fogs.push(newFog(true));
     if (kind === 'sunny') for (let i = 0; i < 5; i++) rays.push({ ang: rnd(.12, .5), w: rnd(30, 90), ph: rnd(0, 6), sp: rnd(.2, .5) });
     if (kind === 'night') for (let i = 0; i < Math.round(70 * area); i++) stars.push({ x: rnd(0, W), y: rnd(0, H * .35), r: rnd(.5, 1.4), ph: rnd(0, 6), sp: rnd(1, 3) });
