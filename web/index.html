@@ -617,7 +617,13 @@ function renderTodayBox() {
     if (k === 'next' && d) {
       if (isToday) {
         const next = PERIODS.find(([p, s]) => typeof p === 'number' && toMin(s) > nowMin && ['class', 'sub', 'dangyeo'].includes((d.periods[p - 1] || {}).type));
+        const exams = d.periods.map((c, i) => [i + 1, c]).filter(([, c]) => c && c.type === 'exam');
+        const exLeft = exams.filter(([p]) => { const pr = PERIODS.find(x => x[0] === p); return pr && toMin(pr[2]) > nowMin; });
         if (next) { const c = d.periods[next[0] - 1]; chips.push(`<span class="tchip">다음 수업 <b>${next[0]}교시 ${esc(shortName(c.subject))}</b> ${esc(shortName(c.room))} · ${next[1]}</span>`); }
+        else if (exLeft.length) {   // 학평·정기고사 날: 남은 수업 없음 대신 시험 안내
+          const lab = exLeft[0][1].subject, all = exams.length >= d.periods.length;
+          chips.push(`<span class="tchip hl">📝 ${all ? `오늘 종일 <b>${esc(lab)}</b> · 16:30까지` : `<b>${exLeft[0][0]}교시 ${esc(lab)}</b> · ${exLeft.map(([p]) => p).join(',')}교시`}</span>`);
+        }
         else if (nowMin < toMin('16:30')) chips.push(`<span class="tchip">오늘 남은 수업 없음</span>`);
       } else chips.push(`<span class="tchip">${tt.today}요일 시간표 (갱신 대기)</span>`);
     }
