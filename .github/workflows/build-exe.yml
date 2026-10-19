@@ -29,7 +29,7 @@ jobs:
           pyinstaller --noconfirm --clean --onedir --windowed --name SUBmonitor --icon app.ico --add-data "web;web" --collect-all webview --hidden-import notify --hidden-import tt_worker --hidden-import launcher app.py
           Copy-Item config.json dist\SUBmonitor\config.json
           Copy-Item README.md dist\SUBmonitor\README.md
-          Compress-Archive -Path dist\SUBmonitor\* -DestinationPath SUBmonitor-win.zip -Force
+          Compress-Archive -Path dist\SUBmonitor -DestinationPath SUBmonitor-win.zip -Force
       - uses: actions/upload-artifact@v4
         with:
           name: SUBmonitor-win
