@@ -1,0 +1,371 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><title>메이커 티처 랩</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700;900&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* 레이아웃: 칠판 위에 쓴 시즌제 프로그램 브로셔. 넓은 히어로 → 에피소드 5개 타임라인 → 회의록 → 운영계획 → 키트 */
+:root{
+  --board:#16201b; --board2:#1d2a23; --chalk:#efeadc; --dust:#a9b3a6; --line:#33433a;
+  --yellow:#f1cf6a; --pink:#e9a2a0; --mint:#8fd1b8;
+  --f-display:"Noto Serif KR","Nanum Myeongjo",serif;
+  --f-body:"IBM Plex Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--board);color:var(--chalk);font-family:var(--f-body);font-size:16px;line-height:1.75;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  background-image:radial-gradient(ellipse at 20% 0%,rgba(255,255,255,.05),transparent 60%),radial-gradient(ellipse at 90% 30%,rgba(255,255,255,.035),transparent 55%)}
+.wrap{max-width:1040px;margin:0 auto;padding-block:48px 96px;display:grid;gap:72px}
+.read{max-width:720px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.25}
+h2{font-size:clamp(26px,4vw,36px);font-weight:900}
+h3{font-size:20px;font-weight:700}
+p{margin:0}
+a{color:var(--yellow)}
+:focus-visible{outline:2px solid var(--yellow);outline-offset:3px}
+.label{font-family:var(--f-mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--yellow)}
+.muted{color:var(--dust)}
+section{display:grid;gap:22px}
+.chalkline{height:2px;background:linear-gradient(90deg,var(--chalk) 0 30%,transparent 30% 32%,var(--chalk) 32% 70%,transparent 70% 71%,var(--chalk) 71%);opacity:.25}
+
+/* 히어로 */
+.hero{display:grid;gap:22px;padding-top:12px}
+.hero h1{font-size:clamp(40px,8.5vw,88px);font-weight:900;letter-spacing:-1px}
+.hero h1 em{font-style:normal;color:var(--yellow);position:relative}
+.hero h1 em::after{content:"";position:absolute;left:-2%;right:-2%;bottom:.08em;height:.12em;background:var(--yellow);opacity:.35;transform:rotate(-1.2deg);border-radius:4px}
+.hero .sub{font-size:clamp(18px,2.4vw,23px);max-width:760px}
+.facts{display:flex;flex-wrap:wrap;gap:10px}
+.facts span{font-family:var(--f-mono);font-size:13px;padding:6px 12px;border:1px solid var(--line);border-radius:99px;color:var(--chalk);background:var(--board2)}
+.note{font-size:14px;color:var(--dust);border-left:3px solid var(--line);padding-left:12px}
+
+/* 약속 3개 */
+.promise{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px}
+.promise div{display:grid;gap:8px;align-content:start}
+.promise b{font-family:var(--f-display);font-size:22px;font-weight:900;color:var(--chalk)}
+.promise .k{font-family:var(--f-mono);font-size:12px;color:var(--mint);letter-spacing:1px}
+@media (max-width:760px){.promise{grid-template-columns:1fr}}
+
+/* 에피소드 */
+.eps{display:grid;gap:0;border-top:1px solid var(--line)}
+.ep{display:grid;grid-template-columns:120px minmax(0,1fr) minmax(0,260px);gap:24px;padding:22px 0;border-bottom:1px solid var(--line)}
+.ep .no{font-family:var(--f-display);font-weight:900;font-size:44px;line-height:1;color:var(--yellow)}
+.ep .no small{display:block;font-family:var(--f-mono);font-size:11px;font-weight:400;color:var(--dust);letter-spacing:1.5px;margin-top:8px}
+.ep h3{margin-bottom:6px}
+.ep ul{margin:6px 0 0;padding-left:18px;display:grid;gap:2px}
+.ep .out{font-size:14px;background:var(--board2);border:1px dashed var(--line);border-radius:10px;padding:12px 14px;align-self:start}
+.ep .out b{display:block;font-family:var(--f-mono);font-size:11px;letter-spacing:1.5px;color:var(--mint);margin-bottom:4px}
+@media (max-width:760px){.ep{grid-template-columns:1fr;gap:10px}}
+
+/* 라이선스 카드 */
+.cardrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:center}
+@media (max-width:760px){.cardrow{grid-template-columns:1fr}}
+.license{aspect-ratio:1.586;max-width:100%;border-radius:18px;padding:22px 24px;display:grid;grid-template-rows:auto 1fr auto;
+  background:linear-gradient(135deg,#243b30 0%,#1a2a22 55%,#2c3a2a 100%);border:1px solid #4a5f52;box-shadow:0 30px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);position:relative;overflow:hidden}
+.license::before{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;border:2px solid rgba(241,207,106,.25)}
+.license::after{content:"";position:absolute;right:-20px;top:-20px;width:140px;height:140px;border-radius:50%;border:2px solid rgba(241,207,106,.18)}
+.license .top{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--f-mono);font-size:11px;letter-spacing:2px;color:var(--yellow)}
+.license .nm{align-self:center;display:grid;gap:4px}
+.license .nm b{font-family:var(--f-display);font-size:clamp(26px,4vw,34px);font-weight:900}
+.license .nm span{font-size:14px;color:var(--dust)}
+.license .bot{display:flex;justify-content:space-between;align-items:end;font-family:var(--f-mono);font-size:11.5px;color:var(--dust);gap:12px}
+.license .seal{width:58px;height:58px;border-radius:50%;border:2px solid var(--yellow);display:grid;place-items:center;font-family:var(--f-display);font-weight:900;color:var(--yellow);font-size:14px;transform:rotate(-12deg)}
+
+/* 회의록 */
+.who{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;font-size:14px}
+.who div{background:var(--board2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.who b{color:var(--yellow);font-family:var(--f-mono);font-size:12px;letter-spacing:1px;display:block}
+.mt{display:grid;gap:12px;padding:22px 0;border-top:1px solid var(--line)}
+.mt header{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:baseline}
+.mt header .label{color:var(--mint)}
+.say{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;font-size:15px}
+.say b{font-family:var(--f-mono);font-size:12.5px;color:var(--dust);padding-top:2px}
+.dec{border:1px solid var(--yellow);border-radius:10px;padding:12px 16px;font-size:15px}
+.dec b{font-family:var(--f-mono);font-size:11px;letter-spacing:1.5px;color:var(--yellow);display:block;margin-bottom:4px}
+.dec ul{margin:0;padding-left:18px}
+
+/* 표 */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--board2)}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-mono);font-size:12px;letter-spacing:1px;color:var(--yellow);font-weight:600;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td:first-child{white-space:nowrap;font-weight:500}
+
+/* 키트 */
+.kit{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.kit div{background:var(--board2);border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:grid;gap:6px;align-content:start}
+.kit b{font-family:var(--f-display);font-size:18px}
+.kit .k{font-family:var(--f-mono);font-size:11px;letter-spacing:1.5px;color:var(--mint)}
+.recipe{font-family:var(--f-mono);font-size:13.5px;line-height:1.7;background:#0f1612;border:1px solid var(--line);border-radius:10px;padding:14px 16px;white-space:pre-wrap;overflow-x:auto}
+.recipe .s{color:var(--yellow)}
+ol.plain,ul.plain{margin:0;padding-left:20px;display:grid;gap:4px}
+footer{font-size:13px;color:var(--dust);border-top:1px solid var(--line);padding-top:18px}
+@media print{body{background-image:none}.wrap{padding-block:0;gap:40px}.ep,.mt,.license,.kit div{break-inside:avoid}h2{break-after:avoid}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+
+<!-- ── 히어로 ── -->
+<header class="hero">
+  <div class="label">교원 연수 · 시즌 1 · 5회 10시간</div>
+  <h1>말로 만드는<br><em>나의 첫 앱</em></h1>
+  <p class="sub">메이커 티처 랩(Maker Teacher Lab)은 코딩을 몰라도 AI와 대화해 내 교실과 업무에 필요한 앱을 직접 만들고, 동료 앞에서 발표하는 연수입니다. 교사가 가장 잘 아는 것, 교실의 문제에서 출발합니다.</p>
+  <div class="facts"><span>설치 없음 · 브라우저만</span><span>모든 교과 · 모든 경력</span><span>5주 × 2시간</span><span>마지막 주 데모데이</span><span>수료 시 메이커 라이선스</span></div>
+  <p class="note">15명이 다섯 번 회의해 만든 안입니다. 회의는 AI가 역할을 나눠 진행한 가상 회의이고, 참석자는 역할 이름으로만 적었습니다. 날짜·예산은 학교 사정에 맞춰 고쳐 쓰세요.</p>
+</header>
+
+<div class="chalkline" aria-hidden="true"></div>
+
+<!-- ── 세 가지 약속 ── -->
+<section>
+  <div class="label">이 연수가 지키는 세 가지</div>
+  <div class="promise">
+    <div><span class="k">보편</span><b>누구나, 어디서나</b><p>서브모니터도, 설치도 필요 없습니다. 학교 PC 브라우저 하나로 시작해 집에서도 이어서 만듭니다. 교과·경력과 상관없이 같은 출발선에 섭니다.</p></div>
+    <div><span class="k">교육</span><b>배운 방식이 수업이 된다</b><p>문제 정의 → 쪼개기 → 요청하기 → 확인하기. 교사가 앱을 만들며 거친 이 과정이 그대로 학생과 함께하는 AI 활용 수업 설계가 됩니다.</p></div>
+    <div><span class="k">자부심</span><b>교사는 설계자다</b><p>AI는 손이고, 무엇을 왜 만들지는 교실을 아는 교사가 정합니다. 마지막 주에는 내가 만든 앱을 동료와 관리자 앞에서 발표하고 라이선스를 받습니다.</p></div>
+  </div>
+</section>
+
+<!-- ── 에피소드 ── -->
+<section>
+  <div class="label">시즌 1 · 다섯 편의 에피소드</div>
+  <h2>5주 뒤, 당신 이름이 붙은 앱이 하나 생깁니다</h2>
+  <div class="eps">
+    <article class="ep">
+      <div class="no">EP.1<small>쇼케이스</small></div>
+      <div><h3>"이걸 선생님이 만들었다고요?"</h3>
+        <p>선배 메이커의 실제 앱 시연으로 엽니다(예: 업무 대시보드 SUB모니터, 발표자 뽑기, 수행평가 체크표). 그리고 30분 안에 각자 첫 앱을 만듭니다.</p>
+        <ul><li>첫 앱 미션: 우리 반 랜덤 발표자 뽑기 / 수업 타이머</li><li>AI와 대화하는 기본 4칸(무엇을·누가 쓰나·어떻게 보이게·하지 말 것)</li></ul></div>
+      <div class="out"><b>나오는 것</b>첫 앱 1개, "생각보다 쉽다"는 감각</div>
+    </article>
+    <article class="ep">
+      <div class="no">EP.2<small>문제 찾기</small></div>
+      <div><h3>내 교실의 불편 한 가지</h3>
+        <p>앱의 출발은 기능이 아니라 문제입니다. 일주일 동안 반복되는 귀찮음, 학생이 자주 묻는 질문, 매번 손으로 세는 것을 찾아 "문제 카드"로 씁니다.</p>
+        <ul><li>문제 카드: 누가 · 언제 · 무엇이 불편 · 해결되면 무엇이 달라지나</li><li>짝과 바꿔 읽고 "이거 나도 필요해" 스티커 붙이기</li></ul></div>
+      <div class="out"><b>나오는 것</b>문제 카드 1장, 앱 이름 짓기</div>
+    </article>
+    <article class="ep">
+      <div class="no">EP.3<small>만들기</small></div>
+      <div><h3>설계도부터, 그다음 한 칸씩</h3>
+        <p>AI에게 바로 만들라고 하지 않고 "설계부터 3단계로 알려 줘"를 먼저 요청합니다. 큰 일을 작게 쪼개는 법, 한 번에 하나씩 고치는 법을 익힙니다.</p>
+        <ul><li>레시피: 설계 요청 → 1단계 만들기 → 확인 → 다음 단계</li><li>되돌리기 습관: 고치기 전에 복사본 저장</li></ul></div>
+      <div class="out"><b>나오는 것</b>작동하는 시제품</div>
+    </article>
+    <article class="ep">
+      <div class="no">EP.4<small>다듬기·안전</small></div>
+      <div><h3>남이 써도 되는 앱으로</h3>
+        <p>동료 두 명이 내 앱을 써 보고 피드백을 남깁니다. 개인정보(학생 이름·성적·연락처)를 다루는 원칙과 가명 처리, 디자인 한 끗(글자 크기, 색, 버튼 문구)을 다듬습니다.</p>
+        <ul><li>개인정보 체크리스트 5문항</li><li>"보기 좋게"보다 "읽기 쉽게" 고치는 요청 문장</li></ul></div>
+      <div class="out"><b>나오는 것</b>완성본, 사용 설명 한 줄</div>
+    </article>
+    <article class="ep">
+      <div class="no">EP.5<small>데모데이</small></div>
+      <div><h3>3분 발표, 그리고 박수</h3>
+        <p>무대에서 3분 동안 문제 → 시연 → 달라진 점을 발표합니다. 관리자와 동료가 관객이 되고, 발표가 끝나면 메이커 라이선스 카드를 받습니다. 앱은 학교 메이커 갤러리에 이름과 함께 올라갑니다.</p>
+        <ul><li>발표 틀: 문제 30초 · 시연 90초 · 달라진 점 30초 · 다음 계획 30초</li><li>관객 투표: 가장 써 보고 싶은 앱, 가장 기발한 문제 정의</li></ul></div>
+      <div class="out"><b>나오는 것</b>발표, 라이선스, 갤러리 등재, 학생 수업 아이디어 1개</div>
+    </article>
+  </div>
+</section>
+
+<!-- ── 라이선스 ── -->
+<section>
+  <div class="cardrow">
+    <div style="display:grid;gap:14px">
+      <div class="label">수료의 상징</div>
+      <h2>메이커 라이선스</h2>
+      <p>이수증 대신 지갑에 넣고 싶은 카드를 드립니다. 이름, 내가 만든 첫 앱, 기수 번호가 새겨지고, 뒷면 QR은 갤러리의 내 앱 페이지로 연결됩니다. 다음 기수부터 라이선스 소지자는 보조 강사(멘토)로 초대됩니다.</p>
+      <ul class="plain muted"><li>앞면: 이름 · 첫 앱 이름 · 시즌·기수 번호 · 랩 인장</li><li>뒷면: 갤러리 QR · 발표일</li><li>교무실 명패 스티커 "MAKER" 함께 제공</li></ul>
+    </div>
+    <div class="license" role="img" aria-label="메이커 라이선스 카드 예시: 홍길동, 첫 앱 우리반 발표 뽑기, 시즌 1 No. 001">
+      <div class="top"><span>MAKER TEACHER LAB</span><span>SEASON 1</span></div>
+      <div class="nm"><b>홍길동</b><span>첫 앱 · 우리 반 발표 뽑기</span></div>
+      <div class="bot"><span>No. 001<br>2026. 12. 데모데이</span><div class="seal">MAKER</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="chalkline" aria-hidden="true"></div>
+
+<!-- ── 회의록 ── -->
+<section>
+  <div class="label">기획 회의 · 15명 · 5차</div>
+  <h2>어떻게 이 연수가 나왔나</h2>
+  <div class="who">
+    <div><b>기획팀 3</b>기획A(총괄)·B·C</div>
+    <div><b>연수운영팀 3</b>운영A·B·C</div>
+    <div><b>교육과정·수업 2</b>수업A·B</div>
+    <div><b>디자인·브랜딩 2</b>디자인A·B</div>
+    <div><b>현장 교사 패널 3</b>패널A(저경력)·B(중견)·C(AI 초보)</div>
+    <div><b>총무과 2</b>총무A·B</div>
+  </div>
+
+  <div class="mt">
+    <header><span class="label">1차</span><h3>왜 지난 안으로는 부족한가</h3></header>
+    <div class="say"><b>기획A</b><p>지난 안은 SUB모니터 하나를 잘 쓰게 하는 연수였습니다. 서브모니터가 있는 사람, 그 프로그램이 필요한 사람에게만 맞습니다.</p></div>
+    <div class="say"><b>패널C</b><p>솔직히 "설치 → 설정 → 고치기"는 IT 담당 업무처럼 들립니다. 저 같은 사람은 신청 안 합니다.</p></div>
+    <div class="say"><b>패널B</b><p>연수가 끝나고 남는 게 이수 시간뿐이면 동기가 안 생깁니다. 내가 만든 무언가가 남아야 하고, 그걸 누가 봐 줘야 합니다.</p></div>
+    <div class="say"><b>수업A</b><p>교사가 배운 과정을 학생 수업으로 옮길 수 있어야 연수가 교육적입니다. 만드는 법보다 생각하는 순서를 가르칩시다.</p></div>
+    <div class="say"><b>디자인A</b><p>폼이 나야 합니다. 이름, 상징, 무대, 결과물이 갖춰지면 사람들이 스스로 이야기를 퍼뜨립니다.</p></div>
+    <div class="dec"><b>결정</b><ul><li>제품 연수에서 "교사가 자기 앱을 만드는 연수"로 전환, SUB모니터는 쇼케이스 사례로</li><li>세 원칙: 보편(설치 없음) · 교육(사고 과정) · 자부심(발표와 인정)</li></ul></div>
+  </div>
+
+  <div class="mt">
+    <header><span class="label">2차</span><h3>누구나 할 수 있게</h3></header>
+    <div class="say"><b>운영A</b><p>학교 PC마다 보안 프로그램과 권한이 달라 설치형은 반드시 막힙니다. 브라우저에서 AI와 대화하고, 결과를 HTML 파일 하나로 받아 바로 여는 방식으로 통일합시다.</p></div>
+    <div class="say"><b>패널A</b><p>첫 시간에 30분 안에 하나가 돌아가야 끝까지 갑니다. 첫 미션은 아주 작게.</p></div>
+    <div class="say"><b>수업B</b><p>교과마다 예시를 준비합시다. 국어 낭독 타이머, 수학 문제 뽑기, 체육 팀 나누기, 담임 출결 체크.</p></div>
+    <div class="say"><b>총무A</b><p>AI 계정 비용이 문제입니다. 무료 계정으로 되는 범위를 확인하고, 안 되는 부분은 연수용 공용 계정 몇 개를 검토하겠습니다.</p></div>
+    <div class="dec"><b>결정</b><ul><li>설치 없음, 결과는 HTML 파일 하나</li><li>첫 미션 30분 완성, 교과별 예시 8종 준비</li><li>계정은 무료 범위 우선 확인, 필요 시 공용 계정 검토</li></ul></div>
+  </div>
+
+  <div class="mt">
+    <header><span class="label">3차</span><h3>교육적으로, 자부심 있게</h3></header>
+    <div class="say"><b>수업A</b><p>문제 정의 → 쪼개기 → 요청 → 확인. 이 네 단계는 컴퓨팅 사고이자 AI 리터러시의 핵심입니다. 회차마다 한 단계씩 강조합시다.</p></div>
+    <div class="say"><b>패널B</b><p>교사를 "AI 사용자"로 부르지 말고 "설계자"로 불러 주세요. AI가 코드를 써도, 무엇이 필요한지는 우리가 압니다.</p></div>
+    <div class="say"><b>기획B</b><p>마지막에 데모데이를 엽시다. 3분 발표, 관리자 참석, 관객 투표. 발표가 부담인 분은 짝 발표도 허용.</p></div>
+    <div class="say"><b>수업B</b><p>EP.5 산출물에 "이 과정을 학생과 한다면" 수업 아이디어 한 장을 넣읍시다. 연수가 수업으로 이어집니다.</p></div>
+    <div class="dec"><b>결정</b><ul><li>5회차 시즌제(EP.1 쇼케이스 ~ EP.5 데모데이)</li><li>회차별 사고 단계 하나씩, 마지막에 학생 수업 아이디어 제출</li><li>짝 발표 허용, 관리자 초청</li></ul></div>
+  </div>
+
+  <div class="mt">
+    <header><span class="label">4차</span><h3>폼나게</h3></header>
+    <div class="say"><b>디자인A</b><p>이름은 "메이커 티처 랩", 부제는 "말로 만드는 나의 첫 앱". 칠판과 분필을 상징으로 씁니다. 교사의 도구로 미래를 쓴다는 뜻입니다.</p></div>
+    <div class="say"><b>디자인B</b><p>이수증 대신 메이커 라이선스 카드. 이름, 첫 앱, 기수 번호, 인장. 뒷면 QR로 갤러리 연결. 교무실 자리에 붙이는 "MAKER" 스티커도.</p></div>
+    <div class="say"><b>운영B</b><p>회차를 "에피소드"로 부르고, 매회 시작에 선배 메이커 1분 인터뷰 영상을 틉니다. 기다려지는 연수가 됩니다.</p></div>
+    <div class="say"><b>총무B</b><p>카드 인쇄는 명함 업체에 맡기면 부담이 적습니다. 데모데이는 시청각실을 쓰고, 다과와 꽃 한 송이 정도면 분위기가 납니다.</p></div>
+    <div class="dec"><b>결정</b><ul><li>브랜드: 메이커 티처 랩 · 칠판·분필 · 노란 분필색 강조</li><li>메이커 라이선스 카드, MAKER 스티커, 갤러리 페이지, 선배 인터뷰 영상</li></ul></div>
+  </div>
+
+  <div class="mt">
+    <header><span class="label">5차</span><h3>최종안과 역할</h3></header>
+    <div class="say"><b>운영C</b><p>리허설은 패널 3명이 학습자로 EP.1과 EP.3을 실제 시간대로 해 봅니다. 30분 첫 앱이 안 되면 미션을 더 줄입니다.</p></div>
+    <div class="say"><b>기획C</b><p>성과는 시간이 아니라 "만든 앱 수, 2주 뒤에도 쓰는 앱 수, 수업으로 이어진 사례 수"로 봅시다.</p></div>
+    <div class="say"><b>패널C</b><p>막히면 부끄러워서 손을 안 듭니다. 테이블마다 노란 카드를 두고, 세우면 멘토가 오게 해 주세요.</p></div>
+    <div class="say"><b>기획A</b><p>운영계획 승인합니다. 시즌 2는 1기 라이선스 소지자가 멘토가 되는 구조로 이어 갑니다.</p></div>
+    <div class="dec"><b>결정</b><ul><li>운영계획 승인, 리허설 후 미션 난이도 조정</li><li>성과 지표 3가지, 노란 카드 도움 요청</li><li>시즌 2부터 멘토제</li></ul></div>
+  </div>
+</section>
+
+<div class="chalkline" aria-hidden="true"></div>
+
+<!-- ── 운영계획 ── -->
+<section>
+  <div class="label">연수운영계획서</div>
+  <h2>2026학년도 메이커 티처 랩 시즌 1 운영 계획</h2>
+
+  <div class="read" style="display:grid;gap:10px">
+    <h3>목적</h3>
+    <ul class="plain">
+      <li>교사가 AI와 대화로 교실·업무에 필요한 앱을 직접 만들며 디지털 설계 역량을 기른다.</li>
+      <li>문제 정의 → 쪼개기 → 요청 → 확인의 사고 과정을 익혀 학생 AI 활용 수업으로 잇는다.</li>
+      <li>교사의 전문성(교실 문제를 가장 잘 아는 사람)을 드러내고 서로 인정하는 문화를 만든다.</li>
+    </ul>
+  </div>
+
+  <div class="tbl"><table><tbody>
+    <tr><th>연수명</th><td>메이커 티처 랩 시즌 1 — 말로 만드는 나의 첫 앱</td></tr>
+    <tr><th>대상·인원</th><td>전 교원 희망자, 기수당 20명 이하 (테이블당 4명, 멘토 1명)</td></tr>
+    <tr><th>기간·시간</th><td>5주, 주 1회 2시간, 총 10시간 (예: 2026년 11월 2주 ~ 12월 2주, 수요일 방과 후)</td></tr>
+    <tr><th>장소</th><td>EP.1~4 컴퓨터실 / EP.5 데모데이 시청각실</td></tr>
+    <tr><th>형태</th><td>학교 자율연수, 실습·발표 중심</td></tr>
+    <tr><th>강사</th><td>주 강사 1명, 멘토 4~5명(기획·운영팀, 시즌 2부터 1기 수료자)</td></tr>
+    <tr><th>준비물</th><td>학교 PC 또는 개인 노트북, AI 서비스 계정(무료 범위 우선)</td></tr>
+    <tr><th>이수 기준</th><td>4회 이상 출석 + 앱 1개 완성 + 데모데이 발표(짝 발표 가능) + 수업 아이디어 1장</td></tr>
+  </tbody></table></div>
+
+  <h3>회차별 운영</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>회차</th><th>주제</th><th>사고 단계</th><th>활동</th><th>산출물</th></tr></thead>
+    <tbody>
+      <tr><td>EP.1</td><td>쇼케이스</td><td>요청하기</td><td>선배 앱 시연(15') · 4칸 요청법(15') · 첫 앱 만들기(60') · 서로 써 보기(30')</td><td>첫 앱</td></tr>
+      <tr><td>EP.2</td><td>문제 찾기</td><td>문제 정의</td><td>불편 찾기 워크숍(40') · 문제 카드(30') · 짝 피드백(30') · 앱 이름 짓기(20')</td><td>문제 카드</td></tr>
+      <tr><td>EP.3</td><td>만들기</td><td>쪼개기</td><td>설계 요청 레시피(20') · 단계별 제작(80') · 중간 점검(20')</td><td>시제품</td></tr>
+      <tr><td>EP.4</td><td>다듬기·안전</td><td>확인하기</td><td>동료 사용 시험(40') · 개인정보 체크(20') · 디자인 다듬기(40') · 발표 준비(20')</td><td>완성본</td></tr>
+      <tr><td>EP.5</td><td>데모데이</td><td>나누기</td><td>3분 발표(80') · 관객 투표·시상(20') · 라이선스 수여(20')</td><td>발표·라이선스·수업 아이디어</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>역할 분담</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>팀</th><th>업무</th></tr></thead>
+    <tbody>
+      <tr><td>기획팀 (3)</td><td>총괄, 계획·결과 보고, 주 강사, 성과 지표 관리</td></tr>
+      <tr><td>연수운영팀 (3)</td><td>회차 진행, 멘토 배치, 리허설, 출석·이수, 질문 게시판</td></tr>
+      <tr><td>교육과정·수업 (2)</td><td>교과별 예시 8종, 사고 단계 설계, 학생 수업 아이디어 양식</td></tr>
+      <tr><td>디자인·브랜딩 (2)</td><td>브랜드·포스터, 라이선스 카드, 갤러리 페이지, 선배 인터뷰 영상</td></tr>
+      <tr><td>현장 교사 패널 (3)</td><td>리허설 학습자, 난이도 점검, 홍보(동료 추천)</td></tr>
+      <tr><td>총무과 (2)</td><td>장소·장비, 예산·인쇄(카드·스티커), 계정 검토, 다과·데모데이 준비</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>예산 항목</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>항목</th><th>산출 기준</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td>강사·멘토 수당</td><td>시간 수 × 규정 단가</td><td>교내 규정 확인</td></tr>
+      <tr><td>라이선스 카드·스티커</td><td>기수 인원 + 예비</td><td>명함 인쇄 업체</td></tr>
+      <tr><td>포스터·안내물</td><td>A2 포스터 3장, 안내 카드</td><td>교무실·연구실 게시</td></tr>
+      <tr><td>AI 계정(필요 시)</td><td>공용 계정 수 × 기간</td><td>무료 범위 확인 후 결정</td></tr>
+      <tr><td>데모데이</td><td>다과, 시상품(소액), 꽃</td><td>규정 단가 적용</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted" style="font-size:14px">금액은 학교 예산 편성과 규정 단가를 확인한 뒤 총무과에서 적습니다.</p>
+
+  <h3>평가와 성과 지표</h3>
+  <ul class="plain">
+    <li><b>만든 앱 수</b> — 목표: 참여자 전원 1개 이상</li>
+    <li><b>2주 뒤에도 쓰는 앱 수</b> — 목표: 절반 이상</li>
+    <li><b>수업으로 이어진 사례 수</b> — 학기 말까지 5건 이상</li>
+    <li>사전·사후 설문: 자기효능감("나는 필요한 도구를 만들 수 있다" 5점 척도) 변화</li>
+  </ul>
+
+  <h3>추진 일정</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>시기</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr><td>10월 4주</td><td>1~3차 회의, 브랜드 확정, 교과별 예시 개발 착수</td></tr>
+      <tr><td>11월 1주</td><td>4~5차 회의, 포스터 게시·신청 접수, 리허설</td></tr>
+      <tr><td>11월 2주 ~ 12월 1주</td><td>EP.1 ~ EP.4</td></tr>
+      <tr><td>12월 2주</td><td>EP.5 데모데이, 라이선스 수여, 갤러리 공개</td></tr>
+      <tr><td>12월 4주</td><td>2주 뒤 설문, 결과 보고, 시즌 2(멘토제) 계획</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<div class="chalkline" aria-hidden="true"></div>
+
+<!-- ── 키트 ── -->
+<section>
+  <div class="label">연수 키트</div>
+  <h2>바로 쓰는 자료</h2>
+  <div class="kit">
+    <div><span class="k">요청 레시피</span><b>4칸 요청법</b>
+      <div class="recipe"><span class="s">무엇을</span>  우리 반 랜덤 발표자 뽑기 앱
+<span class="s">누가 쓰나</span> 교사가 수업 중 전자칠판에서
+<span class="s">어떻게</span>  큰 글씨, 누르면 이름이 돌다가 멈춤, 뽑힌 사람은 제외
+<span class="s">하지 말 것</span> 실명 대신 번호, 인터넷 연결 없이 동작</div></div>
+    <div><span class="k">요청 레시피</span><b>설계부터</b>
+      <div class="recipe">코드를 쓰기 전에 이 앱을 어떤 순서로 만들지 3단계로 설명해 줘. 각 단계가 끝나면 내가 확인할 수 있는 것도 알려 줘.</div></div>
+    <div><span class="k">요청 레시피</span><b>한 군데만 고치기</b>
+      <div class="recipe">버튼 글자를 지금보다 크게 해 줘. 다른 부분은 바꾸지 말고, 바꾼 곳만 알려 줘.</div></div>
+    <div><span class="k">교과별 첫 앱 예시</span><b>8종</b>
+      <ul class="plain"><li>국어: 낭독 타이머·발표 순서</li><li>수학: 문제 번호 뽑기·연산 퀴즈</li><li>영어: 단어 카드 뒤집기</li><li>과학: 실험 단계 체크리스트</li><li>사회: 연표 맞히기</li><li>체육: 팀 나누기·기록표</li><li>예술: 감상 별점 보드</li><li>담임: 출결·제출물 체크</li></ul></div>
+    <div><span class="k">문제 카드</span><b>앱의 출발점</b>
+      <ul class="plain"><li>누가 불편한가</li><li>언제, 얼마나 자주</li><li>지금은 어떻게 하고 있나</li><li>해결되면 무엇이 달라지나</li><li>앱 이름</li></ul></div>
+    <div><span class="k">개인정보 체크</span><b>5문항</b>
+      <ul class="plain"><li>학생 실명·성적·연락처를 넣지 않았나</li><li>필요하면 번호·가명으로 바꿨나</li><li>외부로 보내는 기능이 없나</li><li>화면 공유 때 가릴 수 있나</li><li>다른 사람에게 줄 때 데이터는 지웠나</li></ul></div>
+    <div><span class="k">데모데이</span><b>3분 발표 틀</b>
+      <ul class="plain"><li>30초 — 우리 교실의 문제</li><li>90초 — 시연</li><li>30초 — 달라진 점</li><li>30초 — 다음 계획, 학생과 한다면</li></ul></div>
+    <div><span class="k">수업으로 잇기</span><b>학생과 한다면</b>
+      <ul class="plain"><li>학생이 학교생활의 불편 찾기(문제 정의)</li><li>모둠별 기능 쪼개기(분해)</li><li>AI에게 요청 문장 쓰기(표현)</li><li>결과를 시험하고 고치기(검증·성찰)</li></ul></div>
+  </div>
+</section>
+
+<footer>메이커 티처 랩 시즌 1 기획안 · 2026년 10월 · 예시 이름과 앱은 모두 가상입니다.</footer>
+
+</div>
+</body></html>
