@@ -138,7 +138,8 @@
     const r = o && o.r || .9 + Math.pow(Math.random(), 1.8) * 7.2;   // 작은 방울이 많고, 큰 방울도 섞임
     return Object.assign({ x: Math.random() < .6 ? edgeBias() * W : Math.random() * W, y: Math.random() * H, r,
       w1: rnd(-.07, .07), w2: rnd(-.045, .045), p1: rnd(0, 6), p2: rnd(0, 6), el: Math.random() < .35 ? rnd(1.15, 1.6) : rnd(.95, 1.1), tilt: rnd(-.25, .25), grow: Math.random() < .12 ? rnd(.05, .18) : 0,
-      slide: false, vy: 0, trail: [], dropT: 0, life: 0, fade: 1, a: 0, sp: null, spR: 0 }, o || {});
+      slide: false, vy: 0, trail: [], dropT: 0, life: 0, fade: 1, a: 0, sp: null, spR: 0, spY: 0,
+      drift: rnd(1.5, 4) + r * rnd(.6, 1.4), wob: rnd(0, 6) }, o || {});
   }
   function stepRain(dt) {
     const { kind, level } = FX, soft = kind === 'drizzle' || level === 1;
@@ -159,6 +160,8 @@
     for (let i = beads.length - 1; i >= 0; i--) {
       const b = beads[i]; b.life += dt; b.a = Math.min(1, b.a + dt * 1.5);
       if (!b.slide) {
+        b.y += b.drift * dt; b.x += Math.sin(b.life * .35 + b.wob) * .03;   // 멈춰 있지 않고 아주 천천히 흘러내림
+        if (b.y > H + 10) { b.y = -10; b.x = Math.random() * W; b.sp = null; }
         if (b.grow) { b.r = Math.min(7.5, b.r + b.grow * dt); if (b.r > 5.4 && Math.random() < dt * .25) b.slide = true; }
       } else {
         sliding++;
@@ -180,7 +183,7 @@
         ctx.beginPath(); b.trail.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
       }
       if (b.life > 150) b.fade -= dt * .25;
-      if (!b.sp || Math.abs(b.r - b.spR) > .35) { b.sp = dropSprite(b); b.spR = b.r; }
+      if (!b.sp || Math.abs(b.r - b.spR) > .35 || Math.abs(b.y - b.spY) > 14) { b.sp = dropSprite(b); b.spR = b.r; b.spY = b.y; }   // 굴절 모습은 조금씩 움직일 때마다 갱신
       ctx.globalAlpha = Math.max(0, b.a * b.fade);
       ctx.drawImage(b.sp, b.x - b.sp.width / 2, b.y - b.sp.height / 2);
       ctx.globalAlpha = 1;
