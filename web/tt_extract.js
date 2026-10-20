@@ -7,6 +7,13 @@
         // 위젯 초기화(변경사항 로드) 완료 전이면 대기
         const list = document.getElementById('widgetPeriodList');
         if (!list || !list.children.length) return { ready: false };
+        // 교체·보강·결강 내역은 화면이 그려진 뒤 서버에서 따로 들어온다(약 3초).
+        // 들어올 때까지(최대 20초) 기다리고, 개수가 두 번 연속 같아야 읽는다.
+        const E0 = TimetableEngine, now = Date.now();
+        window.__ttT0 = window.__ttT0 || now;
+        const nMods = E0.getModifications ? (E0.getModifications() || []).length : -1;
+        if (nMods === 0 && now - window.__ttT0 < 20000) return { ready: false };
+        if (window.__ttLastN !== nMods) { window.__ttLastN = nMods; return { ready: false }; }
 
         const NO_TT = ['교장', '교감'];   // 시간표 없는 관리자 — 선택하면 시간표 패널은 숨김
         const teachers = NO_TT.concat(TimetableEngine.getTeachersList().map(t => t.name)

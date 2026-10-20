@@ -17,7 +17,7 @@ Windows PC 옆에 두는 가로 스트립 디스플레이용 Python(pywebview) �
 - 큰 글씨, 가독성 최우선. 폰트는 에스코어드림 3~5만 사용.
 - 배경 사진 위 반투명 유리 패널. 월별 포인트 색은 `THEMES`(index.html).
 - 시간표 사이트의 색/디자인은 쓰지 않고 데이터만 가져온다.
-- 행사일 칸은 과목을 크게, "교실 · 행사명"을 작게. 맞교환(swap_active)은 type swap(교실 · 맞교환 표시), 다른 시간으로 옮겨 간 칸(swap_moved_out)은 type moved("수업 이동 ➔ 요일N교시"). 학평·정기고사(isGradeExam) 칸은 사이트처럼 "학평"을 크게, "원래 과목"을 작게(type exam). 추출 규칙을 바꾸면 app.py·tt_worker.py 의 TT_VER 를 올려 캐시를 다시 긁게 한다.
+- 행사일 칸은 과목을 크게, "교실 · 행사명"을 작게. 맞교환(swap_active)은 type swap(교실 · 맞교환 표시), 다른 시간으로 옮겨 간 칸(swap_moved_out)은 type moved("수업 이동 ➔ 요일N교시"). 학평·정기고사(isGradeExam) 칸은 사이트처럼 "학평"을 크게, "원래 과목"을 작게(type exam). 추출 규칙을 바꾸면 app.py·tt_worker.py 의 TT_VER 를 올려 캐시를 다시 긁게 한다. /widget 은 교체·보강 내역(getModifications)을 화면 표시 약 3초 뒤 서버에서 받으므로 tt_extract.js 는 그 개수가 0이 아니고 두 번 연속 같을 때까지(최대 20초) 기다린다.
 
 ## 검증 방법
 - 실제 실행은 Windows에서 `run.bat`. 리눅스에서는 pywebview GUI를 못 띄우므로, `window.pywebview.api`를 가짜로 만든 뒤 Playwright(1920×440)로 스크린샷을 찍어 확인했다.
