@@ -152,7 +152,8 @@
   .slot.event { background: rgba(243,216,181,.08); } .slot.event .sj { color: #f3d8b5; } .slot.event .rm { color: var(--accent); }
   .slot.exam { background: rgba(219,39,119,.16); } .slot.exam .sj { color: #f7a8c8; } .slot.exam .rm { color: rgba(255,255,255,.55); }
   .slot.holiday .sj { font-size: 17px; color: #f3b5a5; }
-  .slot.duty, .slot.dangyeo, .slot.sub { background: rgba(244,162,89,.16); }
+  .slot.duty, .slot.dangyeo, .slot.sub, .slot.swap { background: rgba(244,162,89,.16); }
+  .slot.moved .sj { color: var(--muted); } .slot.moved .rm { color: var(--accent); }
   .slot.absent { background: rgba(239,123,107,.16); } .slot.absent .sj { font-size: 16px; }
   .slot.lunch { background: rgba(255,255,255,.03); }
   .slot.lunch.dutyon { background: rgba(244,162,89,.16); }
@@ -597,7 +598,7 @@ function renderTimetable() {
   });
   $('ttList').innerHTML = html;
 
-  const classes = data.periods.filter(c => c.type === 'class' || c.type === 'sub').length;
+  const classes = data.periods.filter(c => ['class', 'sub', 'swap'].includes(c.type)).length;
   let live = '';
   if (isToday) {
     for (const [p, s, e] of PERIODS) {
@@ -616,7 +617,7 @@ function renderTodayBox() {
     if (k === 'exam' && d && d.title) chips.push(`<span class="tchip hl">📌 ${esc(d.title)}</span>`);
     if (k === 'next' && d) {
       if (isToday) {
-        const next = PERIODS.find(([p, s]) => typeof p === 'number' && toMin(s) > nowMin && ['class', 'sub', 'dangyeo'].includes((d.periods[p - 1] || {}).type));
+        const next = PERIODS.find(([p, s]) => typeof p === 'number' && toMin(s) > nowMin && ['class', 'sub', 'swap', 'dangyeo'].includes((d.periods[p - 1] || {}).type));
         const exams = d.periods.map((c, i) => [i + 1, c]).filter(([, c]) => c && c.type === 'exam');
         const exLeft = exams.filter(([p]) => { const pr = PERIODS.find(x => x[0] === p); return pr && toMin(pr[2]) > nowMin; });
         if (next) { const c = d.periods[next[0] - 1]; chips.push(`<span class="tchip">다음 수업 <b>${next[0]}교시 ${esc(shortName(c.subject))}</b> ${esc(shortName(c.room))} · ${next[1]}</span>`); }

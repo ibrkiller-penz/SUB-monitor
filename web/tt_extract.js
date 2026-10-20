@@ -47,6 +47,10 @@
                 else if (cell.isGonggangJido) { type = 'duty'; }
                 else if (cell.isDangyeo) { type = 'dangyeo'; }
                 else if (cell.isAbsent) { type = 'absent'; subject = `결강 (대강: ${cell.substituteTeacher})`; room = cell.modReason || ''; }
+                else if (cell.modType === 'swap_active' || cell.isCrossSwap) {   // 수업 맞교환으로 들어온 수업
+                    type = 'swap'; room = [room, cell.badgeText || (cell.partnerTeacher ? `맞교환 (${cell.partnerTeacher})` : '맞교환')].filter(Boolean).join(' · '); }
+                else if (cell.modType === 'swap_moved_out') {   // 다른 시간으로 옮겨 간 수업
+                    type = 'moved'; subject = '공강'; room = (cell.badgeText || '수업 이동').replace('(공강)', ''); }
                 else if (cell.isSubstitute) { type = 'sub'; subject = `보강 · ${cell.displaySubject}`; room = `${cell.absentTeacher} 대강`; }
                 else if (cell.isFree || subject === '공강') { type = 'free'; subject = '공강'; room = ''; }
                 else type = 'class';

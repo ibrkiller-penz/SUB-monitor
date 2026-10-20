@@ -151,7 +151,7 @@ function viewTimetable() {
   });
   if (!any) side += '<div class="dli muted">이번 주 배정 없음</div>';
   side += '</div><div class="dcard"><div class="dc-t">요일별 수업</div>' + days.map(d => {
-    const n = tt.days[d].periods.filter(c => c.type === 'class' || c.type === 'sub').length;
+    const n = tt.days[d].periods.filter(c => ['class', 'sub', 'swap'].includes(c.type)).length;
     return `<div class="dli"><span>${d}</span><i class="bar"><b style="width:${n / 7 * 100}%"></b></i><span>${n}시간</span></div>`;
   }).join('') + '</div>';
   return { title: `${tt.teacher}${tt.homeroom ? ` (${tt.homeroom})` : ''} · ${tt.week}주차 주간 시간표`, html: `<div class="dgrid tt"><div class="dcard">${nav}${h}</div><div class="dside">${side}</div></div>` };
