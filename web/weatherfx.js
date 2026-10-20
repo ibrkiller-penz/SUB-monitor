@@ -100,10 +100,11 @@
     }
     g.closePath();
   }
+  const DROP = .5;   // 물방울 크기 배율 (계산은 그대로, 그릴 때만 줄임)
   function dropSprite(b) {
-    const r = b.r, s = Math.ceil(r * 2.6 * b.el + 8), c = document.createElement('canvas'); c.width = c.height = s;
+    const r = b.r * DROP, s = Math.ceil(r * 2.6 * b.el + 8), c = document.createElement('canvas'); c.width = c.height = s;
     const g = c.getContext('2d'), cx = s / 2, cy = s / 2;
-    if (r < 1.3) {   // 아주 작은 물안개 방울: 밝은 점 + 어두운 가장자리
+    if (r < .9) {   // 아주 작은 물안개 방울: 밝은 점 + 어두운 가장자리
       const gr = g.createRadialGradient(cx - r * .2, cy - r * .2, 0, cx, cy, r * 1.15);
       gr.addColorStop(0, 'rgba(255,255,255,.75)'); gr.addColorStop(.55, 'rgba(230,238,250,.35)'); gr.addColorStop(1, 'rgba(10,15,25,.35)');
       g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, r * 1.15, 0, 7); g.fill(); return c;
@@ -166,16 +167,16 @@
         b.trail.push([b.x, b.y]); if (b.trail.length > 70) b.trail.shift();
         b.dropT += b.vy * dt;
         if (b.dropT > 12) { b.dropT = 0; b.r = Math.max(2.6, b.r - .12);   // 지나간 자리에 아주 작은 방울을 남김
-          beads.push(newBead({ x: b.x + rnd(-1.5, 1.5), y: b.y - b.r * 1.4, r: rnd(.7, 1.6), a: 1 })); }
+          beads.push(newBead({ x: b.x + rnd(-1, 1), y: b.y - b.r * 1.4 * DROP, r: rnd(.7, 1.6), a: 1 })); }
         for (let j = beads.length - 1; j >= 0; j--) {
           const o = beads[j];
-          if (o !== b && !o.slide && Math.abs(o.x - b.x) < b.r + o.r && Math.abs(o.y - b.y) < b.r + o.r && o.r > 1.3) {
+          if (o !== b && !o.slide && Math.abs(o.x - b.x) < (b.r + o.r) * DROP && Math.abs(o.y - b.y) < (b.r + o.r) * DROP && o.r > 1.3) {
             b.r = Math.min(8, Math.sqrt(b.r * b.r + o.r * o.r * .5)); beads.splice(j, 1); if (j < i) i--; }
         }
         b.sp = null;
       }
       if (b.trail.length > 2) {   // 흘러간 자리의 젖은 자국 (아주 옅게)
-        ctx.strokeStyle = 'rgba(230,240,255,.07)'; ctx.lineWidth = Math.max(1, b.r * .5);
+        ctx.strokeStyle = 'rgba(230,240,255,.07)'; ctx.lineWidth = Math.max(.8, b.r * .5 * DROP);
         ctx.beginPath(); b.trail.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
       }
       if (b.life > 150) b.fade -= dt * .25;
