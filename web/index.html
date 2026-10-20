@@ -514,7 +514,7 @@ let panelsOn = ['weather', 'tt', 'events', 'msg'], summaryOn = ['exam', 'next', 
 function applyPanels() {
   panelsOn = panelsOn.slice(0, MAX_PANELS);
   ['weather', 'tt', 'eventsPanel', 'school', 'msg', 'pc', 'apps'].forEach(id => { const k = id === 'eventsPanel' ? 'events' : id;
-    $(id).classList.toggle('off', !panelsOn.includes(k)); $(id).style.order = panelsOn.includes(k) ? panelsOn.indexOf(k) + 1 : 50; });
+    $(id).classList.toggle('off', !panelsOn.includes(k)); $(id).style.order = !panelsOn.includes(k) ? 50 : k === 'apps' ? 40 : panelsOn.indexOf(k) + 1; });   // 바로가기 띠는 늘 맨 오른쪽
   renderEvents(); renderSchool(); renderTodayBox();
   setTimeout(fitAll, 50);
 }
