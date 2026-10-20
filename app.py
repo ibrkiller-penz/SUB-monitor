@@ -410,10 +410,34 @@ class Api:
             out["currentWeek"], out["today"] = self._cur_week(weeks)
         cur = int(out.get("currentWeek") or 1) - 1
         w = int(week) if week is not None else -1
-        if not (0 <= w < len(weeks)):
+        auto = not (0 <= w < len(weeks))
+        if auto:
             w = max(0, min(cur, len(weeks) - 1))
+            nxt = self._after_school(weeks[w], out.get("today"))
+            if nxt:   # 오늘 일과가 끝났으면 내일 시간표를 보여 준다
+                w, out["today"], out["tomorrow"] = min(w + nxt[0], len(weeks) - 1), nxt[1], True
+                out["currentWeek"] = w + 1
         out.update(weeks[w])
         return out
+
+    def _after_school(self, wk, today):
+        """오늘(평일) 일과 끝 시각이 지났으면 (주차 증가분, 다음 요일)을, 아니면 None.
+        끝 시각: 감독표가 있으면 마지막 시험 끝, 아니면 config day_end(기본 16:40)."""
+        now = datetime.now()
+        if now.weekday() >= 5 or WEEKDAYS[now.weekday()] != today:
+            return None
+        d = (wk.get("days") or {}).get(today) or {}
+        end = str(self.cfg.get("day_end", "16:40"))
+        rows = (d.get("proctor") or {}).get("rows") or []
+        for r in rows:
+            m = re.search(r"~\s*(\d{1,2}:\d{2})", r.get("time") or "")
+            if m and m.group(1).zfill(5) > end.zfill(5):
+                end = m.group(1)
+        eh, em = map(int, end.split(":"))
+        if now.hour * 60 + now.minute < eh * 60 + em:
+            return None
+        i = WEEKDAYS.index(today)
+        return (0, WEEKDAYS[i + 1]) if i < 4 else (1, "월")
 
     @staticmethod
     def _cur_week(weeks):

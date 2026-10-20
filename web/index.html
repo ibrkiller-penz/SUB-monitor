@@ -571,7 +571,7 @@ function renderTimetable() {
   const isCurWeek = tt.week === tt.currentWeek;
   const isToday = isCurWeek && day === tt.today && WD[new Date().getDay()] === tt.today;
   $('ttName').textContent = tt.teacher;
-  $('ttWeek').textContent = `${tt.week}주차`;
+  $('ttWeek').textContent = `${tt.week}주차${tt.tomorrow && !ttSel ? ' · 내일' : ''}`;
   $('ttWeek').className = isCurWeek ? '' : 'other';
   $('ttToday').hidden = isCurWeek;
   $('ttDays').innerHTML = ['월', '화', '수', '목', '금'].map(d =>
@@ -606,7 +606,7 @@ function renderTimetable() {
     html += `<div class="slot ${asDuty ? 'duty' : c.type} ${st}"><div class="no"><span>${p}교시<small> · ${s}</small></span></div>
       <div class="sj">${esc(main)}</div><div class="rm">${esc(sub)}</div>${prog}</div>`;
   });
-  $('ttList').innerHTML = html;
+  if ($('ttList')._h !== html) { $('ttList').innerHTML = html; $('ttList')._h = html; }
 
   const classes = data.periods.filter(c => ['class', 'sub', 'swap'].includes(c.type)).length;
   let live = '';
@@ -644,6 +644,12 @@ function renderTodayBox() {
           chips.push(`<span class="tchip hl">📝 ${all ? `오늘 종일 <b>${esc(lab)}</b> · 16:30까지` : `<b>${exLeft[0][0]}교시 ${esc(lab)}</b> · ${exLeft.map(([p]) => p).join(',')}교시`}</span>`);
         }
         else if (nowMin < toMin('16:30')) chips.push(`<span class="tchip">오늘 남은 수업 없음</span>`);
+      } else if (tt.tomorrow) {   // 일과 후: 내일 첫 수업(또는 첫 감독)
+        const pr = d.proctor && d.proctor.rows ? d.proctor.rows.find(r => r.duties.length) : null;
+        const fp = PERIODS.find(([p]) => typeof p === 'number' && ['class', 'sub', 'swap', 'dangyeo'].includes((d.periods[p - 1] || {}).type));
+        if (pr) chips.push(`<span class="tchip">내일 첫 감독 <b>${esc(pr.label)} ${esc(pr.duties.join(', '))}</b> · ${(pr.time || '').split('~')[0]}</span>`);
+        else if (fp) { const c = d.periods[fp[0] - 1]; chips.push(`<span class="tchip">내일 첫 수업 <b>${fp[0]}교시 ${esc(shortName(c.subject))}</b> ${esc(shortName(c.room))} · ${fp[1]}</span>`); }
+        else chips.push(`<span class="tchip">내일 수업 없음</span>`);
       } else chips.push(`<span class="tchip">${tt.today}요일 시간표 (갱신 대기)</span>`);
     }
     if (k === 'duty' && d) { d.jido.forEach(j => chips.push(`<span class="tchip">🛡 ${j.period}교시 공강지도 · ${esc(j.target)}</span>`)); if (d.lunchDuty) chips.push(`<span class="tchip">🍱 점심 급식지도</span>`); }
@@ -692,7 +698,7 @@ function renderEvents() {
       <span class="n">${esc(title)}</span>${e.tag ? `<small class="tag">${esc(e.tag)}</small>` : ''}</div>`;
   }
   if (eventsErr) html += `<div class="err" style="margin-top:8px;font-size:15px">일부 캘린더 오류</div>`;
-  $('events').innerHTML = html;
+  if ($('events')._h !== html) { $('events').innerHTML = html; $('events')._h = html; }   // 내용이 같으면 다시 그리지 않음
   renderCal(); renderSchool(); renderTodayBox();
   if (window.onDataChange) onDataChange('events');
 }
@@ -734,7 +740,7 @@ function renderSchool() {
     html += `<div class="ev ${e.source}"><span class="t">${e.all_day ? '종일' : `${pad(s.getHours())}:${pad(s.getMinutes())}`}</span>
       <span class="n">${esc(title)}</span>${e.tag ? `<small class="tag">${esc(e.tag)}</small>` : ''}</div>`;
   }
-  $('schoolList').innerHTML = html;
+  if ($('schoolList')._h !== html) { $('schoolList').innerHTML = html; $('schoolList')._h = html; }
 }
 
 /* ---------- PC ---------- */
@@ -834,7 +840,7 @@ function fitAll() {
 }
 if (document.fonts) document.fonts.ready.then(fitAll);
 window.addEventListener('resize', fitAll);
-new MutationObserver(() => { clearTimeout(window._fitT); window._fitT = setTimeout(fitAll, 50); })
+new MutationObserver(() => { cancelAnimationFrame(window._fitT); window._fitT = requestAnimationFrame(fitAll); })   // 그리기 전에 정리 → 넘친 항목이 잠깐 보였다 사라지는 깜빡임 없음
   .observe(document.body, { childList: true, subtree: true });
 
 /* ---------- 무대 맞춤: 창/배율이 달라도 1920×440 디자인을 그대로 축소·확대 ---------- */
