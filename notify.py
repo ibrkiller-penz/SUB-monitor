@@ -151,9 +151,10 @@ class UdbReader:
                     ts = datetime.fromisoformat(str(dt)[:19].replace("/", "-")).timestamp()
                 except Exception:
                     ts = time.time()
-                # MessageText 는 보통 제목 문장으로 시작하므로 제목을 또 붙이지 않는다
-                title, content = str(g("title") or ""), content.strip()
-                body = content if (not title or content.startswith(title)) else " ".join(x for x in (title, content) if x)
+                # 화면에는 발신자 + 내용만. MessageText 가 제목으로 시작하면 그 제목 부분은 떼어 낸다
+                title, content = str(g("title") or "").strip(), content.strip()
+                body = content[len(title):].lstrip(" \t\r\n:-·") if title and content.startswith(title) else content
+                body = body or content or title
                 rv = g("read")
                 if "read" not in cols:
                     unread = True
