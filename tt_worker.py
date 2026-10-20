@@ -19,7 +19,7 @@ import webview
 BASE = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
 DATA_DIR = Path.home() / ".lesown_dashboard"
 CACHE_DIR = DATA_DIR / "tt_cache"   # 교사별 캐시: <이름>.json (미설정은 _none.json)
-TT_VER = 4   # tt_extract.js 변환 규칙 버전 (app.py 의 TT_VER 와 같게)
+TT_VER = 5   # tt_extract.js 변환 규칙 버전 (app.py 의 TT_VER 와 같게)
 LOG_FILE = DATA_DIR / "tt_worker.log"
 TIMEOUT = 150   # 이 시간 안에 못 긁으면 포기 (app.py 가 나중에 다시 띄움)
 

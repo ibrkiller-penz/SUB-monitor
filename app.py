@@ -61,7 +61,7 @@ if not CONFIG_PATH.exists():
 DATA_DIR = Path.home() / ".lesown_dashboard"
 LOG_FILE = DATA_DIR / "app.log"
 TT_CACHE_DIR = DATA_DIR / "tt_cache"   # tt_worker.py 가 교사별 전 주차 시간표를 긁어 저장 (사이트 창은 저장 후 바로 닫힘)
-TT_VER = 4   # 시간표 캐시 변환 규칙 버전 (tt_worker.py 와 같게). 바뀌면 캐시를 다시 긁는다
+TT_VER = 5   # 시간표 캐시 변환 규칙 버전 (tt_worker.py 와 같게). 바뀌면 캐시를 다시 긁는다
 WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
 
 

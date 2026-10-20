@@ -150,6 +150,7 @@
   .slot.class { background: rgba(255,255,255,.10); }
   .slot.class .sj { color: var(--text); }
   .slot.event { background: rgba(243,216,181,.08); } .slot.event .sj { color: #f3d8b5; } .slot.event .rm { color: var(--accent); }
+  .slot.proctor { background: rgba(219,39,119,.32); box-shadow: inset 3px 0 0 #f472b6; } .slot.proctor .sj { color: #fff; font-weight: 500; } .slot.proctor .rm { color: #f7a8c8; }
   .slot.exam { background: rgba(219,39,119,.16); } .slot.exam .sj { color: #f7a8c8; } .slot.exam .rm { color: rgba(255,255,255,.55); }
   .slot.holiday .sj { font-size: 17px; color: #f3b5a5; }
   .slot.duty, .slot.dangyeo, .slot.sub, .slot.swap { background: rgba(244,162,89,.16); }
@@ -580,7 +581,16 @@ function renderTimetable() {
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
   const state = (s, e) => !isToday ? '' : nowMin >= toMin(e) ? 'past' : nowMin >= toMin(s) ? 'now' : '';
   let html = '';
-  PERIODS.forEach(([p, s, e]) => {
+  const pr = data.proctor && data.proctor.rows && data.proctor.rows.length ? data.proctor : null;
+  const sched = pr ? pr.rows.map(r => { const m = (r.time || '').match(/(\d{1,2}:\d{2})\s*~\s*(\d{1,2}:\d{2})/); return [r.label, m ? m[1] : '00:00', m ? m[2] : '00:00', r]; }) : PERIODS;
+  $('ttList').style.gridTemplateRows = pr ? `repeat(${sched.length}, 1fr)` : '';
+  if (pr) sched.forEach(([label, s, e, r]) => {   // 시험일: 감독표 (사이트와 같은 시간·감독 배정)
+    const st = state(s, e), duty = r.duties.length;
+    const prog = st === 'now' ? `<div class="prog"><i style="width:${Math.round((nowMin - toMin(s)) / Math.max(1, toMin(e) - toMin(s)) * 100)}%"></i></div>` : '';
+    html += `<div class="slot ${r.isBreak ? 'lunch' : duty ? 'proctor' : 'exam'} ${st}"><div class="no"><span>${esc(label)}<small> · ${s}</small></span></div>
+      <div class="sj">${r.isBreak ? '점심시간' : duty ? `${esc(r.duties.join(', '))} 감독` : esc(r.area)}</div><div class="rm">${duty ? esc(r.area) : ''}</div>${prog}</div>`;
+  });
+  else PERIODS.forEach(([p, s, e]) => {
     if (p === '점심') {
       html += `<div class="slot lunch ${data.lunchDuty ? 'dutyon' : ''} ${state(s, e)}"><div class="no"><span>점심<small> · ${s}</small></span></div>
         <div class="sj">${data.lunchDuty ? '🍱 급식지도' : '점심시간'}</div><div class="rm">${data.lunchDuty ? '학생 식당' : ''}</div></div>`;
@@ -601,13 +611,14 @@ function renderTimetable() {
   const classes = data.periods.filter(c => ['class', 'sub', 'swap'].includes(c.type)).length;
   let live = '';
   if (isToday) {
-    for (const [p, s, e] of PERIODS) {
-      if (nowMin >= toMin(s) && nowMin < toMin(e)) { live = `${p === '점심' ? '점심시간' : p + '교시'} · ${toMin(e) - nowMin}분 남음`; break; }
-      if (nowMin < toMin(s)) { live = `다음 ${p === '점심' ? '점심' : p + '교시'}까지 ${toMin(s) - nowMin}분`; break; }
+    const nm = p => typeof p === 'number' ? p + '교시' : p === '점심' ? '점심' : p;
+    for (const [p, s, e] of sched) {
+      if (nowMin >= toMin(s) && nowMin < toMin(e)) { live = `${nm(p) === '점심' ? '점심시간' : nm(p)} · ${toMin(e) - nowMin}분 남음`; break; }
+      if (nowMin < toMin(s)) { live = `다음 ${nm(p)}까지 ${toMin(s) - nowMin}분`; break; }
     }
   }
   if (window.onDataChange) onDataChange('timetable');
-  $('ttFoot').innerHTML = `<span class="live">${live}</span><span>${tt.range}</span>${data.title ? `<span>· ${esc(data.title)}</span>` : `<span>· 수업 ${classes}시간</span>`}`;
+  $('ttFoot').innerHTML = `<span class="live">${live}</span><span>${tt.range}</span>${pr ? `<span>· 감독 ${pr.count}회</span>` : data.title ? `<span>· ${esc(data.title)}</span>` : `<span>· 수업 ${classes}시간</span>`}`;
   renderTodayBox();
 }
 function renderTodayBox() {
@@ -620,7 +631,14 @@ function renderTodayBox() {
         const next = PERIODS.find(([p, s]) => typeof p === 'number' && toMin(s) > nowMin && ['class', 'sub', 'swap', 'dangyeo'].includes((d.periods[p - 1] || {}).type));
         const exams = d.periods.map((c, i) => [i + 1, c]).filter(([, c]) => c && c.type === 'exam');
         const exLeft = exams.filter(([p]) => { const pr = PERIODS.find(x => x[0] === p); return pr && toMin(pr[2]) > nowMin; });
-        if (next) { const c = d.periods[next[0] - 1]; chips.push(`<span class="tchip">다음 수업 <b>${next[0]}교시 ${esc(shortName(c.subject))}</b> ${esc(shortName(c.room))} · ${next[1]}</span>`); }
+        const prRows = d.proctor && d.proctor.rows ? d.proctor.rows.filter(r => r.duties.length) : [];
+        const tOf = r => ((r.time || '').match(/(\d{1,2}:\d{2})\s*~\s*(\d{1,2}:\d{2})/) || []);
+        const nextDuty = prRows.find(r => tOf(r)[2] && toMin(tOf(r)[2]) > nowMin);
+        if (d.proctor) {   // 시험일: 감독표 기준
+          if (nextDuty) chips.push(`<span class="tchip hl">📝 ${toMin(tOf(nextDuty)[1]) <= nowMin ? '지금' : '다음'} 감독 <b>${esc(nextDuty.label)} ${esc(nextDuty.duties.join(', '))}</b> · ${tOf(nextDuty)[1]}</span>`);
+          else chips.push(`<span class="tchip">📝 오늘 감독 ${prRows.length ? '모두 끝' : '없음'}</span>`);
+        }
+        else if (next) { const c = d.periods[next[0] - 1]; chips.push(`<span class="tchip">다음 수업 <b>${next[0]}교시 ${esc(shortName(c.subject))}</b> ${esc(shortName(c.room))} · ${next[1]}</span>`); }
         else if (exLeft.length) {   // 학평·정기고사 날: 남은 수업 없음 대신 시험 안내
           const lab = exLeft[0][1].subject, all = exams.length >= d.periods.length;
           chips.push(`<span class="tchip hl">📝 ${all ? `오늘 종일 <b>${esc(lab)}</b> · 16:30까지` : `<b>${exLeft[0][0]}교시 ${esc(lab)}</b> · ${exLeft.map(([p]) => p).join(',')}교시`}</span>`);

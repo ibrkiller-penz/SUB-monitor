@@ -66,6 +66,17 @@
         };
 
         // 한 주차 추출: { week(1-based), range, days }
+        // 학평·정기고사 감독표 (사이트의 ExamProctor). 시험일에는 교시 시간이 평소와 다르다.
+        const proctorOf = iso => {
+            try {
+                if (!iso || typeof ExamProctor === 'undefined' || !ExamProctor.has(iso)) return null;
+                const r = ExamProctor.getTeacherDay(iso, name);
+                if (!r || !r.rows) return null;
+                return { title: r.title || '', count: r.count || 0,
+                         rows: r.rows.map(x => ({ label: x.label, area: x.area || '', time: x.time || '', duties: x.duties || [], isBreak: !!x.isBreak })) };
+            } catch (e) { return null; }
+        };
+
         const extractWeek = w => {
             const merged = TimetableEngine.calculateMergedSchedule(name, w);
             const weekDays = TimetableEngine.getWeekDays(w) || [];
@@ -80,6 +91,7 @@
                     jido: (guide.jidoList || []).filter(g => g.weekNum === w + 1 && g.day === d)
                         .map(g => ({ period: g.period, target: g.target })),
                     lunchDuty: (guide.lunchList || []).some(l => l.weekNum === w + 1 && l.dayOfWeek === d),
+                    proctor: proctorOf(info.isoDate),
                 };
             });
             const range = weekDays.length ? `${weekDays[0].dateStr} ~ ${weekDays[weekDays.length - 1].dateStr}` : '';
