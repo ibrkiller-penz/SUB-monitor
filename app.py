@@ -525,8 +525,10 @@ class Api:
             "latitude": w["latitude"],
             "longitude": w["longitude"],
             "current": "temperature_2m,apparent_temperature,relative_humidity_2m,"
-                       "weather_code,wind_speed_10m,is_day",
+                       "weather_code,wind_speed_10m,is_day,precipitation",
             "hourly": "temperature_2m,weather_code,precipitation_probability",
+            "minutely_15": "precipitation",
+            "past_minutely_15": 4, "forecast_minutely_15": 2,
             "daily": "weather_code,temperature_2m_max,temperature_2m_min,"
                      "precipitation_probability_max,sunrise,sunset",
             "timezone": "Asia/Seoul",
@@ -547,7 +549,33 @@ class Api:
             data["air"] = aq.get("current")
         except Exception:
             data["air"] = None
+        self._infer_drizzle(data)
         return data
+
+    @staticmethod
+    def _infer_drizzle(data):
+        """모델의 '현재 날씨'는 약한 비(부슬비)를 자주 놓친다(맑음·구름으로 나옴).
+        최근 1시간·다음 30분 15분 단위 강수량이 있거나, 이번 시간 강수확률이 80% 이상이면 이슬비(51)로 본다."""
+        try:
+            c = data.get("current") or {}
+            code = int(c.get("weather_code", 0))
+            if code >= 51:   # 이미 비·눈·뇌우
+                return
+            mq = (data.get("minutely_15") or {}).get("precipitation") or []
+            wet = any((v or 0) > 0 for v in mq) or (c.get("precipitation") or 0) > 0
+            now = (c.get("time") or "")[:13]
+            h = data.get("hourly") or {}
+            prob = 0
+            for t, p in zip(h.get("time") or [], h.get("precipitation_probability") or []):
+                if t[:13] == now:
+                    prob = p or 0
+                    break
+            if wet or prob >= 80:
+                c["weather_code_model"] = code
+                c["weather_code"] = 61 if sum((v or 0) for v in mq) >= 1 else 51
+                c["inferred"] = True
+        except Exception:
+            pass
 
     # ---- 화면에서 직접 입력한 일정 (~/.lesown_dashboard/local_events.json) ----
     LOCAL_EVENTS = Path.home() / ".lesown_dashboard" / "local_events.json"

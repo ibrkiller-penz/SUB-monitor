@@ -40,7 +40,7 @@ Windows PC 옆에 두는 가로 스트립 디스플레이용 Python(pywebview) �
 
 - GPU는 `nvidia-smi`를 `CREATE_NO_WINDOW`로 직접 호출(`read_gpu`). GPUtil은 windowed exe에서 10초마다 콘솔 창이 깜빡여서 제거함. 외부 명령은 항상 창 없이 실행할 것.
 
-- `web/weatherfx.js` — 날씨 연출(화면 맨 앞 z40, pointer-events 없음). Open-Meteo `weather_code`·`is_day`·`wind_speed_10m` → 구름(노이즈 뭉게구름, 위쪽 가장자리에 둥둥)/비(빗줄기+액정 물방울)/뇌우(번개)/눈(3겹+패널 위 쌓임+성에)/안개/맑은 낮(햇살)/맑은 밤(별)/바람(25km/h↑ 낙엽, 40km/h↑ 강풍 줄기). 설정에서 끄기·30초 미리보기(`previewWeatherFx`).
+- `web/weatherfx.js` — 날씨 연출(화면 맨 앞 z40, pointer-events 없음). Open-Meteo `weather_code`·`is_day`·`wind_speed_10m` → 구름(노이즈 뭉게구름, 위쪽 가장자리에 둥둥)/비(빗줄기+액정 물방울)/뇌우(번개)/눈(3겹+패널 위 쌓임+성에)/안개/맑은 낮(햇살)/맑은 밤(별)/바람(25km/h↑ 낙엽, 40km/h↑ 강풍 줄기). 설정에서 끄기·30초 미리보기(`previewWeatherFx`). 모델 "현재 날씨"가 부슬비를 놓치는 문제 → app.py `_infer_drizzle`: 15분 강수(최근 1시간·다음 30분)가 있거나 이번 시간 강수확률 80%↑이면 weather_code 를 51(1mm↑이면 61)로 바꿈(weather_code_model 에 원값).
 - `web/dragon.js` — 화면 보호 용. 기본은 `web/dragon.webm`(클링 황금용 영상을 정면 구간만 편집·1.25배속·왕복·초록 키잉한 투명 webm) + 금빛 후광·금가루. exe 옆 dragon.mp4/webm 이 있으면 그걸 씀(초록이면 실시간 키잉). 없으면 캔버스 그림 용.
 - 야간 모드(기본 22~08시 검은 화면, 터치 5분), 배경 밝기 4단계(밤 .5·아침 .78·낮 1·저녁 .72, `#bg` filter 만 — 글자색 불변).
 
