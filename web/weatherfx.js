@@ -78,24 +78,66 @@
 
   // ---------- 비 ----------
   function newStreak(any) { return { x: rnd(-40, W + 80), y: any ? rnd(-H, H) : rnd(-H * .6, -20), z: Math.random() }; }
-  function beadSprite(r) {   // 물방울 그림: 그림자, 투명한 몸통, 굴절 반짝임, 아래 반사광
-    const k = Math.round(r * 2) / 2; if (beadSprites[k]) return beadSprites[k];
-    const s = Math.ceil(k * 2 + 6), c = document.createElement('canvas'); c.width = c.height = s;
-    const g = c.getContext('2d'), x = s / 2, y = s / 2;
-    g.fillStyle = 'rgba(0,0,0,.22)'; g.beginPath(); g.ellipse(x + k * .15, y + k * .25, k, k * 1.05, 0, 0, 7); g.fill();
-    const body = g.createRadialGradient(x, y + k * .2, k * .1, x, y, k);
-    body.addColorStop(0, 'rgba(255,255,255,.10)'); body.addColorStop(.75, 'rgba(210,225,245,.16)'); body.addColorStop(1, 'rgba(40,55,75,.55)');
-    g.fillStyle = body; g.beginPath(); g.ellipse(x, y, k, k * 1.05, 0, 0, 7); g.fill();
-    g.fillStyle = 'rgba(255,255,255,.85)'; g.beginPath(); g.ellipse(x - k * .32, y - k * .42, k * .26, k * .18, -.6, 0, 7); g.fill();
-    g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = Math.max(.8, k * .12);
-    g.beginPath(); g.arc(x, y, k * .78, Math.PI * .2, Math.PI * .8); g.stroke();
-    return (beadSprites[k] = c);
+  // 유리창 물방울: 뒤 배경이 거꾸로·작게 비치는 렌즈(굴절) + 얇은 어두운 테두리 + 아래쪽 빛 모임 + 작은 반짝임
+  let bgCv = null, bgSrc = '';
+  function ensureBg() {   // 배경 사진을 무대 크기로 한 장 그려 둔다 (방울 속 굴절용)
+    const el = document.getElementById('bg'); if (!el || !W) return;
+    const m = getComputedStyle(el).backgroundImage.match(/url\("?(.*?)"?\)/), src = m ? m[1] : '';
+    if (!src || (src === bgSrc && bgCv && bgCv.width === W && bgCv.height === H)) return;
+    bgSrc = src; const im = new Image();
+    im.onload = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+      const s = Math.max(W / im.width, H / im.height), w = im.width * s, h = im.height * s; g.drawImage(im, (W - w) / 2, (H - h) / 2, w, h);
+      bgCv = c; beads.forEach(b => b.sp = null); };
+    im.src = src;
   }
-  const edgeBias = () => { const u = Math.random(); return u < .5 ? Math.pow(u * 2, 1.6) / 2 : 1 - Math.pow((1 - u) * 2, 1.6) / 2; };
-  function newBead() {
-    const big = Math.random() < .3;
-    return { x: edgeBias() * W, y: Math.random() < .5 ? edgeBias() * H : Math.random() * H,
-             r: big ? rnd(4, 8) : rnd(1.5, 3.8), grow: rnd(.08, .3), slide: false, vy: 0, trail: [], life: 0, fade: 1 };
+  function blob(g, b, cx, cy, r) {   // 완전한 원이 아니라 살짝 일그러지고 아래가 처진 모양
+    g.beginPath();
+    for (let k = 0; k <= 22; k++) {
+      const th = k / 22 * Math.PI * 2, s = Math.sin(th);
+      const rr = r * (1 + b.w1 * Math.sin(2 * th + b.p1) + b.w2 * Math.sin(3 * th + b.p2)) * (s > 0 ? 1 + .08 * s : 1 + .03 * s);
+      const dx = Math.cos(th) * rr, dy = s * rr * b.el;   // el: 세로로 길쭉한 방울
+      const x = cx + dx * Math.cos(b.tilt) - dy * Math.sin(b.tilt), y = cy + dx * Math.sin(b.tilt) + dy * Math.cos(b.tilt); k ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.closePath();
+  }
+  function dropSprite(b) {
+    const r = b.r, s = Math.ceil(r * 2.6 * b.el + 8), c = document.createElement('canvas'); c.width = c.height = s;
+    const g = c.getContext('2d'), cx = s / 2, cy = s / 2;
+    if (r < 1.3) {   // 아주 작은 물안개 방울: 밝은 점 + 어두운 가장자리
+      const gr = g.createRadialGradient(cx - r * .2, cy - r * .2, 0, cx, cy, r * 1.15);
+      gr.addColorStop(0, 'rgba(255,255,255,.75)'); gr.addColorStop(.55, 'rgba(230,238,250,.35)'); gr.addColorStop(1, 'rgba(10,15,25,.35)');
+      g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, r * 1.15, 0, 7); g.fill(); return c;
+    }
+    // 유리에 붙은 방울 아래로 떨어지는 옅은 그림자
+    const sh = g.createRadialGradient(cx + r * .1, cy + r * .3, r * .3, cx + r * .1, cy + r * .3, r * 1.25);
+    sh.addColorStop(0, 'rgba(0,0,0,.16)'); sh.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sh; g.fillRect(0, 0, s, s);
+    g.save(); blob(g, b, cx, cy, r); g.clip();
+    if (bgCv) {   // 렌즈: 주변(반지름의 약 5배 범위)을 뒤집어 작게 비춤 → 방울 속이 밝고 선명하게
+      const R = r * 5; g.save(); g.translate(cx, cy); g.scale(-1, -1);
+      g.drawImage(bgCv, b.x - R, b.y - R * .8, R * 2, R * 1.6, -r * 1.15, -r * 1.15, r * 2.3, r * 2.3); g.restore();
+      g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(38,42,50,.6)'; g.fillRect(0, 0, s, s); g.globalCompositeOperation = 'source-over';
+    } else { g.fillStyle = 'rgba(205,218,236,.42)'; g.fillRect(0, 0, s, s); }
+    const rim = g.createRadialGradient(cx, cy + r * .1, r * .35, cx, cy, r * 1.1 * b.el);   // 테두리는 진하게 어둡게 (특히 위쪽)
+    rim.addColorStop(0, 'rgba(0,0,0,0)'); rim.addColorStop(.6, 'rgba(0,0,0,.22)'); rim.addColorStop(.86, 'rgba(0,0,0,.58)'); rim.addColorStop(1, 'rgba(0,0,0,.85)');
+    g.fillStyle = rim; g.fillRect(0, 0, s, s);
+    const top = g.createLinearGradient(0, cy - r * b.el, 0, cy + r * .2);
+    top.addColorStop(0, 'rgba(0,0,0,.45)'); top.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = top; g.fillRect(0, 0, s, s);
+    const cau = g.createRadialGradient(cx + r * .08, cy + r * .48, 0, cx + r * .08, cy + r * .48, r * .62);   // 아래쪽에 빛이 모임
+    cau.addColorStop(0, 'rgba(255,255,255,.7)'); cau.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = cau; g.fillRect(0, 0, s, s);
+    g.restore();
+    g.save(); g.translate(cx, cy); g.rotate(b.tilt);   // 아래쪽 가장자리의 밝은 빛 띠
+    g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = Math.max(.7, r * .14); g.lineCap = 'round';
+    g.beginPath(); g.ellipse(0, r * .05, r * .78, r * .82 * b.el, 0, Math.PI * .2, Math.PI * .8); g.stroke(); g.restore();
+    g.fillStyle = 'rgba(255,255,255,.92)';   // 작고 또렷한 반짝임
+    g.beginPath(); g.ellipse(cx - r * .36, cy - r * .4, Math.max(.5, r * .2), Math.max(.4, r * .13), -.6, 0, 7); g.fill();
+    return c;
+  }
+  const edgeBias = () => { const u = Math.random(); return u < .5 ? Math.pow(u * 2, 1.35) / 2 : 1 - Math.pow((1 - u) * 2, 1.35) / 2; };
+  function newBead(o) {
+    const r = o && o.r || .9 + Math.pow(Math.random(), 1.8) * 7.2;   // 작은 방울이 많고, 큰 방울도 섞임
+    return Object.assign({ x: Math.random() < .6 ? edgeBias() * W : Math.random() * W, y: Math.random() * H, r,
+      w1: rnd(-.07, .07), w2: rnd(-.045, .045), p1: rnd(0, 6), p2: rnd(0, 6), el: Math.random() < .35 ? rnd(1.15, 1.6) : rnd(.95, 1.1), tilt: rnd(-.25, .25), grow: Math.random() < .12 ? rnd(.05, .18) : 0,
+      slide: false, vy: 0, trail: [], dropT: 0, life: 0, fade: 1, a: 0, sp: null, spR: 0 }, o || {});
   }
   function stepRain(dt) {
     const { kind, level } = FX, soft = kind === 'drizzle' || level === 1;
@@ -109,31 +151,42 @@
       ctx.strokeStyle = `rgba(215,230,255,${(soft ? .14 : .18) + .26 * s.z})`; ctx.lineWidth = .5 + s.z;
       ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x + len * wind, s.y - len); ctx.stroke();
     }
-    const maxB = Math.round((kind === 'drizzle' ? 90 : [0, 80, 110, 140][level]) * W / 1920);
-    if (beads.length < maxB && Math.random() < dt * (soft ? 10 : 16)) beads.push(newBead());
+    ensureBg();
+    const maxB = Math.round((kind === 'drizzle' ? 760 : [0, 720, 1000, 1250][level]) * W * H / (1920 * 440));
+    if (beads.length < maxB && Math.random() < dt * maxB / 30) beads.push(newBead());   // 30초쯤이면 창이 촘촘해짐
+    let sliding = 0;
     for (let i = beads.length - 1; i >= 0; i--) {
-      const b = beads[i]; b.life += dt;
-      if (!b.slide) { b.r = Math.min(9, b.r + b.grow * dt); if (b.r > 6.5 && Math.random() < dt * .8) b.slide = true; }
-      else {
-        b.vy = Math.min(160, b.vy + 140 * dt); b.y += b.vy * dt; b.x += Math.sin(b.y * .07 + b.life) * .25;
-        if (Math.random() < dt * 6) b.vy *= .3;                 // 멈칫멈칫 흘러내림
-        b.trail.push([b.x, b.y]); if (b.trail.length > 60) b.trail.shift();
-        b.r = Math.max(3, b.r - dt * .4);
+      const b = beads[i]; b.life += dt; b.a = Math.min(1, b.a + dt * 1.5);
+      if (!b.slide) {
+        if (b.grow) { b.r = Math.min(7.5, b.r + b.grow * dt); if (b.r > 5.4 && Math.random() < dt * .25) b.slide = true; }
+      } else {
+        sliding++;
+        b.vy = Math.min(140, b.vy + 120 * dt); b.y += b.vy * dt; b.x += Math.sin(b.y * .06 + b.life) * .2;
+        if (Math.random() < dt * 5) b.vy *= .25;                 // 멈칫멈칫 흘러내림
+        b.trail.push([b.x, b.y]); if (b.trail.length > 70) b.trail.shift();
+        b.dropT += b.vy * dt;
+        if (b.dropT > 12) { b.dropT = 0; b.r = Math.max(2.6, b.r - .12);   // 지나간 자리에 아주 작은 방울을 남김
+          beads.push(newBead({ x: b.x + rnd(-1.5, 1.5), y: b.y - b.r * 1.4, r: rnd(.7, 1.6), a: 1 })); }
         for (let j = beads.length - 1; j >= 0; j--) {
           const o = beads[j];
-          if (o !== b && !o.slide && Math.hypot(o.x - b.x, o.y - b.y) < b.r + o.r) { b.r = Math.min(9, b.r + o.r * .25); beads.splice(j, 1); if (j < i) i--; }
+          if (o !== b && !o.slide && Math.abs(o.x - b.x) < b.r + o.r && Math.abs(o.y - b.y) < b.r + o.r && o.r > 1.3) {
+            b.r = Math.min(8, Math.sqrt(b.r * b.r + o.r * o.r * .5)); beads.splice(j, 1); if (j < i) i--; }
         }
+        b.sp = null;
       }
-      if (b.trail.length > 2) {
-        ctx.strokeStyle = 'rgba(225,238,255,.13)'; ctx.lineWidth = Math.max(1.2, b.r * .55);
+      if (b.trail.length > 2) {   // 흘러간 자리의 젖은 자국 (아주 옅게)
+        ctx.strokeStyle = 'rgba(230,240,255,.07)'; ctx.lineWidth = Math.max(1, b.r * .5);
         ctx.beginPath(); b.trail.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
-        for (let k = 0; k < b.trail.length; k += 9) { const [x, y] = b.trail[k]; ctx.drawImage(beadSprite(1.2), x - 3, y - 3); }
       }
-      if (b.life > 70) b.fade -= dt * .5;
-      ctx.globalAlpha = Math.max(0, b.fade);
-      const sp = beadSprite(b.r); ctx.drawImage(sp, b.x - sp.width / 2, b.y - sp.height / 2);
+      if (b.life > 150) b.fade -= dt * .25;
+      if (!b.sp || Math.abs(b.r - b.spR) > .35) { b.sp = dropSprite(b); b.spR = b.r; }
+      ctx.globalAlpha = Math.max(0, b.a * b.fade);
+      ctx.drawImage(b.sp, b.x - b.sp.width / 2, b.y - b.sp.height / 2);
       ctx.globalAlpha = 1;
       if (b.y > H + 12 || b.fade <= 0) beads.splice(i, 1);
+    }
+    if (sliding < 2 && Math.random() < dt * .15) {   // 가끔 큰 방울 하나가 흘러내리기 시작
+      const big = beads.find(b => !b.slide && b.r > 4.2); if (big) big.slide = true;
     }
     if (kind === 'storm') stepLightning(dt);
   }
@@ -315,7 +368,8 @@
     if (isRain(kind)) {
       const n = Math.round((kind === 'drizzle' ? 80 : [0, 90, 170, 260][level]) * area);
       for (let i = 0; i < n; i++) streaks.push(newStreak(true));
-      for (let i = 0; i < 25; i++) beads.push(newBead());
+      const n0 = Math.round((kind === 'drizzle' ? 620 : 700) * area);   // 시작부터 창에 방울이 맺혀 있게
+      for (let i = 0; i < n0; i++) beads.push(newBead({ a: 1, life: rnd(0, 60) }));
     }
     if (kind === 'snow') { const n = Math.round([0, 90, 160, 240][level] * area); for (let i = 0; i < n; i++) flakes.push(newFlake(true)); }
     const nc = kind === 'cloud' ? [0, 4, 6, 7][level] : kind === 'storm' ? 8 : isRain(kind) ? 6 : kind === 'snow' ? 4 : kind === 'fog' ? 3 : 0;
