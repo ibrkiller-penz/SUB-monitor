@@ -100,7 +100,7 @@
     }
     g.closePath();
   }
-  const DROP = .5;   // 물방울 크기 배율 (계산은 그대로, 그릴 때만 줄임)
+  const DROP = .65;   // 물방울 크기 배율 (계산은 그대로, 그릴 때만 줄임)
   function dropSprite(b) {
     const r = b.r * DROP, s = Math.ceil(r * 2.6 * b.el + 8), c = document.createElement('canvas'); c.width = c.height = s;
     const g = c.getContext('2d'), cx = s / 2, cy = s / 2;
