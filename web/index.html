@@ -300,7 +300,7 @@
     <label class="ord"><button type="button" class="mv" data-mv="-1">◀</button><input type="checkbox" value="pc"> PC 상태<button type="button" class="mv" data-mv="1">▶</button></label>
     <label class="ord"><button type="button" class="mv" data-mv="-1">◀</button><input type="checkbox" value="apps"> 바로가기<button type="button" class="mv" data-mv="1">▶</button></label>
   </div>
-  <div class="hint" id="panelHint">시계 제외 최대 5개까지 (바로가기는 가는 띠라 자리를 적게 차지)</div>
+  <div class="hint" id="panelHint">시계 제외 최대 5개 + 바로가기 (바로가기는 가는 띠라 따로 셈)</div>
   <label>시계 아래 요약 (최대 4개)</label>
   <div class="chk" id="setSummary">
     <label><input type="checkbox" value="exam"> 학사일정(시험·행사)</label>
@@ -532,15 +532,16 @@ function changeWeek(delta) {
   loadTimetable();
 }
 let panelsOn = ['weather', 'tt', 'events', 'msg'], summaryOn = ['exam', 'next', 'duty', 'msg'], MAX_PANELS = 5;
+const capPanels = l => { const o = l.filter(k => k !== 'apps').slice(0, MAX_PANELS); return l.includes('apps') ? [...o, 'apps'] : o; };   // 바로가기 띠는 개수에 안 셈 (최대 5 + 바로가기)
 function applyPanels() {
-  panelsOn = panelsOn.slice(0, MAX_PANELS);
+  panelsOn = capPanels(panelsOn);
   ['weather', 'tt', 'eventsPanel', 'school', 'msg', 'pc', 'apps'].forEach(id => { const k = id === 'eventsPanel' ? 'events' : id;
     $(id).classList.toggle('off', !panelsOn.includes(k)); $(id).style.order = !panelsOn.includes(k) ? 50 : k === 'apps' ? 40 : panelsOn.indexOf(k) + 1; });   // 바로가기 띠는 늘 맨 오른쪽
   renderEvents(); renderSchool(); renderTodayBox();
   setTimeout(fitAll, 50);
 }
-function limitChecks(box, max) {   // 체크 개수 제한: max 개가 되면 나머지는 비활성
-  const inputs = [...box.querySelectorAll('input[type=checkbox]')];
+function limitChecks(box, max) {   // 체크 개수 제한: max 개가 되면 나머지는 비활성 (바로가기는 따로)
+  const inputs = [...box.querySelectorAll('input[type=checkbox]')].filter(i => i.value !== 'apps');
   const n = inputs.filter(i => i.checked).length;
   inputs.forEach(i => { i.disabled = !i.checked && n >= max; i.parentElement.classList.toggle('dis', i.disabled); });
 }
@@ -917,7 +918,7 @@ window.addEventListener('pywebviewready', async () => {
   $('ttToday').onclick = () => { ttWeekSel = null; ttRetry = 0; loadTimetable(); };
   $('setSave').onclick = async () => {
     const name = $('setTeacher').value;
-    panelsOn = [...$('modal').querySelectorAll('.chk:not(#setSummary):not(#setOrient) input[type=checkbox]:checked')].map(i => i.value).slice(0, MAX_PANELS);
+    panelsOn = [...$('modal').querySelectorAll('.chk:not(#setSummary):not(#setOrient) input[type=checkbox]:checked')].map(i => i.value); panelsOn = capPanels(panelsOn);
     summaryOn = [...$('setSummary').querySelectorAll('input:checked')].map(i => i.value).slice(0, 4);
     if (pywebview.api.set_summary) await pywebview.api.set_summary(summaryOn);
     const orient = ($('modal').querySelector('input[name=orient]:checked') || {}).value || 'landscape';

@@ -155,7 +155,7 @@ class Api:
 
     DEFAULT_PANELS = ["weather", "tt", "events", "msg", "apps"]
     PANEL_IDS = ("weather", "tt", "events", "school", "msg", "pc", "apps")
-    MAX_PANELS = 5   # 시계 제외. 바로가기(가는 띠)를 포함해 5개까지
+    MAX_PANELS = 5   # 시계 제외. 바로가기(가는 띠)는 따로라 최대 5 + 바로가기
     DEFAULT_SUMMARY = ["exam", "next", "duty", "msg"]
 
     @timed
@@ -163,7 +163,7 @@ class Api:
         if not self.cfg.get("apps_added"):   # 바로가기가 생기기 전 저장된 패널 목록에도 한 번은 켜 준다
             pl = [p for p in self.cfg.get("panels", self.DEFAULT_PANELS) if p in self.PANEL_IDS]
             if "apps" not in pl:
-                pl = pl[: self.MAX_PANELS - 1] + ["apps"]
+                pl = pl + ["apps"]
             self.cfg["panels"], self.cfg["apps_added"] = pl, True
             save_config(self.cfg)
         return {
@@ -281,7 +281,8 @@ class Api:
         return self.cfg["orientation"]
 
     def set_panels(self, panels):
-        self.cfg["panels"] = [p for p in panels if p in self.PANEL_IDS][: self.MAX_PANELS]
+        pl = [p for p in panels if p in self.PANEL_IDS]
+        self.cfg["panels"] = [p for p in pl if p != "apps"][: self.MAX_PANELS] + (["apps"] if "apps" in pl else [])
         save_config(self.cfg)
         return self.cfg["panels"]
 
