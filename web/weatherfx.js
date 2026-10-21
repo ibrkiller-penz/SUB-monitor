@@ -293,21 +293,63 @@
     }
   }
 
-  // ---------- 맑은 낮: 햇살 줄기 ----------
+  // ---------- 맑은 낮: 창으로 들어오는 은은한 햇살 ----------
+  // ① 해 위치는 시각을 따라 왼쪽(아침)→오른쪽(오후)으로 옮겨 가고, 빛 색도 오전 흰빛 → 오후 금빛으로 바뀐다.
+  // ② 빛줄기는 작은 캔버스에 그려 크게 흐린 뒤 늘려 붙여서 가장자리가 없다. 두 묶음이 다른 박자로 아주 천천히 숨 쉰다.
+  // ③ 나뭇잎 사이로 든 듯한 빛 얼룩이 아주 옅게 흔들리고, 빛 속에 먼지가 떠다닌다.
+  let sunLayers = null, motes = [], dapples = [];
+  function sunState() {
+    const d = new Date(), h = d.getHours() + d.getMinutes() / 60;
+    const f = Math.min(1, Math.max(0, (h - 7) / 10));                       // 7시 0 → 17시 1
+    const warm = Math.min(1, Math.max(0, (h - 12) / 5));                     // 정오 이후 점점 따뜻하게
+    const col = [255, Math.round(246 - 26 * warm), Math.round(228 - 62 * warm)];
+    return { sx: W * (.06 + .88 * f), sy: -H * .6, col, key: Math.round(f * 40) + ':' + Math.round(warm * 10) };
+  }
+  function makeSun(st) {
+    const s = 4, w = Math.ceil(W / s), h = Math.ceil(H / s), sx = st.sx / s, sy = st.sy / s, [r0, g0, b0] = st.col;
+    const base = Math.atan2(h * .9 - sy, w * .5 - sx);                       // 화면 가운데 아래쪽을 향해 부채꼴
+    sunLayers = [0, 1].map(k => {
+      const c2 = document.createElement('canvas'); c2.width = w; c2.height = h;
+      const g = c2.getContext('2d'); g.filter = 'blur(11px)';
+      rays.forEach((r, i) => { if (i % 2 !== k) return;
+        g.save(); g.translate(sx, sy); g.rotate(base + r.off);
+        const L = Math.hypot(w, h) * 1.1, gr = g.createLinearGradient(0, 0, L, 0);
+        gr.addColorStop(0, `rgba(${r0},${g0},${b0},.5)`); gr.addColorStop(.4, `rgba(${r0},${g0},${b0},.16)`); gr.addColorStop(1, `rgba(${r0},${g0},${b0},0)`);
+        g.fillStyle = gr; g.beginPath(); g.moveTo(0, -3); g.lineTo(L, -r.w / s * 1.7); g.lineTo(L, r.w / s * 1.7); g.lineTo(0, 3); g.closePath(); g.fill(); g.restore(); });
+      return c2;
+    });
+    sunLayers.key = st.key + ':' + W + 'x' + H;
+    if (!motes.length) motes = Array.from({ length: Math.round(26 * W / 1920) }, () => ({ x: rnd(0, W), y: rnd(0, H), r: rnd(.7, 2), vx: rnd(-4, 4), vy: rnd(-2, 2), ph: rnd(0, 6) }));
+    if (!dapples.length) dapples = Array.from({ length: 7 }, () => ({ x: rnd(0, W), y: rnd(H * .15, H), r: rnd(50, 130), ph: rnd(0, 6), sp: rnd(.15, .35), amp: rnd(6, 16) }));
+  }
   function stepSun(dt) {
-    const sx = W * .08, sy = -H * .5;
-    for (const r of rays) {
-      r.ph += dt * r.sp;
-      const a = r.ang + Math.sin(r.ph) * .03, alpha = .045 + .035 * Math.sin(r.ph * 1.7);
-      ctx.save(); ctx.translate(sx, sy); ctx.rotate(a);
-      const g = ctx.createLinearGradient(0, 0, W * 1.2, 0);
-      g.addColorStop(0, `rgba(255,236,190,${alpha * 1.6})`); g.addColorStop(.6, `rgba(255,236,190,${alpha})`); g.addColorStop(1, 'rgba(255,236,190,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W * 1.2, -r.w); ctx.lineTo(W * 1.2, r.w); ctx.closePath(); ctx.fill();
-      ctx.restore();
-    }
-    const glow = ctx.createRadialGradient(sx, 0, 0, sx, 0, H * .9);
-    glow.addColorStop(0, 'rgba(255,240,200,.16)'); glow.addColorStop(1, 'rgba(255,240,200,0)');
+    const st = sunState();
+    if (!sunLayers || sunLayers.key !== st.key + ':' + W + 'x' + H) makeSun(st);
+    const [r0, g0, b0] = st.col, near = x => Math.max(0, 1 - Math.abs(x - st.sx) / (W * .75));   // 해에 가까울수록 밝게
+    sunLayers.forEach((L, k) => {
+      ctx.save(); ctx.translate(st.sx, st.sy); ctx.rotate(Math.sin(t * .05 + k * 2) * .01); ctx.translate(-st.sx, -st.sy);
+      ctx.globalAlpha = .3 + .14 * Math.sin(t * (.2 + k * .06) + k * 2.4);
+      ctx.drawImage(L, 0, 0, W, H); ctx.restore();
+    });
+    ctx.globalAlpha = 1;
+    const glow = ctx.createRadialGradient(st.sx, 0, 0, st.sx, 0, H * 1.5);   // 해 쪽 하늘의 부드러운 햇무리
+    glow.addColorStop(0, `rgba(${r0},${g0},${b0},.2)`); glow.addColorStop(.45, `rgba(${r0},${g0},${b0},.07)`); glow.addColorStop(1, `rgba(${r0},${g0},${b0},0)`);
     ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+    for (const d of dapples) {   // 나뭇잎 사이 빛 얼룩: 아주 옅게, 바람에 흔들리듯
+      const x = d.x + Math.sin(t * d.sp + d.ph) * d.amp, y = d.y + Math.cos(t * d.sp * .8 + d.ph) * d.amp * .6;
+      const a = (.035 + .02 * Math.sin(t * d.sp * 1.3 + d.ph)) * (.4 + .6 * near(x));
+      const g = ctx.createRadialGradient(x, y, 0, x, y, d.r);
+      g.addColorStop(0, `rgba(${r0},${g0},${b0},${a})`); g.addColorStop(1, `rgba(${r0},${g0},${b0},0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, d.r, 0, 7); ctx.fill();
+    }
+    for (const m of motes) {   // 빛 속을 떠다니는 먼지
+      m.x += (m.vx + Math.sin(t * .3 + m.ph) * 2) * dt; m.y += (m.vy + Math.cos(t * .25 + m.ph) * 2) * dt;
+      if (m.x < -10 || m.x > W + 10 || m.y < -10 || m.y > H + 10) { m.x = rnd(0, W); m.y = rnd(0, H); }
+      const a = (.16 + .12 * Math.sin(t * .7 + m.ph)) * near(m.x);
+      const g = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r * 2.6);
+      g.addColorStop(0, `rgba(255,248,226,${a})`); g.addColorStop(1, 'rgba(255,248,226,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(m.x, m.y, m.r * 2.6, 0, 7); ctx.fill();
+    }
   }
 
   // ---------- 맑은 밤: 별 ----------
@@ -379,7 +421,7 @@
     const nc = kind === 'cloud' ? [0, 4, 6, 7][level] : kind === 'storm' ? 8 : isRain(kind) ? 6 : kind === 'snow' ? 4 : kind === 'fog' ? 3 : 0;
     for (let i = 0; i < nc; i++) clouds.push(newCloud(true));
     if (kind === 'fog') for (let i = 0; i < 7; i++) fogs.push(newFog(true));
-    if (kind === 'sunny') for (let i = 0; i < 5; i++) rays.push({ ang: rnd(.12, .5), w: rnd(30, 90), ph: rnd(0, 6), sp: rnd(.2, .5) });
+    if (kind === 'sunny') { for (let i = 0; i < 7; i++) rays.push({ off: rnd(-.42, .42), w: rnd(35, 110) }); sunLayers = null; motes = []; dapples = []; }
     if (kind === 'night') for (let i = 0; i < Math.round(70 * area); i++) stars.push({ x: rnd(0, W), y: rnd(0, H * .35), r: rnd(.5, 1.4), ph: rnd(0, 6), sp: rnd(1, 3) });
     if (FX.wind) for (let i = 0; i < 10 * FX.wind; i++) leaves.push(newLeaf(true));
     gusts = [];
