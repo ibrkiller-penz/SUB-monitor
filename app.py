@@ -549,10 +549,10 @@ class Api:
             "latitude": w["latitude"],
             "longitude": w["longitude"],
             "current": "temperature_2m,apparent_temperature,relative_humidity_2m,"
-                       "weather_code,wind_speed_10m,is_day,precipitation",
+                       "weather_code,wind_speed_10m,is_day,precipitation,cloud_cover",
             "hourly": "temperature_2m,weather_code,precipitation_probability",
             "minutely_15": "precipitation",
-            "past_minutely_15": 4, "forecast_minutely_15": 2,
+            "past_minutely_15": 2, "forecast_minutely_15": 1,
             "daily": "weather_code,temperature_2m_max,temperature_2m_min,"
                      "precipitation_probability_max,sunrise,sunset",
             "timezone": "Asia/Seoul",
@@ -579,7 +579,8 @@ class Api:
     @staticmethod
     def _infer_drizzle(data):
         """모델의 '현재 날씨'는 약한 비(부슬비)를 자주 놓친다(맑음·구름으로 나옴).
-        최근 1시간·다음 30분 15분 단위 강수량이 있거나, 이번 시간 강수확률이 80% 이상이면 이슬비(51)로 본다."""
+        최근 30분·다음 15분 강수량이 있거나, 구름이 많으면서(60%↑) 이번 시간 강수확률이 80% 이상이면 이슬비(51)로 본다.
+        (비가 그친 뒤 맑아졌는데도 비로 나오지 않도록 시간 창을 좁게, 맑은 하늘이면 확률만으로는 비로 보지 않음)"""
         try:
             c = data.get("current") or {}
             code = int(c.get("weather_code", 0))
@@ -594,7 +595,7 @@ class Api:
                 if t[:13] == now:
                     prob = p or 0
                     break
-            if wet or prob >= 80:
+            if wet or (prob >= 80 and (c.get("cloud_cover") or 0) >= 60):
                 c["weather_code_model"] = code
                 c["weather_code"] = 61 if sum((v or 0) for v in mq) >= 1 else 51
                 c["inferred"] = True

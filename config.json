@@ -3,9 +3,9 @@
   "teacher_name": "",
   "timetable_refresh_min": 30,
   "weather": {
-    "name": "부산 동래구",
-    "latitude": 35.2049,
-    "longitude": 129.0838
+    "name": "동래구 칠산동",
+    "latitude": 35.2035,
+    "longitude": 129.0927
   },
   "ical_urls": [
     ""
