@@ -293,62 +293,47 @@
     }
   }
 
-  // ---------- 맑은 낮: 창으로 들어오는 은은한 햇살 ----------
-  // ① 해 위치는 시각을 따라 왼쪽(아침)→오른쪽(오후)으로 옮겨 가고, 빛 색도 오전 흰빛 → 오후 금빛으로 바뀐다.
-  // ② 빛줄기는 작은 캔버스에 그려 크게 흐린 뒤 늘려 붙여서 가장자리가 없다. 두 묶음이 다른 박자로 아주 천천히 숨 쉰다.
-  // ③ 나뭇잎 사이로 든 듯한 빛 얼룩이 아주 옅게 흔들리고, 빛 속에 먼지가 떠다닌다.
-  let sunLayers = null, motes = [], dapples = [];
+  // ---------- 맑은 낮: 구름 뒤에서 내리비치는 빛내림(crepuscular rays) ----------
+  // 화면 위 바깥(구름 뒤)의 해에서 가는 빛줄기 여러 가닥이 부채꼴로 내려온다. 줄기마다 굵기·밝기가 다르고 사이사이 그늘 틈이 있다.
+  // 구름이 지나가듯 각 줄기의 밝기가 느린 물결(여러 사인 합)로 밝아졌다 흐려지고, 부채 전체가 아주 천천히 기울어진다.
+  // 매 프레임 1/4 해상도 캔버스에 그리고 살짝 흐린(blur) 뒤 늘려 붙여서 가장자리가 부드럽다. 해 위치·색은 시각을 따른다.
+  let sunCv = null, sunG = null, motes = [];
   function sunState() {
     const d = new Date(), h = d.getHours() + d.getMinutes() / 60;
-    const f = Math.min(1, Math.max(0, (h - 7) / 10));                       // 7시 0 → 17시 1
-    const warm = Math.min(1, Math.max(0, (h - 12) / 5));                     // 정오 이후 점점 따뜻하게
-    const col = [255, Math.round(246 - 26 * warm), Math.round(228 - 62 * warm)];
-    return { sx: W * (.06 + .88 * f), sy: -H * .6, col, key: Math.round(f * 40) + ':' + Math.round(warm * 10) };
-  }
-  function makeSun(st) {
-    const s = 4, w = Math.ceil(W / s), h = Math.ceil(H / s), sx = st.sx / s, sy = st.sy / s, [r0, g0, b0] = st.col;
-    const base = Math.atan2(h * .9 - sy, w * .5 - sx);                       // 화면 가운데 아래쪽을 향해 부채꼴
-    sunLayers = [0, 1].map(k => {
-      const c2 = document.createElement('canvas'); c2.width = w; c2.height = h;
-      const g = c2.getContext('2d'); g.filter = 'blur(11px)';
-      rays.forEach((r, i) => { if (i % 2 !== k) return;
-        g.save(); g.translate(sx, sy); g.rotate(base + r.off);
-        const L = Math.hypot(w, h) * 1.1, gr = g.createLinearGradient(0, 0, L, 0);
-        gr.addColorStop(0, `rgba(${r0},${g0},${b0},.5)`); gr.addColorStop(.4, `rgba(${r0},${g0},${b0},.16)`); gr.addColorStop(1, `rgba(${r0},${g0},${b0},0)`);
-        g.fillStyle = gr; g.beginPath(); g.moveTo(0, -3); g.lineTo(L, -r.w / s * 1.7); g.lineTo(L, r.w / s * 1.7); g.lineTo(0, 3); g.closePath(); g.fill(); g.restore(); });
-      return c2;
-    });
-    sunLayers.key = st.key + ':' + W + 'x' + H;
-    if (!motes.length) motes = Array.from({ length: Math.round(26 * W / 1920) }, () => ({ x: rnd(0, W), y: rnd(0, H), r: rnd(.7, 2), vx: rnd(-4, 4), vy: rnd(-2, 2), ph: rnd(0, 6) }));
-    if (!dapples.length) dapples = Array.from({ length: 7 }, () => ({ x: rnd(0, W), y: rnd(H * .15, H), r: rnd(50, 130), ph: rnd(0, 6), sp: rnd(.15, .35), amp: rnd(6, 16) }));
+    const f = Math.min(1, Math.max(0, (h - 7) / 10)), warm = Math.min(1, Math.max(0, (h - 12) / 5));
+    return { sx: W * (.12 + .76 * f), sy: -H * .42, col: [255, Math.round(247 - 24 * warm), Math.round(232 - 60 * warm)] };
   }
   function stepSun(dt) {
-    const st = sunState();
-    if (!sunLayers || sunLayers.key !== st.key + ':' + W + 'x' + H) makeSun(st);
-    const [r0, g0, b0] = st.col, near = x => Math.max(0, 1 - Math.abs(x - st.sx) / (W * .75));   // 해에 가까울수록 밝게
-    sunLayers.forEach((L, k) => {
-      ctx.save(); ctx.translate(st.sx, st.sy); ctx.rotate(Math.sin(t * .05 + k * 2) * .01); ctx.translate(-st.sx, -st.sy);
-      ctx.globalAlpha = .3 + .14 * Math.sin(t * (.2 + k * .06) + k * 2.4);
-      ctx.drawImage(L, 0, 0, W, H); ctx.restore();
-    });
-    ctx.globalAlpha = 1;
-    const glow = ctx.createRadialGradient(st.sx, 0, 0, st.sx, 0, H * 1.5);   // 해 쪽 하늘의 부드러운 햇무리
-    glow.addColorStop(0, `rgba(${r0},${g0},${b0},.2)`); glow.addColorStop(.45, `rgba(${r0},${g0},${b0},.07)`); glow.addColorStop(1, `rgba(${r0},${g0},${b0},0)`);
-    ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
-    for (const d of dapples) {   // 나뭇잎 사이 빛 얼룩: 아주 옅게, 바람에 흔들리듯
-      const x = d.x + Math.sin(t * d.sp + d.ph) * d.amp, y = d.y + Math.cos(t * d.sp * .8 + d.ph) * d.amp * .6;
-      const a = (.035 + .02 * Math.sin(t * d.sp * 1.3 + d.ph)) * (.4 + .6 * near(x));
-      const g = ctx.createRadialGradient(x, y, 0, x, y, d.r);
-      g.addColorStop(0, `rgba(${r0},${g0},${b0},${a})`); g.addColorStop(1, `rgba(${r0},${g0},${b0},0)`);
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, d.r, 0, 7); ctx.fill();
+    const s = 4, w = Math.ceil(W / s), h = Math.ceil(H / s);
+    if (!sunCv || sunCv.width !== w || sunCv.height !== h) { sunCv = document.createElement('canvas'); sunCv.width = w; sunCv.height = h; sunG = sunCv.getContext('2d'); }
+    const st = sunState(), [r0, g0, b0] = st.col, sx = st.sx / s, sy = st.sy / s, g = sunG;
+    g.clearRect(0, 0, w, h); g.filter = 'blur(2px)'; g.globalCompositeOperation = 'lighter';
+    const base = Math.atan2(h * 1.2 - sy, w * .5 - sx) + Math.sin(t * .03) * .025;   // 부채 전체가 아주 천천히 기울어짐
+    const L = Math.hypot(w, h) * 1.15;
+    for (const r of rays) {
+      const k = .5 + .5 * (Math.sin(t * r.f1 + r.p1) * .6 + Math.sin(t * r.f2 + r.p2) * .4);   // 0~1, 구름이 지나가는 듯한 밝기 물결
+      const a = r.a * Math.pow(k, 1.6);
+      if (a < .01) continue;
+      const ang = base + r.off + Math.sin(t * r.f2 * .5 + r.p1) * .006;
+      g.save(); g.translate(sx, sy); g.rotate(ang);
+      const gr = g.createLinearGradient(0, 0, L, 0);
+      gr.addColorStop(0, `rgba(${r0},${g0},${b0},0)`); gr.addColorStop(.32, `rgba(${r0},${g0},${b0},${a})`);   // 화면 위쪽에서 가장 밝고
+      gr.addColorStop(.62, `rgba(${r0},${g0},${b0},${a * .45})`); gr.addColorStop(.92, `rgba(${r0},${g0},${b0},0)`);   // 내려올수록 옅어짐
+      g.fillStyle = gr; g.beginPath(); g.moveTo(0, -.4); g.lineTo(L, -r.w); g.lineTo(L, r.w); g.lineTo(0, .4); g.closePath(); g.fill(); g.restore();
     }
-    for (const m of motes) {   // 빛 속을 떠다니는 먼지
+    g.globalCompositeOperation = 'source-over'; g.filter = 'none';
+    ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.drawImage(sunCv, 0, 0, W, H); ctx.restore();
+    const haze = ctx.createRadialGradient(st.sx, 0, 0, st.sx, 0, H * 1.3);   // 해가 숨은 쪽 하늘의 옅은 빛 안개
+    haze.addColorStop(0, `rgba(${r0},${g0},${b0},.22)`); haze.addColorStop(.5, `rgba(${r0},${g0},${b0},.07)`); haze.addColorStop(1, `rgba(${r0},${g0},${b0},0)`);
+    ctx.fillStyle = haze; ctx.fillRect(0, 0, W, H);
+    if (!motes.length) motes = Array.from({ length: Math.round(22 * W / 1920) }, () => ({ x: rnd(0, W), y: rnd(0, H), r: rnd(.7, 1.8), vx: rnd(-3, 3), vy: rnd(-2, 2), ph: rnd(0, 6) }));
+    for (const m of motes) {   // 빛 속 먼지 (아주 옅게)
       m.x += (m.vx + Math.sin(t * .3 + m.ph) * 2) * dt; m.y += (m.vy + Math.cos(t * .25 + m.ph) * 2) * dt;
       if (m.x < -10 || m.x > W + 10 || m.y < -10 || m.y > H + 10) { m.x = rnd(0, W); m.y = rnd(0, H); }
-      const a = (.16 + .12 * Math.sin(t * .7 + m.ph)) * near(m.x);
-      const g = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r * 2.6);
-      g.addColorStop(0, `rgba(255,248,226,${a})`); g.addColorStop(1, 'rgba(255,248,226,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(m.x, m.y, m.r * 2.6, 0, 7); ctx.fill();
+      const a = (.12 + .1 * Math.sin(t * .7 + m.ph)) * Math.max(0, 1 - Math.abs(m.x - st.sx) / (W * .6));
+      const gg = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r * 2.6);
+      gg.addColorStop(0, `rgba(255,248,226,${a})`); gg.addColorStop(1, 'rgba(255,248,226,0)');
+      ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(m.x, m.y, m.r * 2.6, 0, 7); ctx.fill();
     }
   }
 
@@ -421,7 +406,11 @@
     const nc = kind === 'cloud' ? [0, 4, 6, 7][level] : kind === 'storm' ? 8 : isRain(kind) ? 6 : kind === 'snow' ? 4 : kind === 'fog' ? 3 : 0;
     for (let i = 0; i < nc; i++) clouds.push(newCloud(true));
     if (kind === 'fog') for (let i = 0; i < 7; i++) fogs.push(newFog(true));
-    if (kind === 'sunny') { for (let i = 0; i < 7; i++) rays.push({ off: rnd(-.42, .42), w: rnd(35, 110) }); sunLayers = null; motes = []; dapples = []; }
+    if (kind === 'sunny') {   // 빛줄기: 가는 것이 많고 굵은 것은 몇 개. 부채꼴 안에 고르게 흩어 놓아 사이사이 그늘 틈이 생김
+      for (let i = 0; i < 26; i++) rays.push({ off: -.62 + 1.24 * (i + rnd(.1, .9)) / 26, w: Math.random() < .25 ? rnd(9, 16) : rnd(2.5, 7),
+        a: rnd(.22, .48), f1: rnd(.05, .14), f2: rnd(.11, .27), p1: rnd(0, 6), p2: rnd(0, 6) });
+      motes = [];
+    }
     if (kind === 'night') for (let i = 0; i < Math.round(70 * area); i++) stars.push({ x: rnd(0, W), y: rnd(0, H * .35), r: rnd(.5, 1.4), ph: rnd(0, 6), sp: rnd(1, 3) });
     if (FX.wind) for (let i = 0; i < 10 * FX.wind; i++) leaves.push(newLeaf(true));
     gusts = [];
