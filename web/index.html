@@ -114,6 +114,9 @@
     padding: 8px 0 10px; border-top: 1px solid var(--line); row-gap: 2px; }
   .hourly .i { font-size: 25px; margin: 3px 0; }
   .hourly .t { color: var(--text); font-size: 19px; }
+  .hourly .pn { color: #8ac4ff; font-size: 14px; line-height: 1; margin-top: 2px; }
+  .wrain { margin: 4px 0; padding: 9px 10px; border-radius: 12px; background: rgba(90,160,255,.18); border: 1px solid rgba(138,196,255,.45);
+    color: #cfe6ff; font-size: 20px; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hourly .pb { height: 3px; margin: 6px 10px 0; border-radius: 2px; background: rgba(255,255,255,.10); overflow: hidden; }
   .hourly .pb i { display: block; height: 100%; background: #8ac4ff; }
   .sun { display: flex; justify-content: space-between; font-size: 15px; color: var(--muted); padding: 6px 2px 0; }
@@ -255,7 +258,7 @@
     .hourly { font-size: 14px; } .hourly .t { font-size: 16px; } .hourly .i { font-size: 20px; }
     .daily { font-size: 13px; padding-top: 5px; } .daily .i { font-size: 16px; } .daily .tt { font-size: 12px; }
     .hourly { padding: 6px 0 8px; } .hourly .pb { margin-top: 4px; }
-    #wupd { font-size: 14px; }
+    #wupd { font-size: 14px; } .wrain { font-size: 17px; padding: 7px 6px; }
   }
   @container (max-width: 340px) {
     #wupd { display: none; } .wmeta { gap: 2px; } .wmeta div { padding: 4px 1px; font-size: 12px; } .wmeta b { font-size: 15px; }
@@ -452,6 +455,19 @@ const WMO = {
 const wmo = (c, day = 1) => { const w = WMO[c] || ['❔', '-']; return (!day && c <= 1) ? ['🌙', w[1]] : w; };
 const grade = (v, cut) => v == null ? '-' : v <= cut[0] ? '좋음' : v <= cut[1] ? '보통' : v <= cut[2] ? '나쁨' : '매우나쁨';
 let weatherData = null, weatherName = '', schoolUrl = '';
+const wetH = (d, i) => (d.hourly.weather_code[i] ?? 0) >= 51 || (d.hourly.precipitation_probability[i] ?? 0) >= 60;
+function rainAlert(d) {   // 앞으로 12시간 비 예보: "15시부터 비 70%" / 지금 비 오면 "18시쯤 그침"
+  if (!d || !d.hourly) return '';
+  const h = d.hourly, now = new Date(); now.setMinutes(0, 0, 0);
+  const i0 = h.time.findIndex(t => new Date(t) >= now); if (i0 < 0) return '';
+  const raining = (d.current.weather_code ?? 0) >= 51, end = Math.min(h.time.length, i0 + 13), hr = i => new Date(h.time[i]).getHours();
+  if (raining) { for (let i = i0 + 1; i < end; i++) if (!wetH(d, i)) return `${hr(i)}시쯤 그침`; return '12시간 계속 비'; }
+  for (let i = i0 + 1; i < end; i++) if (wetH(d, i)) {
+    let p = 0; for (let k = i; k < Math.min(end, i + 3); k++) p = Math.max(p, h.precipitation_probability[k] ?? 0);
+    return `${hr(i)}시부터 비 ${p}%`;
+  }
+  return '';
+}
 async function loadWeather() {
   const d = await pywebview.api.get_weather();
   weatherData = d; if (window.onDataChange) onDataChange('weather');
@@ -462,20 +478,22 @@ async function loadWeather() {
   const nowH = new Date(); nowH.setMinutes(0, 0, 0);
   const idx = d.hourly.time.findIndex(t => new Date(t) >= nowH);
   let hourly = '';
-  for (let i = idx + 2; i < idx + 2 + 12 && i < d.hourly.time.length; i += 2) {
-    const t = new Date(d.hourly.time[i]), hh = t.getHours();
-    hourly += `<div>${hh}시<div class="i">${wmo(d.hourly.weather_code[i], hh >= 6 && hh < 19)[0]}</div>
-      <div class="t">${Math.round(d.hourly.temperature_2m[i])}°</div><div class="pb"><i style="width:${d.hourly.precipitation_probability[i] ?? 0}%"></i></div></div>`;
+  for (let i = idx + 1; i < idx + 13 && i + 1 < d.hourly.time.length; i += 2) {   // 12시간을 2시간씩: 두 시간 중 비 오는 쪽·높은 확률
+    const hh = new Date(d.hourly.time[i]).getHours(), j = wetH(d, i + 1) && !wetH(d, i) ? i + 1 : i;
+    const pop = Math.max(d.hourly.precipitation_probability[i] ?? 0, d.hourly.precipitation_probability[i + 1] ?? 0);
+    hourly += `<div>${hh}시<div class="i">${wmo(d.hourly.weather_code[j], hh >= 6 && hh < 19)[0]}</div>
+      <div class="t">${Math.round(d.hourly.temperature_2m[i])}°</div><div class="pn">${pop >= 30 ? pop + '%' : '&nbsp;'}</div><div class="pb"><i style="width:${pop}%"></i></div></div>`;
   }
   const daily = d.daily.time.map((t, i) => `<div>${i === 0 ? '오늘' : WD[new Date(t).getDay()]}
       <div class="i">${wmo(d.daily.weather_code[i])[0]}</div>
       <div class="tt"><span class="hi">${Math.round(d.daily.temperature_2m_max[i])}</span>/<span class="lo">${Math.round(d.daily.temperature_2m_min[i])}</span></div>
       <div class="pp">☔ ${d.daily.precipitation_probability_max[i] ?? 0}%</div></div>`).join('');
+  const ra = rainAlert(d);   // 12시간 안에 비 예보가 있으면 습도·바람 줄 대신 크게
   $('wbody').innerHTML = `
     <div class="wnow"><div class="wicon">${ic}</div><div class="wtemp">${Math.round(c.temperature_2m)}°</div>
       <div class="wdesc"><b>${desc}</b><br>체감 ${Math.round(c.apparent_temperature)}°</div></div>
-    <div class="wmeta"><div>습도<b>${c.relative_humidity_2m}%</b></div><div>바람<b>${(c.wind_speed_10m / 3.6).toFixed(1)}m/s</b></div>
-      <div>미세먼지<b>${grade(air.pm10, [30, 80, 150])}</b></div><div>초미세<b>${grade(air.pm2_5, [15, 35, 75])}</b></div></div>
+    ${ra ? `<div class="wrain">☔ ${ra}</div>` : `<div class="wmeta"><div>습도<b>${c.relative_humidity_2m}%</b></div><div>바람<b>${(c.wind_speed_10m / 3.6).toFixed(1)}m/s</b></div>
+      <div>미세먼지<b>${grade(air.pm10, [30, 80, 150])}</b></div><div>초미세<b>${grade(air.pm2_5, [15, 35, 75])}</b></div></div>`}
     <div class="hourly">${hourly}</div><div class="daily">${daily}</div>`;
   $('wupd').textContent = d.daily.sunrise ? `🌅 ${d.daily.sunrise[0].slice(11)} · 🌇 ${d.daily.sunset[0].slice(11)}` : '';
 }
@@ -658,8 +676,8 @@ function renderTodayBox() {
       } else chips.push(`<span class="tchip">${tt.today}요일 시간표 (갱신 대기)</span>`);
     }
     if (k === 'duty' && d) { d.jido.forEach(j => chips.push(`<span class="tchip">🛡 ${j.period}교시 공강지도 · ${esc(j.target)}</span>`)); if (d.lunchDuty) chips.push(`<span class="tchip">🍱 점심 급식지도</span>`); }
-    if (k === 'weather' && weatherData && weatherData.current) { const c = weatherData.current, [ic, ds] = wmo(c.weather_code, c.is_day); const pp = weatherData.daily && weatherData.daily.precipitation_probability_max ? weatherData.daily.precipitation_probability_max[0] : null;
-      chips.push(`<span class="tchip">${ic} <b>${Math.round(c.temperature_2m)}°</b> ${ds}${pp != null ? ` · 비 ${pp}%` : ''}</span>`); }
+    if (k === 'weather' && weatherData && weatherData.current) { const c = weatherData.current, [ic, ds] = wmo(c.weather_code, c.is_day); const pp = weatherData.daily && weatherData.daily.precipitation_probability_max ? weatherData.daily.precipitation_probability_max[0] : null, ra = rainAlert(weatherData);
+      chips.push(`<span class="tchip${ra ? ' hl' : ''}">${ic} <b>${Math.round(c.temperature_2m)}°</b> ${ds}${ra ? ` · ☔ ${ra}` : pp != null ? ` · 비 ${pp}%` : ''}</span>`); }
     if (k === 'msg' && msgData.count) chips.push(`<span class="tchip hl">✉ 쿨메시지 안읽음 <b>${msgData.count}</b>건</span>`);
     if (k === 'events') { const todays = eventsCache.filter(e => e.source !== 'school' && e.source !== 'academic' && new Date(e.start) < new Date(today0.getTime() + 864e5) && (e.end ? new Date(e.end) : new Date(e.start)) > today0);
       const nx = todays.find(e => !e.all_day && new Date(e.start) > now);

@@ -104,7 +104,7 @@ function viewWeather() {
   });
   svg += '</svg>';
   const left = `<div class="dcard wnowd"><div class="wicon big">${ic}</div><div class="wtemp big">${Math.round(c.temperature_2m)}°</div>
-    <div class="wdesc big"><b>${desc}</b> · 체감 ${Math.round(c.apparent_temperature)}°</div>
+    <div class="wdesc big"><b>${desc}</b> · 체감 ${Math.round(c.apparent_temperature)}°</div>${window.rainAlert && rainAlert(d) ? `<div class="wrain">☔ ${rainAlert(d)}</div>` : ""}
     <div class="kv"><span>습도</span><b>${c.relative_humidity_2m}%</b></div><div class="kv"><span>바람</span><b>${(c.wind_speed_10m / 3.6).toFixed(1)} m/s</b></div>
     <div class="kv"><span>미세먼지 PM10</span><b>${air.pm10 ?? '-'} ㎍/㎥ · ${grade(air.pm10, [30, 80, 150])}</b></div>
     <div class="kv"><span>초미세 PM2.5</span><b>${air.pm2_5 ?? '-'} ㎍/㎥ · ${grade(air.pm2_5, [15, 35, 75])}</b></div>
