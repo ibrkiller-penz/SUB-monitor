@@ -12,7 +12,7 @@
   const FX = window.WEATHER_FX = window.WEATHER_FX || { on: true, kind: 'none', level: 0 };
   let cv, ctx, W = 0, H = 0, raf = 0, last = 0, t = 0;
   let streaks = [], beads = [], flakes = [], clouds = [], fogs = [], caps = [], stars = [], leaves = [], rays = [];
-  let gusts = [], flash = 0, nextBolt = 3, bolt = null, shoot = null, frost = null, beadSprites = {};
+  let gusts = [], flash = 0, nextBolt = 3, bolt = null, shoot = null, nextShoot = 4, frost = null, beadSprites = {};
   const rnd = (a, b) => a + Math.random() * (b - a);
 
   function classify(code, isDay, wind) {
@@ -344,13 +344,28 @@
       ctx.fillStyle = `rgba(255,255,240,${.25 + .5 * (.5 + .5 * Math.sin(s.ph))})`;
       ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill();
     }
-    if (!shoot && Math.random() < dt / 12) shoot = { x: rnd(W * .3, W), y: rnd(0, H * .25), life: 1 };
+    // 별똥별: 20~60초에 한 번, 머리는 빛나고 꼬리는 가늘게 사라짐
+    if (!shoot) {
+      nextShoot -= dt;
+      if (nextShoot <= 0) {
+        const a = rnd(.18, .42) * (Math.random() < .5 ? 1 : -1), v = rnd(700, 1000);
+        shoot = { x: a > 0 ? rnd(W * .25, W * .95) : rnd(W * .05, W * .75), y: rnd(0, H * .2),
+          vx: -Math.sign(a) * v * Math.cos(Math.abs(a)), vy: v * Math.sin(Math.abs(a)), t: 0, dur: rnd(.7, 1.2), len: rnd(140, 240) };
+        nextShoot = rnd(20, 60);
+      }
+    }
     if (shoot) {
-      shoot.life -= dt * 1.3; shoot.x -= 600 * dt; shoot.y += 160 * dt;
-      const g = ctx.createLinearGradient(shoot.x, shoot.y, shoot.x + 120, shoot.y - 32);
-      g.addColorStop(0, `rgba(255,255,255,${Math.max(0, shoot.life)})`); g.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.strokeStyle = g; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(shoot.x, shoot.y); ctx.lineTo(shoot.x + 120, shoot.y - 32); ctx.stroke();
-      if (shoot.life <= 0) shoot = null;
+      const sh = shoot; sh.t += dt; sh.x += sh.vx * dt; sh.y += sh.vy * dt;
+      const p = sh.t / sh.dur, al = Math.min(1, p * 5) * Math.max(0, 1 - p) ** .6;
+      const sp = Math.hypot(sh.vx, sh.vy), tx = sh.x - sh.vx / sp * sh.len, ty = sh.y - sh.vy / sp * sh.len;
+      const g = ctx.createLinearGradient(sh.x, sh.y, tx, ty);
+      g.addColorStop(0, `rgba(255,255,245,${.9 * al})`); g.addColorStop(.3, `rgba(200,220,255,${.35 * al})`); g.addColorStop(1, 'rgba(180,200,255,0)');
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+      ctx.strokeStyle = g; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sh.x, sh.y); ctx.lineTo(tx, ty); ctx.stroke();
+      const hg = ctx.createRadialGradient(sh.x, sh.y, 0, sh.x, sh.y, 7);
+      hg.addColorStop(0, `rgba(255,255,255,${al})`); hg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(sh.x, sh.y, 7, 0, 7); ctx.fill(); ctx.restore();
+      if (p >= 1) shoot = null;
     }
   }
 
