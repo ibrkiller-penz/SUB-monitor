@@ -314,6 +314,8 @@
   <label>컴퓨터 켤 때 자동 실행</label>
   <div class="dragonRow"><label class="nchk"><input type="checkbox" id="autoStart"> Windows 시작 시 SUB모니터 자동 실행</label><span class="hint" id="autoHint"></span></div>
   <div class="dragonRow"><span>바로가기 아이콘</span><button type="button" id="appsRescan">컴퓨터에서 다시 찾기</button><span class="hint" id="appsHint"></span></div>
+  <label for="kmaKey">기상청 인증키 (공공데이터포털 단기예보)</label>
+  <div class="dragonRow"><input type="password" id="kmaKey" placeholder="비우면 Open-Meteo 날씨" style="flex:1;min-width:0"><span class="hint" id="kmaHint"></span></div>
   <label>날씨 효과</label>
   <div class="dragonRow"><label class="nchk"><input type="checkbox" id="wfxOn"> 사용</label>
     <select id="wfxKind"><option value="rain">비(부슬부슬)</option><option value="storm">뇌우</option><option value="snow">눈</option><option value="cloud">흐림</option><option value="fog">안개</option><option value="sunny">맑은 낮</option><option value="night">맑은 밤</option><option value="wind">바람</option></select>
@@ -454,6 +456,7 @@ async function loadWeather() {
   const d = await pywebview.api.get_weather();
   weatherData = d; if (window.onDataChange) onDataChange('weather');
   if (d.error) { $('wbody').innerHTML = `<div class="err">날씨 오류: ${esc(d.error)}</div>`; return; }
+  $('wname').textContent = weatherName + (d.source ? ' · ' + d.source : '');
   const c = d.current, [ic, desc] = wmo(c.weather_code, c.is_day), air = d.air || {};
   if (window.updateWeatherFx) updateWeatherFx(c.weather_code, c.is_day, c.wind_speed_10m);   // 비·눈·구름 효과
   const nowH = new Date(); nowH.setMinutes(0, 0, 0);
@@ -523,6 +526,7 @@ function limitChecks(box, max) {   // 체크 개수 제한: max 개가 되면 �
   const n = inputs.filter(i => i.checked).length;
   inputs.forEach(i => { i.disabled = !i.checked && n >= max; i.parentElement.classList.toggle('dis', i.disabled); });
 }
+let KMA_ON = false;
 function openSettings() {
   const list = (tt && tt.teachers) || teacherList;
   const cur = tt ? tt.teacher : '';
@@ -535,6 +539,7 @@ function openSettings() {
   limitChecks($('modal').querySelector('.chk:not(#setSummary):not(#setOrient)'), MAX_PANELS); limitChecks($('setSummary'), 4);
   $('modal').querySelectorAll('input[name=orient]').forEach(i => i.checked = (document.body.classList.contains('portrait') ? 'portrait' : 'landscape') === i.value);
   $('wfxOn').checked = !window.WEATHER_FX || WEATHER_FX.on;
+  $('kmaKey').value = ''; $('kmaHint').textContent = KMA_ON ? '등록됨 (바꿀 때만 입력)' : '';
   $('autoStart').checked = !!AUTOSTART; $('autoHint').textContent = AUTOSTART ? '켜져 있음' : '';
   $('nightOn').checked = NIGHT.on; $('nightStart').value = NIGHT.start; $('nightEnd').value = NIGHT.end;
   $('setDragon').value = String(window.DRAGON_CFG ? DRAGON_CFG.min : 10);
@@ -869,6 +874,7 @@ window.addEventListener('pywebviewready', async () => {
   if (cfg.night) NIGHT = Object.assign(NIGHT, cfg.night);
   AUTOSTART = !!cfg.autostart;
   if (window.WEATHER_FX && cfg.weather_fx === false) WEATHER_FX.on = false;
+  KMA_ON = !!cfg.kma_key;
   checkNight(); setInterval(checkNight, 20 * 1000);
   applyBgLight(); setInterval(applyBgLight, 60 * 1000);
   $('night').onclick = () => { nightWakeUntil = Date.now() + 5 * 60 * 1000; checkNight(); };
@@ -902,6 +908,12 @@ window.addEventListener('pywebviewready', async () => {
     if (window.weatherFxOn) weatherFxOn($('wfxOn').checked);
     if (pywebview.api.set_autostart && $('autoStart').checked !== !!AUTOSTART) pywebview.api.set_autostart($('autoStart').checked).then(v => { AUTOSTART = !!v; });
     if (pywebview.api.set_weather_fx) pywebview.api.set_weather_fx($('wfxOn').checked);
+    const kk = $('kmaKey').value.trim();
+    if (kk && pywebview.api.set_kma_key) {
+      const r = await pywebview.api.set_kma_key(kk);
+      if (!r || !r.ok) { $('kmaHint').textContent = '인증키 확인 실패: ' + ((r && r.error) || ''); return; }
+      KMA_ON = true; loadWeather();
+    }
     const dmin = Number($('setDragon').value); if (window.DRAGON_CFG) DRAGON_CFG.min = dmin;
     if (pywebview.api.set_dragon) pywebview.api.set_dragon(dmin);
     closeSettings();

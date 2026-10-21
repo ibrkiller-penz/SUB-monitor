@@ -19,6 +19,7 @@ import webview
 
 from notify import MessageWatcher
 from launcher import Launchers
+import kma
 
 
 def _find_nvidia_smi():
@@ -76,7 +77,7 @@ def log(msg):
 
 
 LOCAL_CONFIG = CONFIG_PATH.with_name("config.local.json")   # 이 PC·이 교사만의 설정 (git 에 안 올라감)
-LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary", "dragon_min", "night", "weather_fx", "apps_added")
+LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary", "dragon_min", "night", "weather_fx", "apps_added", "kma_key")
 
 
 def load_config():
@@ -174,6 +175,7 @@ class Api:
             "max_panels": self.MAX_PANELS,
             "dragon_min": int(self.cfg.get("dragon_min", 10)),
             "weather_fx": bool(self.cfg.get("weather_fx", True)),
+            "kma_key": bool(self.cfg.get("kma_key")),
             "autostart": self.get_autostart(),
             "night": self.cfg.get("night", {"on": True, "start": "22:00", "end": "08:00"}),
             "dragon_video": self._dragon_video(),
@@ -558,12 +560,15 @@ class Api:
             "timezone": "Asia/Seoul",
             "forecast_days": 7,
         }
+        key = (self.cfg.get("kma_key") or "").strip()
         try:
             r = requests.get("https://api.open-meteo.com/v1/forecast", params=params, timeout=10)
             r.raise_for_status()
             data = r.json()
         except Exception as e:
-            return {"error": str(e)}
+            if not key:
+                return {"error": str(e)}
+            data = {"om_error": str(e)}   # 기상청만으로 3일치는 그릴 수 있다
         try:
             aq = requests.get(
                 "https://air-quality-api.open-meteo.com/v1/air-quality",
@@ -573,8 +578,28 @@ class Api:
             data["air"] = aq.get("current")
         except Exception:
             data["air"] = None
-        self._infer_drizzle(data)
+        if key:   # 기상청 단기예보로 지금·3일치를 덮어씀 (주간·일출·미세먼지는 Open-Meteo)
+            kma.overlay(data, key, w["latitude"], w["longitude"])
+            if data.get("kma_error"):
+                log(f"kma: {data['kma_error']}")
+        if data.get("source") != "기상청":
+            self._infer_drizzle(data)
+        if "current" not in data or "temperature_2m" not in data["current"]:
+            return {"error": data.get("kma_error") or data.get("om_error") or "날씨 없음"}
         return data
+
+    def set_kma_key(self, key):
+        """설정의 기상청 인증키. 빈 값이면 Open-Meteo 만 쓴다. 저장 전에 한 번 불러 봐서 되는지 확인."""
+        key = re.sub(r"\s+", "", str(key or ""))
+        if key:
+            w = self.cfg["weather"]
+            try:
+                kma.check(key, w["latitude"], w["longitude"])
+            except Exception as e:
+                return {"ok": False, "error": str(e)[:120]}
+        self.cfg["kma_key"] = key
+        save_config(self.cfg)
+        return {"ok": True}
 
     @staticmethod
     def _infer_drizzle(data):
