@@ -307,7 +307,7 @@
     const s = 4, w = Math.ceil(W / s), h = Math.ceil(H / s);
     if (!sunCv || sunCv.width !== w || sunCv.height !== h) { sunCv = document.createElement('canvas'); sunCv.width = w; sunCv.height = h; sunG = sunCv.getContext('2d'); }
     const st = sunState(), [r0, g0, b0] = st.col, sx = st.sx / s, sy = st.sy / s, g = sunG;
-    g.clearRect(0, 0, w, h); g.filter = 'blur(2px)'; g.globalCompositeOperation = 'lighter';
+    g.clearRect(0, 0, w, h); g.filter = 'blur(3px)'; g.globalCompositeOperation = 'lighter';
     const base = Math.atan2(h * 1.2 - sy, w * .5 - sx) + Math.sin(t * .03) * .025;   // 부채 전체가 아주 천천히 기울어짐
     const L = Math.hypot(w, h) * 1.15;
     for (const r of rays) {
@@ -324,7 +324,7 @@
     g.globalCompositeOperation = 'source-over'; g.filter = 'none';
     ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.drawImage(sunCv, 0, 0, W, H); ctx.restore();
     const haze = ctx.createRadialGradient(st.sx, 0, 0, st.sx, 0, H * 1.3);   // 해가 숨은 쪽 하늘의 옅은 빛 안개
-    haze.addColorStop(0, `rgba(${r0},${g0},${b0},.22)`); haze.addColorStop(.5, `rgba(${r0},${g0},${b0},.07)`); haze.addColorStop(1, `rgba(${r0},${g0},${b0},0)`);
+    haze.addColorStop(0, `rgba(${r0},${g0},${b0},.17)`); haze.addColorStop(.5, `rgba(${r0},${g0},${b0},.055)`); haze.addColorStop(1, `rgba(${r0},${g0},${b0},0)`);
     ctx.fillStyle = haze; ctx.fillRect(0, 0, W, H);
     if (!motes.length) motes = Array.from({ length: Math.round(22 * W / 1920) }, () => ({ x: rnd(0, W), y: rnd(0, H), r: rnd(.7, 1.8), vx: rnd(-3, 3), vy: rnd(-2, 2), ph: rnd(0, 6) }));
     for (const m of motes) {   // 빛 속 먼지 (아주 옅게)
@@ -408,7 +408,7 @@
     if (kind === 'fog') for (let i = 0; i < 7; i++) fogs.push(newFog(true));
     if (kind === 'sunny') {   // 빛줄기: 가는 것이 많고 굵은 것은 몇 개. 부채꼴 안에 고르게 흩어 놓아 사이사이 그늘 틈이 생김
       for (let i = 0; i < 26; i++) rays.push({ off: -.62 + 1.24 * (i + rnd(.1, .9)) / 26, w: Math.random() < .25 ? rnd(9, 16) : rnd(2.5, 7),
-        a: rnd(.22, .48), f1: rnd(.05, .14), f2: rnd(.11, .27), p1: rnd(0, 6), p2: rnd(0, 6) });
+        a: rnd(.14, .31), f1: rnd(.05, .14), f2: rnd(.11, .27), p1: rnd(0, 6), p2: rnd(0, 6) });
       motes = [];
     }
     if (kind === 'night') for (let i = 0; i < Math.round(70 * area); i++) stars.push({ x: rnd(0, W), y: rnd(0, H * .35), r: rnd(.5, 1.4), ph: rnd(0, 6), sp: rnd(1, 3) });
