@@ -7,7 +7,8 @@
     "latitude": 35.2035,
     "longitude": 129.0927,
     "kma_mid_land": "11H20000",
-    "kma_mid_ta": "11H20201"
+    "kma_mid_ta": "11H20201",
+    "air_station": "명장동"
   },
   "ical_urls": [
     ""

@@ -297,3 +297,31 @@ def _merge_mid(data, key, now, short, land, ta):
         d["weather_code"][n] = code
         d["temperature_2m_max"][n], d["temperature_2m_min"][n] = float(tf[f"taMax{k}"]), float(tf[f"taMin{k}"])
         d["precipitation_probability_max"][n] = int(max(int(p or 0) for p in pops))
+
+
+def airkorea(key, station):
+    """에어코리아 측정소별 실시간 측정정보 (같은 공공데이터포털 인증키).
+    최근 몇 시간 중 값이 있는 첫 줄의 PM10·PM2.5 (점검 중이면 '-' 로 옴)."""
+    r = None
+    for n in range(3):
+        try:
+            r = requests.get("https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty", params={
+                "serviceKey": key, "returnType": "json", "numOfRows": 4, "pageNo": 1,
+                "stationName": station, "dataTerm": "DAILY", "ver": "1.3"}, timeout=10)
+            break
+        except requests.RequestException as e:
+            if n == 2:
+                raise RuntimeError(type(e).__name__) from None
+    if r.status_code != 200:
+        raise RuntimeError("인증키 오류" if r.status_code in (401, 403) else f"HTTP {r.status_code}")
+    try:
+        items = r.json()["response"]["body"]["items"]
+    except Exception:
+        raise RuntimeError("에어코리아 미승인 또는 응답 오류") from None
+    num = lambda v: float(v) if v not in (None, "", "-") else None
+    pm10 = next((num(i.get("pm10Value")) for i in items if num(i.get("pm10Value")) is not None), None)
+    pm25 = next((num(i.get("pm25Value")) for i in items if num(i.get("pm25Value")) is not None), None)
+    if pm10 is None and pm25 is None:
+        raise RuntimeError("측정값 없음")
+    return {"pm10": pm10, "pm2_5": pm25, "source": "에어코리아", "station": station,
+            "time": (items[0].get("dataTime") if items else "")}

@@ -636,6 +636,10 @@ class Api:
                         land=w.get("kma_mid_land", "11H20000"), ta=w.get("kma_mid_ta", "11H20201"))
             if data.get("kma_error"):
                 log(f"kma: {data['kma_error']}")
+            try:   # 미세먼지는 에어코리아 측정소 실측값으로
+                data["air"] = kma.airkorea(key, w.get("air_station", "명장동"))
+            except Exception as e:
+                log(f"airkorea: {e}")
         if data.get("source") != "기상청":
             self._infer_drizzle(data)
         if "current" not in data or "temperature_2m" not in data["current"]:
