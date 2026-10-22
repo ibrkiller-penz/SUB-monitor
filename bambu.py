@@ -7,6 +7,7 @@
   (P1·A1 계열의 6000번 포트 JPEG 방식은 아직 안 넣음)
 """
 import base64
+import re
 import json
 import os
 import shutil
@@ -39,10 +40,16 @@ def _api(method, path, token=None, **kw):
     if token:
         h["Authorization"] = "Bearer " + token
     r = requests.request(method, API + path, headers=h, timeout=15, **kw)
+    step = path.rstrip("/").rsplit("/", 1)[-1]
     try:
         j = r.json()
     except Exception:
-        raise RuntimeError(f"뱀부 서버 응답 오류 (HTTP {r.status_code})") from None
+        if r.ok and not r.text.strip():
+            return {}   # 인증 코드 보내기 등은 빈 응답(200)
+        snip = re.sub(r"<[^>]+>|\s+", " ", r.text)[:80].strip()
+        raise RuntimeError(f"뱀부 서버 응답 오류 ({step}, HTTP {r.status_code}: {snip})") from None
+    if not isinstance(j, dict):
+        return {"data": j}
     if r.status_code >= 400:
         raise RuntimeError(j.get("error") or j.get("message") or f"HTTP {r.status_code}")
     return j
