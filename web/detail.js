@@ -3,7 +3,7 @@
  */
 let detailKind = null, idleT = null, calSel = null, procs = [];
 const DETAIL_IDLE = 90 * 1000;
-const PANEL_KIND = { clock: 'today', weather: 'weather', tt: 'timetable', eventsPanel: 'events', school: 'school', msg: 'messages', pc: 'pc' };
+const PANEL_KIND = { clock: 'today', weather: 'weather', tt: 'timetable', eventsPanel: 'events', school: 'school', msg: 'messages', pc: 'pc', printer: 'printer' };
 
 function openDetail(kind) {
   detailKind = kind; calSel = null; document.body.classList.add('detail'); $('detail').classList.add('on'); renderDetail(); bumpIdle();
@@ -11,13 +11,13 @@ function openDetail(kind) {
 }
 function closeDetail() { detailKind = null; document.body.classList.remove('detail'); $('detail').classList.remove('on'); clearTimeout(idleT); }
 function bumpIdle() { clearTimeout(idleT); if (detailKind) idleT = setTimeout(closeDetail, DETAIL_IDLE); }
-const VIEW_DEPS = { today: ['timetable', 'events'], weather: ['weather'], timetable: ['timetable'], events: ['events'], school: ['events'], pc: ['system'], messages: ['messages'] };
+const VIEW_DEPS = { today: ['timetable', 'events'], weather: ['weather'], timetable: ['timetable'], events: ['events'], school: ['events'], pc: ['system'], messages: ['messages'], printer: ['printer'] };
 let schoolDept = '';
 function onDataChange(kind) { if (detailKind && (!kind || VIEW_DEPS[detailKind].includes(kind))) renderDetail(); }
 let evDraft = { title: '', date: '', time: '', all_day: false }, evMsg = '';
 
 function renderDetail() {
-  const views = { today: viewToday, weather: viewWeather, timetable: viewTimetable, events: viewEvents, school: viewSchool, pc: viewPC, messages: viewMessages };
+  const views = { today: viewToday, weather: viewWeather, timetable: viewTimetable, events: viewEvents, school: viewSchool, pc: viewPC, messages: viewMessages, printer: viewPrinter };
   const v = views[detailKind]; if (!v) return;
   const { title, html } = v();
   $('dtitle').textContent = title; $('dbody').innerHTML = html;
@@ -237,6 +237,27 @@ function viewMessages() {   // 쪽지만 크게: 보낸 사람·시간 한 줄 +
       ${m.body ? `<div class="mb">${esc(m.body)}</div>` : ''}</div>`).join('')
     : `<div class="dli muted">${msgData.error ? esc(msgData.error) : '새 메시지 없음'}</div>`;
   return { title: `쿨메시지 · 안읽음 ${msgData.count}건`, html: `<div class="dgrid"><div class="dcard"><div class="dc-t">쪽지 ${msgData.items.length}건<b><button class="mbtn" data-msgclear>모두 지우기</button></b></div><div class="dlist mlist">${items}</div></div></div>` };
+}
+
+/* ---------- 3D 프린터 상세: 카메라 크게 + 상태 ---------- */
+function viewPrinter() {
+  const p = prData;
+  if (!p.configured) return { title: '3D 프린터', html: '<div class="dcard"><div class="muted">설정(⚙)에서 프린터 IP·액세스 코드·시리얼 번호를 넣으세요.</div></div>' };
+  const run = p.state === 'RUNNING' || p.state === 'PAUSE' || p.state === 'PREPARE', pct = p.percent ?? 0;
+  const kv = (k, v) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
+  let eta = '';
+  if (run && p.remaining != null) { const t = new Date(Date.now() + p.remaining * 60000); eta = `${t.getHours()}:${pad(t.getMinutes())}`; }
+  return { title: `3D 프린터 · ${PR_STATE[p.state] || p.state || (p.connected ? '' : '연결 안 됨')}`, html: `<div class="dgrid prd">
+    <div class="dcard prcamw big"><img class="prcam" alt="" ${prFrame ? `src="${prFrame}"` : ''}><span class="prcamwait">${prFrame ? '' : esc(p.cam_msg || '카메라 연결 중…')}</span></div>
+    <div class="dcard"><div class="dc-t">출력<b>${pct}%</b></div>
+      <div class="prname big">${esc((p.name || '-').replace(/\.(gcode|3mf)$/i, ''))}</div>
+      <div class="prbar big"><i style="width:${pct}%"></i></div>
+      ${kv('남은 시간', run && p.remaining != null ? prLeft(p.remaining) : '-')}${kv('끝나는 시각', eta || '-')}
+      ${kv('층', p.layers ? `${p.layer ?? 0} / ${p.layers}` : '-')}
+      ${kv('노즐', p.nozzle != null ? `${Math.round(p.nozzle)}°${p.nozzle_target ? ` / ${Math.round(p.nozzle_target)}°` : ''}` : '-')}
+      ${kv('베드', p.bed != null ? `${Math.round(p.bed)}°${p.bed_target ? ` / ${Math.round(p.bed_target)}°` : ''}` : '-')}
+      ${p.chamber ? kv('챔버', Math.round(p.chamber) + '°') : ''}
+      ${!p.connected && p.error ? `<div class="err">${esc(p.error)}</div>` : ''}</div></div>` };
 }
 
 /* ---------- PC 상세 ---------- */

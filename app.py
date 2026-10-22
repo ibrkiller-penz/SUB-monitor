@@ -77,7 +77,7 @@ def log(msg):
 
 
 LOCAL_CONFIG = CONFIG_PATH.with_name("config.local.json")   # 이 PC·이 교사만의 설정 (git 에 안 올라감)
-LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary", "dragon_min", "night", "weather_fx", "apps_added", "kma_key")
+LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary", "dragon_min", "night", "weather_fx", "apps_added", "kma_key", "printer")
 
 
 def load_config():
@@ -144,6 +144,37 @@ class Api:
         self._net_t = time.time()
         self._cpu = 0.0
         threading.Thread(target=self._cpu_sampler, daemon=True).start()
+        self.printer = None
+        self._start_printer()
+
+    # ---- 3D 프린터 (bambu.py, 같은 네트워크 직접) ----
+    def _start_printer(self):
+        if self.printer:
+            self.printer.stop()
+            self.printer = None
+        p = self.cfg.get("printer") or {}
+        if p.get("ip") and p.get("code") and p.get("serial"):
+            from bambu import Printer
+            self.printer = Printer(p["ip"], p["code"], p["serial"], log=log)
+
+    def get_printer(self):
+        if not self.printer:
+            return {"configured": False}
+        return self.printer.status()
+
+    def get_printer_frame(self):
+        return self.printer.get_frame() if self.printer else {"ok": False, "error": "프린터 설정 없음"}
+
+    def set_printer(self, p):
+        """설정의 프린터 IP·액세스 코드·시리얼. 코드를 비워 두면 예전 코드를 그대로 쓴다."""
+        p = p if isinstance(p, dict) else {}
+        old = self.cfg.get("printer") or {}
+        ip, serial = str(p.get("ip") or "").strip(), str(p.get("serial") or "").strip().upper()
+        code = str(p.get("code") or "").strip() or old.get("code", "")
+        self.cfg["printer"] = {"ip": ip, "code": code, "serial": serial} if ip else {}
+        save_config(self.cfg)
+        self._start_printer()
+        return {"ok": True}
 
     def _cpu_sampler(self):
         """cpu_percent(None)은 호출 간격이 들쭉날쭉하면 0%가 나오므로, 전용 스레드에서 1초 간격으로 잰다."""
@@ -154,7 +185,7 @@ class Api:
                 time.sleep(1)
 
     DEFAULT_PANELS = ["weather", "tt", "events", "msg", "apps"]
-    PANEL_IDS = ("weather", "tt", "events", "school", "msg", "pc", "apps")
+    PANEL_IDS = ("weather", "tt", "events", "school", "msg", "pc", "printer", "apps")
     MAX_PANELS = 5   # 시계 제외. 바로가기(가는 띠)는 따로라 최대 5 + 바로가기
     DEFAULT_SUMMARY = ["exam", "next", "duty", "msg"]
 
@@ -176,6 +207,7 @@ class Api:
             "dragon_min": int(self.cfg.get("dragon_min", 10)),
             "weather_fx": bool(self.cfg.get("weather_fx", True)),
             "kma_key": bool(self.cfg.get("kma_key")),
+            "printer": {k: v for k, v in (self.cfg.get("printer") or {}).items() if k != "code"},
             "autostart": self.get_autostart(),
             "night": self.cfg.get("night", {"on": True, "start": "22:00", "end": "08:00"}),
             "dragon_video": self._dragon_video(),

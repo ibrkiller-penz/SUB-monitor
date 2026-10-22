@@ -184,3 +184,13 @@ body.portrait .dgrid.sch { grid-template-columns: 1fr !important; }
 .mmsg.read { opacity: .6; }
 .dense .drow { grid-template-columns: 58px 30px 60px 36px 1fr 36px; font-size: 15px; padding: 1px 0; }
 .dense .drow .di { font-size: 18px; }
+
+/* 3D 프린터 상세 */
+.dgrid.prd { grid-template-columns: 2.1fr 1fr; }
+.prcamw.big { position: relative; padding: 0; overflow: hidden; background: rgba(0,0,0,.45); }
+.prcamw.big img.prcam { width: 100%; height: 100%; object-fit: contain; display: block; }
+.prcamw.big img.prcam:not([src]) { visibility: hidden; }
+.prcamw.big .prcamwait { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 18px; }
+.prname.big { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+.prbar.big { height: 12px; border-radius: 6px; background: rgba(255,255,255,.12); overflow: hidden; margin: 6px 0 10px; }
+.prbar.big i { display: block; height: 100%; background: var(--accent); }

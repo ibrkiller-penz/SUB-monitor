@@ -49,3 +49,4 @@ Windows PC 옆에 두는 가로 스트립 디스플레이용 Python(pywebview) �
 ## 아직 확인 못 한 것
 - Windows 실기기에서 숨김 창 시간표 추출, 전체화면/모니터 자동 선택, 터치 동작.
 - Open-Meteo 7일 예보 실데이터(개발 중 429 제한).
+- 3D 프린터(`bambu.py`, 패널 id `printer`, 상세 `viewPrinter`): 뱀부랩 같은 네트워크 직접. 설정에 IP·액세스 코드·시리얼(`config.local.json > printer`, 코드는 get_config 로 안 내보냄). 상태는 MQTT 8883 TLS(bblp/액세스 코드, `device/<시리얼>/report`, 접속 시 pushall), 카메라는 P2S·X1 방식 RTSPS 322 `/streaming/live/1` → exe 옆 `ffmpeg.exe`(빌드 때 gyan.dev essentials 받아 넣음)로 초당 2장 JPEG → `get_printer_frame` 이 data URL 로 넘김. 프린터 칸이나 상세가 안 보이면 20초 뒤 ffmpeg 끔. P1·A1(6000번 JPEG)은 아직 안 넣음. 실기기 미확인.

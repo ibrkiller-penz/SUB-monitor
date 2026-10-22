@@ -30,7 +30,7 @@
     background: linear-gradient(90deg, rgba(0,0,0,.45), rgba(0,0,0,.15) 40%, rgba(0,0,0,.15) 60%, rgba(0,0,0,.45)); }
   #root { position: relative; display: flex; height: 440px; padding: 14px; gap: 14px; }
   #root > .panel { flex: var(--w, 1) 1 0; container-type: inline-size; }
-  #clock { --w: 330; } #weather { --w: 380; } #tt { --w: 330; } #eventsPanel { --w: 360; } #school { --w: 440; } #msg { --w: 440; } #msg.empty { --w: 150; } #apps { --w: 40; flex-grow: 0 !important; flex-basis: 40px !important; padding: 6px 0 30px !important; } #pc { --w: 248; }
+  #clock { --w: 330; } #weather { --w: 380; } #tt { --w: 330; } #eventsPanel { --w: 360; } #school { --w: 440; } #msg { --w: 440; } #msg.empty { --w: 150; } #apps { --w: 40; flex-grow: 0 !important; flex-basis: 40px !important; padding: 6px 0 30px !important; } #pc { --w: 248; } #printer { --w: 340; }
   #root > .panel.off, #root > .panel.nott { display: none; }
   /* 우상단 고정 버튼 (설정·종료) */
   #topbar { position: absolute; bottom: 8px; right: 8px; z-index: 6; display: flex; gap: 2px; }
@@ -115,6 +115,15 @@
   .hourly .i { font-size: 25px; margin: 3px 0; }
   .hourly .t { color: var(--text); font-size: 19px; }
   .hourly .pn { color: #8ac4ff; font-size: 14px; line-height: 1; margin-top: 2px; }
+  #printer .prcamw { position: relative; border-radius: 12px; overflow: hidden; background: rgba(0,0,0,.35); aspect-ratio: 16 / 9; margin-bottom: 8px; }
+  #printer img.prcam { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #printer img.prcam:not([src]) { visibility: hidden; }
+  .prcamwait { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 15px; text-align: center; padding: 8px; }
+  .prname { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prbar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; margin: 6px 0; }
+  .prbar i { display: block; height: 100%; background: var(--accent); }
+  .prline { font-size: 17px; color: var(--muted); } .prline b { color: var(--text); font-size: 22px; }
+  .prtemp { font-size: 15px; color: var(--muted); margin-top: 4px; } .prtemp b { color: var(--text); }
   .wrain { margin: 4px 0; padding: 9px 10px; border-radius: 12px; background: rgba(90,160,255,.18); border: 1px solid rgba(138,196,255,.45);
     color: #cfe6ff; font-size: 20px; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hourly .pb { height: 3px; margin: 6px 10px 0; border-radius: 2px; background: rgba(255,255,255,.10); overflow: hidden; }
@@ -298,6 +307,7 @@
     <label class="ord"><button type="button" class="mv" data-mv="-1">◀</button><input type="checkbox" value="school"> 학교일정<button type="button" class="mv" data-mv="1">▶</button></label>
     <label class="ord"><button type="button" class="mv" data-mv="-1">◀</button><input type="checkbox" value="msg"> 쿨메시지<button type="button" class="mv" data-mv="1">▶</button></label>
     <label class="ord"><button type="button" class="mv" data-mv="-1">◀</button><input type="checkbox" value="pc"> PC 상태<button type="button" class="mv" data-mv="1">▶</button></label>
+    <label class="ord"><button type="button" class="mv" data-mv="-1">◀</button><input type="checkbox" value="printer"> 3D 프린터<button type="button" class="mv" data-mv="1">▶</button></label>
     <label class="ord"><button type="button" class="mv" data-mv="-1">◀</button><input type="checkbox" value="apps"> 바로가기<button type="button" class="mv" data-mv="1">▶</button></label>
   </div>
   <div class="hint" id="panelHint">시계 제외 최대 5개 + 바로가기 (바로가기는 가는 띠라 따로 셈)</div>
@@ -319,6 +329,8 @@
   <div class="dragonRow"><span>바로가기 아이콘</span><button type="button" id="appsRescan">컴퓨터에서 다시 찾기</button><span class="hint" id="appsHint"></span></div>
   <label for="kmaKey">기상청 인증키 (공공데이터포털 단기예보)</label>
   <div class="dragonRow"><input type="password" id="kmaKey" placeholder="비우면 Open-Meteo 날씨" style="flex:1;min-width:0"><span class="hint" id="kmaHint"></span></div>
+  <label>3D 프린터 (뱀부랩, 같은 네트워크 · 프린터 설정 → 네트워크에서 확인)</label>
+  <div class="dragonRow"><input id="prIp" placeholder="IP 예: 192.168.0.50" style="width:190px"><input type="password" id="prCode" placeholder="액세스 코드" style="width:140px"><input id="prSerial" placeholder="시리얼 번호" style="flex:1;min-width:0"></div>
   <label>날씨 효과</label>
   <div class="dragonRow"><label class="nchk"><input type="checkbox" id="wfxOn"> 사용</label>
     <select id="wfxKind"><option value="rain">비(부슬부슬)</option><option value="storm">뇌우</option><option value="snow">눈</option><option value="cloud">흐림</option><option value="fog">안개</option><option value="sunny">맑은 낮</option><option value="night">맑은 밤</option><option value="wind">바람</option></select>
@@ -374,6 +386,10 @@
   </section>
 
   <section class="panel" id="apps" aria-label="바로가기"><div id="appsList"></div></section>
+  <section class="panel" id="printer">
+    <div class="ptitle"><span class="k">3D 프린터</span><span id="prState"></span></div>
+    <div id="prbody"><div class="muted">설정(⚙)에서 프린터를 연결하세요</div></div>
+  </section>
   <section class="panel" id="pc">
     <div class="ptitle"><span class="k">PC</span><span></span></div>
     <div id="pcbody"></div>
@@ -535,7 +551,7 @@ let panelsOn = ['weather', 'tt', 'events', 'msg'], summaryOn = ['exam', 'next', 
 const capPanels = l => { const o = l.filter(k => k !== 'apps').slice(0, MAX_PANELS); return l.includes('apps') ? [...o, 'apps'] : o; };   // 바로가기 띠는 개수에 안 셈 (최대 5 + 바로가기)
 function applyPanels() {
   panelsOn = capPanels(panelsOn);
-  ['weather', 'tt', 'eventsPanel', 'school', 'msg', 'pc', 'apps'].forEach(id => { const k = id === 'eventsPanel' ? 'events' : id;
+  ['weather', 'tt', 'eventsPanel', 'school', 'msg', 'pc', 'printer', 'apps'].forEach(id => { const k = id === 'eventsPanel' ? 'events' : id;
     $(id).classList.toggle('off', !panelsOn.includes(k)); $(id).style.order = !panelsOn.includes(k) ? 50 : k === 'apps' ? 40 : panelsOn.indexOf(k) + 1; });   // 바로가기 띠는 늘 맨 오른쪽
   renderEvents(); renderSchool(); renderTodayBox();
   setTimeout(fitAll, 50);
@@ -545,7 +561,7 @@ function limitChecks(box, max) {   // 체크 개수 제한: max 개가 되면 �
   const n = inputs.filter(i => i.checked).length;
   inputs.forEach(i => { i.disabled = !i.checked && n >= max; i.parentElement.classList.toggle('dis', i.disabled); });
 }
-let KMA_ON = false;
+let KMA_ON = false, PRINTER = {};
 function openSettings() {
   const list = (tt && tt.teachers) || teacherList;
   const cur = tt ? tt.teacher : '';
@@ -558,6 +574,7 @@ function openSettings() {
   limitChecks($('modal').querySelector('.chk:not(#setSummary):not(#setOrient)'), MAX_PANELS); limitChecks($('setSummary'), 4);
   $('modal').querySelectorAll('input[name=orient]').forEach(i => i.checked = (document.body.classList.contains('portrait') ? 'portrait' : 'landscape') === i.value);
   $('wfxOn').checked = !window.WEATHER_FX || WEATHER_FX.on;
+  $('prIp').value = PRINTER.ip || ''; $('prSerial').value = PRINTER.serial || ''; $('prCode').value = ''; $('prCode').placeholder = PRINTER.ip ? '액세스 코드 (바꿀 때만)' : '액세스 코드';
   $('kmaKey').value = ''; $('kmaHint').textContent = KMA_ON ? '등록됨 (바꿀 때만 입력)' : '';
   $('autoStart').checked = !!AUTOSTART; $('autoHint').textContent = AUTOSTART ? '켜져 있음' : '';
   $('nightOn').checked = NIGHT.on; $('nightStart').value = NIGHT.start; $('nightEnd').value = NIGHT.end;
@@ -813,6 +830,37 @@ async function loadMessages() {
   renderMessages();
   if (window.onDataChange) onDataChange('messages');
 }
+/* 3D 프린터 (뱀부랩) */
+let prData = { configured: false }, prFrame = '';
+const PR_STATE = { IDLE: '대기', PREPARE: '준비 중', RUNNING: '출력 중', PAUSE: '일시정지', FINISH: '완료', FAILED: '실패', SLICING: '슬라이싱' };
+const prLeft = m => m == null ? '' : m >= 60 ? `${Math.floor(m / 60)}시간 ${m % 60}분` : `${m}분`;
+async function loadPrinter() {
+  if (!pywebview.api.get_printer) return;
+  try { prData = await pywebview.api.get_printer() || prData; } catch (e) {}
+  renderPrinter(); if (window.onDataChange) onDataChange('printer');
+}
+async function loadPrinterFrame() {   // 카메라는 프린터 칸이 보이거나 상세가 열렸을 때만 (안 보면 ffmpeg 꺼짐)
+  if (!prData.configured || !pywebview.api.get_printer_frame) return;
+  if (!panelsOn.includes('printer') && (typeof detailKind === 'undefined' || detailKind !== 'printer')) return;
+  try { const f = await pywebview.api.get_printer_frame(); if (f && f.ok) prFrame = f.src; else if (f) prFrame = prFrame || ''; prData.cam_msg = f && !f.ok ? f.error : ''; } catch (e) {}
+  document.querySelectorAll('img.prcam').forEach(i => { if (prFrame && i.src !== prFrame) i.src = prFrame; });
+  document.querySelectorAll('.prcamwait').forEach(w => w.textContent = prFrame ? '' : (prData.cam_msg || '카메라 연결 중…'));
+}
+function renderPrinter() {
+  const p = prData;
+  if (!p.configured) { $('prState').textContent = ''; $('prbody').innerHTML = '<div class="muted">설정(⚙)에서 프린터를 연결하세요</div>'; return; }
+  const st = PR_STATE[p.state] || p.state || (p.connected ? '' : '연결 안 됨');
+  $('prState').textContent = st;
+  const run = p.state === 'RUNNING' || p.state === 'PAUSE' || p.state === 'PREPARE';
+  const pct = p.percent ?? 0;
+  const html = `<div class="prcamw"><img class="prcam" alt="" ${prFrame ? `src="${prFrame}"` : ''}><span class="prcamwait">${prFrame ? '' : esc(prData.cam_msg || '카메라 연결 중…')}</span></div>
+    ${!p.connected && p.error ? `<div class="err">${esc(p.error)}</div>` : ''}
+    ${run || p.state === 'FINISH' ? `<div class="prname">${esc((p.name || '').replace(/\.(gcode|3mf)$/i, ''))}</div>
+      <div class="prbar"><i style="width:${pct}%"></i></div>
+      <div class="prline"><b>${pct}%</b>${run && p.remaining != null ? ` · ${prLeft(p.remaining)} 남음` : ''}${p.layers ? ` · ${p.layer ?? 0}/${p.layers}층` : ''}</div>` : ''}
+    <div class="prtemp">노즐 <b>${p.nozzle != null ? Math.round(p.nozzle) + '°' : '-'}</b> · 베드 <b>${p.bed != null ? Math.round(p.bed) + '°' : '-'}</b>${p.chamber ? ` · 챔버 <b>${Math.round(p.chamber)}°</b>` : ''}</div>`;
+  $('prbody').innerHTML = html;
+}
 /* 바로가기 */
 let launchers = [];
 async function loadLaunchers() {
@@ -893,7 +941,7 @@ window.addEventListener('pywebviewready', async () => {
   if (cfg.night) NIGHT = Object.assign(NIGHT, cfg.night);
   AUTOSTART = !!cfg.autostart;
   if (window.WEATHER_FX && cfg.weather_fx === false) WEATHER_FX.on = false;
-  KMA_ON = !!cfg.kma_key;
+  KMA_ON = !!cfg.kma_key; PRINTER = cfg.printer || {};
   checkNight(); setInterval(checkNight, 20 * 1000);
   applyBgLight(); setInterval(applyBgLight, 60 * 1000);
   $('night').onclick = () => { nightWakeUntil = Date.now() + 5 * 60 * 1000; checkNight(); };
@@ -927,6 +975,8 @@ window.addEventListener('pywebviewready', async () => {
     if (window.weatherFxOn) weatherFxOn($('wfxOn').checked);
     if (pywebview.api.set_autostart && $('autoStart').checked !== !!AUTOSTART) pywebview.api.set_autostart($('autoStart').checked).then(v => { AUTOSTART = !!v; });
     if (pywebview.api.set_weather_fx) pywebview.api.set_weather_fx($('wfxOn').checked);
+    const pr = { ip: $('prIp').value.trim(), code: $('prCode').value.trim(), serial: $('prSerial').value.trim() };
+    if (pywebview.api.set_printer && (pr.ip !== (PRINTER.ip || '') || pr.serial !== (PRINTER.serial || '') || pr.code)) { await pywebview.api.set_printer(pr); PRINTER = { ip: pr.ip, serial: pr.serial }; setTimeout(loadPrinter, 3000); }
     const kk = $('kmaKey').value.trim();
     if (kk && pywebview.api.set_kma_key) {
       const r = await pywebview.api.set_kma_key(kk);
@@ -954,6 +1004,7 @@ window.addEventListener('pywebviewready', async () => {
   });
   setInterval(loadSystem, 2000);
   setInterval(loadMessages, 10 * 1000);
+  loadPrinter(); setInterval(loadPrinter, 5000); setInterval(loadPrinterFrame, 1000);
   setInterval(loadWeather, 15 * 60 * 1000);
   setInterval(loadEvents, 10 * 60 * 1000);
   setInterval(loadTimetable, 60 * 1000);   // 사이트 변경사항(실시간 동기화) 반영

@@ -3,3 +3,4 @@ psutil>=5.9
 requests>=2.31
 icalendar>=5.0
 recurring-ical-events>=2.1
+paho-mqtt>=2.0
