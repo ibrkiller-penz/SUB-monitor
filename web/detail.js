@@ -230,16 +230,12 @@ function viewSchool() {
 }
 
 /* ---------- 메시지 상세 ---------- */
-function viewMessages() {
-  const src = { udb: '쿨메신저 DB 직접 읽기 (tbl_recv)', notification: 'Windows 알림 수신', title: '창 제목 감지', none: '감지된 경로 없음' }[msgData.source] || msgData.source;
-  const items = msgData.items.length ? msgData.items.map(m => `<div class="dli ${m.unread === false ? 'read' : 'unread'}"><span class="t">${timeAgo(m.time)}</span>
-      <span class="n"><b style="color:var(--accent);font-weight:500">${esc(m.title || m.app || '메시지')}</b>${m.body ? ` · ${esc(m.body)}` : ''}</span></div>`).join('')
-    : '<div class="dli muted">새 메시지 없음</div>';
-  return { title: `쿨메시지 · 안읽음 ${msgData.count}건`, html: `<div class="dgrid ev one"><div class="dcard"><div class="dc-t">안읽은 쪽지 ${msgData.items.length}건<b><button class="mbtn" data-msgclear>모두 지우기</button></b></div><div class="dlist">${items}</div></div>
-    <div class="dcard"><div class="dc-t">연결 상태</div>
-      <div class="dli"><span class="t">방식</span><span class="n">${esc(src)}</span></div>
-      ${msgData.error ? `<div class="dli"><span class="t">안내</span><span class="n" style="white-space:normal">${esc(msgData.error)}</span></div>` : ''}
-      <div class="dli"><span class="t">설정</span><span class="n" style="white-space:normal">config.json 의 message_apps 에 적힌 이름이 들어간 알림·창만 수집합니다. 감지가 안 되면 tools/coolmsg_probe.py 를 실행해 결과를 확인하세요.</span></div></div></div>` };
+function viewMessages() {   // 쪽지만 크게: 보낸 사람·시간 한 줄 + 본문 최대 3줄
+  const items = msgData.items.length ? msgData.items.map(m => `<div class="mmsg ${m.unread === false ? 'read' : 'unread'}">
+      <div class="mh"><b>${esc(m.title || m.app || '메시지')}</b><span>${timeAgo(m.time)}</span></div>
+      ${m.body ? `<div class="mb">${esc(m.body)}</div>` : ''}</div>`).join('')
+    : `<div class="dli muted">${msgData.error ? esc(msgData.error) : '새 메시지 없음'}</div>`;
+  return { title: `쿨메시지 · 안읽음 ${msgData.count}건`, html: `<div class="dgrid"><div class="dcard"><div class="dc-t">쪽지 ${msgData.items.length}건<b><button class="mbtn" data-msgclear>모두 지우기</button></b></div><div class="dlist mlist">${items}</div></div></div>` };
 }
 
 /* ---------- PC 상세 ---------- */
