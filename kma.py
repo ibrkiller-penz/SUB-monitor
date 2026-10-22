@@ -80,7 +80,7 @@ def check(key, lat, lon):
     return True
 
 
-def overlay(data, key, lat, lon, now=None):
+def overlay(data, key, lat, lon, now=None, land="11H20000", ta="11H20201"):
     """data(Open-Meteo 응답, 실패 시 빈 dict)에 기상청 값을 덮어쓴다. 실패한 단계는 건너뛴다."""
     now = now or kst_now()
     nx, ny = grid(lat, lon)
@@ -139,9 +139,16 @@ def overlay(data, key, lat, lon, now=None):
             if i["category"] in ("TMN", "TMX"):
                 days.setdefault(ts, {})[i["category"]] = _num(i["fcstValue"])
         _merge_hourly(data, hrs)
-        _merge_daily(data, hrs, days)
+        short = _merge_daily(data, hrs, days)
     except Exception as e:
+        short = set()
         errs.append(f"단기예보 {e}")
+
+    # 중기예보: 4~10일 뒤 (06·18시 발표). 단기예보가 채운 날은 건드리지 않음
+    try:
+        _merge_mid(data, key, now, short, land, ta)
+    except Exception as e:
+        errs.append(f"중기예보 {e}")
     if errs:
         data["kma_error"] = "; ".join(errs)
     return data
@@ -180,9 +187,10 @@ def _merge_daily(data, hrs, days):
     keys = ("weather_code", "temperature_2m_max", "temperature_2m_min", "precipitation_probability_max")
     for k in keys:
         d.setdefault(k, [None] * len(tl))
+    done = set()
     for day in sorted(by):
         rows = by[day]
-        if len(rows) < 6 and day not in days and day in tl:   # 오늘 밤 몇 시간만 남음 → Open-Meteo 값 유지
+        if len(rows) < 6 and day not in days and (day in tl or day != min(by)):   # 몇 시간뿐인 날(오늘 밤·마지막 날) → Open-Meteo·중기예보 값
             continue
         temps = [_num(v["TMP"]) for _, v in rows]
         dd = days.get(day, {})
@@ -210,3 +218,82 @@ def _merge_daily(data, hrs, days):
             n = len(tl) - 1
         d["weather_code"][n], d["temperature_2m_max"][n], d["temperature_2m_min"][n] = code, hi, lo
         d["precipitation_probability_max"][n] = pop
+        done.add(day)
+    return done
+
+
+def _wf_code(wf):
+    """중기예보 하늘 문구 → WMO 코드."""
+    wf = wf or ""
+    if "비" in wf and "눈" in wf:
+        return 67
+    if "소나기" in wf:
+        return 80
+    if "비" in wf:
+        return 61
+    if "눈" in wf:
+        return 71
+    if "흐림" in wf:
+        return 3
+    if "구름" in wf:
+        return 2
+    return 0
+
+
+def _merge_mid(data, key, now, short, land, ta):
+    t = now - timedelta(minutes=15)
+    if t.hour >= 18:
+        base = t.replace(hour=18)
+    elif t.hour >= 6:
+        base = t.replace(hour=6)
+    else:
+        base = (t - timedelta(days=1)).replace(hour=18)
+    base = base.replace(minute=0, second=0, microsecond=0)
+
+    def get(op, reg):
+        r = None
+        for n in range(3):
+            try:
+                r = requests.get(URL.replace("VilageFcstInfoService_2.0", "MidFcstInfoService") + op, params={
+                    "serviceKey": key, "pageNo": 1, "numOfRows": 10, "dataType": "JSON",
+                    "regId": reg, "tmFc": base.strftime("%Y%m%d%H%M")}, timeout=10)
+                break
+            except requests.RequestException as e:
+                if n == 2:
+                    raise RuntimeError(type(e).__name__) from None
+        if r.status_code != 200:
+            raise RuntimeError("인증키 오류" if r.status_code in (401, 403) else f"HTTP {r.status_code}")
+        try:
+            j = r.json()["response"]
+        except Exception:
+            raise RuntimeError("중기예보 미승인 또는 응답 오류") from None
+        if j["header"]["resultCode"] != "00":
+            raise RuntimeError(j["header"]["resultMsg"])
+        return j["body"]["items"]["item"][0]
+
+    lf, tf = get("getMidLandFcst", land), get("getMidTa", ta)
+    d = data.setdefault("daily", {})
+    tl = d.setdefault("time", [])
+    keys = ("weather_code", "temperature_2m_max", "temperature_2m_min", "precipitation_probability_max")
+    for k in keys:
+        d.setdefault(k, [None] * len(tl))
+    for k in range(4, 11):
+        day = (base + timedelta(days=k)).strftime("%Y-%m-%d")
+        if day in short or tf.get(f"taMax{k}") is None:
+            continue
+        wfs = [lf.get(f"wf{k}Am"), lf.get(f"wf{k}Pm")] if f"wf{k}Am" in lf else [lf.get(f"wf{k}")]
+        pops = [lf.get(f"rnSt{k}Am"), lf.get(f"rnSt{k}Pm")] if f"rnSt{k}Am" in lf else [lf.get(f"rnSt{k}")]
+        codes = [_wf_code(w) for w in wfs if w]
+        code = max(codes, key=lambda c: (c >= 51, c)) if codes else 0
+        if day in tl:
+            n = tl.index(day)
+        else:
+            if tl and day < tl[-1]:
+                continue
+            tl.append(day)
+            for kk in keys:
+                d[kk].append(None)
+            n = len(tl) - 1
+        d["weather_code"][n] = code
+        d["temperature_2m_max"][n], d["temperature_2m_min"][n] = float(tf[f"taMax{k}"]), float(tf[f"taMin{k}"])
+        d["precipitation_probability_max"][n] = int(max(int(p or 0) for p in pops))

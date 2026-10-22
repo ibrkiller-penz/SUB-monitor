@@ -182,3 +182,5 @@ body.portrait .dgrid.sch { grid-template-columns: 1fr !important; }
 .mmsg.unread .mh b::before { content: '●'; font-size: 11px; margin-right: 8px; vertical-align: middle; }
 .mmsg .mb { font-size: 22px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: keep-all; overflow-wrap: anywhere; }
 .mmsg.read { opacity: .6; }
+.dense .drow { grid-template-columns: 58px 30px 60px 36px 1fr 36px; font-size: 15px; padding: 1px 0; }
+.dense .drow .di { font-size: 18px; }

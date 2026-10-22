@@ -5,7 +5,9 @@
   "weather": {
     "name": "동래구 칠산동",
     "latitude": 35.2035,
-    "longitude": 129.0927
+    "longitude": 129.0927,
+    "kma_mid_land": "11H20000",
+    "kma_mid_ta": "11H20201"
   },
   "ical_urls": [
     ""

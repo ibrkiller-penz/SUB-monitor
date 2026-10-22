@@ -484,7 +484,7 @@ async function loadWeather() {
     hourly += `<div>${hh}시<div class="i">${wmo(d.hourly.weather_code[j], hh >= 6 && hh < 19)[0]}</div>
       <div class="t">${Math.round(d.hourly.temperature_2m[i])}°</div><div class="pn">${pop >= 30 ? pop + '%' : '&nbsp;'}</div><div class="pb"><i style="width:${pop}%"></i></div></div>`;
   }
-  const daily = d.daily.time.map((t, i) => `<div>${i === 0 ? '오늘' : WD[new Date(t).getDay()]}
+  const daily = d.daily.time.slice(0, 7).map((t, i) => `<div>${i === 0 ? '오늘' : WD[new Date(t).getDay()]}
       <div class="i">${wmo(d.daily.weather_code[i])[0]}</div>
       <div class="tt"><span class="hi">${Math.round(d.daily.temperature_2m_max[i])}</span>/<span class="lo">${Math.round(d.daily.temperature_2m_min[i])}</span></div>
       <div class="pp">☔ ${d.daily.precipitation_probability_max[i] ?? 0}%</div></div>`).join('');

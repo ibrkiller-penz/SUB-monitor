@@ -580,7 +580,8 @@ class Api:
         except Exception:
             data["air"] = None
         if key:   # 기상청 단기예보로 지금·3일치를 덮어씀 (주간·일출·미세먼지는 Open-Meteo)
-            kma.overlay(data, key, w["latitude"], w["longitude"])
+            kma.overlay(data, key, w["latitude"], w["longitude"],
+                        land=w.get("kma_mid_land", "11H20000"), ta=w.get("kma_mid_ta", "11H20201"))
             if data.get("kma_error"):
                 log(f"kma: {data['kma_error']}")
         if data.get("source") != "기상청":

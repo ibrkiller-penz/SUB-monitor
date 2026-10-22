@@ -109,10 +109,11 @@ function viewWeather() {
     <div class="kv"><span>미세먼지 PM10</span><b>${air.pm10 ?? '-'} ㎍/㎥ · ${grade(air.pm10, [30, 80, 150])}</b></div>
     <div class="kv"><span>초미세 PM2.5</span><b>${air.pm2_5 ?? '-'} ㎍/㎥ · ${grade(air.pm2_5, [15, 35, 75])}</b></div>
     ${d.daily.sunrise ? `<div class="kv"><span>일출 / 일몰</span><b>${d.daily.sunrise[0].slice(11)} / ${d.daily.sunset[0].slice(11)}</b></div>` : ''}</div>`;
-  const allMin = Math.min(...d.daily.temperature_2m_min), allMax = Math.max(...d.daily.temperature_2m_max), span = Math.max(1, allMax - allMin);
-  const right = '<div class="dcard"><div class="dc-t">주간 예보</div>' + d.daily.time.map((t, i) => {
+  const ND = Math.min(10, d.daily.time.length);   // 기상청 중기예보면 10일
+  const allMin = Math.min(...d.daily.temperature_2m_min.slice(0, ND)), allMax = Math.max(...d.daily.temperature_2m_max.slice(0, ND)), span = Math.max(1, allMax - allMin);
+  const right = `<div class="dcard${ND > 7 ? ' dense' : ''}"><div class="dc-t">${ND > 7 ? ND + '일 예보' : '주간 예보'}</div>` + d.daily.time.slice(0, ND).map((t, i) => {
     const dt = new Date(t), lo = d.daily.temperature_2m_min[i], hi = d.daily.temperature_2m_max[i];
-    return `<div class="drow"><span class="dn ${dt.getDay() === 0 ? 'sun' : dt.getDay() === 6 ? 'sat' : ''}">${i === 0 ? '오늘' : WD[dt.getDay()]}</span><span class="di">${wmo(d.daily.weather_code[i])[0]}</span>
+    return `<div class="drow"><span class="dn ${dt.getDay() === 0 ? 'sun' : dt.getDay() === 6 ? 'sat' : ''}">${i === 0 ? '오늘' : ND > 7 ? `${dt.getDate()} ${WD[dt.getDay()]}` : WD[dt.getDay()]}</span><span class="di">${wmo(d.daily.weather_code[i])[0]}</span>
       <span class="pp">☔ ${d.daily.precipitation_probability_max[i] ?? 0}%</span><span class="lo">${Math.round(lo)}°</span>
       <i class="tb"><b style="left:${(lo - allMin) / span * 100}%;width:${(hi - lo) / span * 100}%"></b></i><span class="hi">${Math.round(hi)}°</span></div>`;
   }).join('') + '</div>';
