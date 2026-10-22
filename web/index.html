@@ -119,7 +119,23 @@
   #printer img.prcam { width: 100%; height: 100%; object-fit: cover; display: block; }
   #printer img.prcam:not([src]) { visibility: hidden; }
   .prcamwait { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 15px; text-align: center; padding: 8px; }
-  #printer.nocam .prname { font-size: 21px; margin-top: 6px; } #printer.nocam .prbar { height: 14px; border-radius: 7px; margin: 12px 0; } #printer.nocam .prline b { font-size: 34px; } #printer.nocam .prtemp { font-size: 17px; margin-top: 12px; }
+  #printer.nocam { --w: 250; }
+  #printer.nocam #prbody { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
+  .prn { font-size: 17px; line-height: 1.3; max-width: 100%; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: keep-all; min-height: 2.6em; }
+  .prring { position: relative; width: 150px; height: 150px; margin: 2px 0; flex: none; }
+  .prring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .prring circle { fill: none; stroke-width: 11; }
+  .prring .bg { stroke: rgba(255,255,255,.12); }
+  .prring .fg { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset 1s ease; filter: drop-shadow(0 0 6px var(--accent)); }
+  .prring .fg.pause { stroke: var(--muted); filter: none; }
+  .prring .c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .prring .c b { font-size: 44px; font-weight: 600; line-height: 1; } .prring .c b span { font-size: 20px; margin-left: 2px; color: var(--muted); }
+  .prring .c i { font-style: normal; font-size: 14px; color: var(--muted); margin-top: 6px; }
+  .prt { font-size: 16px; color: var(--muted); } .prt b { font-size: 24px; color: var(--text); font-weight: 600; }
+  .pre { font-size: 14px; color: var(--muted); }
+  .prchips { display: flex; gap: 6px; width: 100%; margin-top: auto; }
+  .prchips span { flex: 1; background: rgba(255,255,255,.07); border: 1px solid var(--line); border-radius: 10px; padding: 5px 4px; font-size: 13px; color: var(--muted); display: flex; flex-direction: column; }
+  .prchips b { font-size: 19px; color: var(--text); font-weight: 600; } .prchips small { font-size: 12px; color: var(--muted); font-weight: 400; }
   .prname { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .prbar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; margin: 6px 0; }
   .prbar i { display: block; height: 100%; background: var(--accent); }
@@ -390,7 +406,7 @@
 
   <section class="panel" id="apps" aria-label="바로가기"><div id="appsList"></div></section>
   <section class="panel" id="printer">
-    <div class="ptitle"><span class="k">3D 프린터</span><span id="prState"></span></div>
+    <div class="ptitle"><span class="k">프린터</span><span id="prState"></span></div>
     <div id="prbody"><div class="muted">설정(⚙)에서 프린터를 연결하세요</div></div>
   </section>
   <section class="panel" id="pc">
@@ -859,12 +875,28 @@ function renderPrinter() {
   $('prState').textContent = st; $('printer').classList.toggle('nocam', p.camera === false);
   const run = p.state === 'RUNNING' || p.state === 'PAUSE' || p.state === 'PREPARE';
   const pct = p.percent ?? 0;
-  const html = `${p.camera === false ? '' : `<div class="prcamw"><img class="prcam" alt="" ${prFrame ? `src="${prFrame}"` : ''}><span class="prcamwait">${prFrame ? '' : esc(prData.cam_msg || '카메라 연결 중…')}</span></div>`}
-    ${!p.connected && p.error ? `<div class="err">${esc(p.error)}</div>` : ''}
-    ${run || p.state === 'FINISH' ? `<div class="prname">${esc((p.name || '').replace(/\.(gcode|3mf)$/i, ''))}</div>
+  const nm = esc((p.name || '').replace(/\.(gcode|3mf)$/i, ''));
+  const tmp = (v, t) => v != null ? `${Math.round(v)}°${t ? `<small>/${Math.round(t)}</small>` : ''}` : '-';
+  const err = !p.connected && p.error ? `<div class="err">${esc(p.error)}</div>` : '';
+  let html;
+  if (p.camera === false) {   // 계정 방식(카메라 없음): 원형 진행률 + 남은 시간·완료 시각 + 온도 칩
+    const R = 62, C = 2 * Math.PI * R, show = run || p.state === 'FINISH';
+    const eta = run && p.remaining != null ? (t => `${t.getHours()}:${pad(t.getMinutes())}`)(new Date(Date.now() + p.remaining * 60000)) : '';
+    html = `${err}<div class="prn">${show ? nm : esc(st || '대기 중')}</div>
+      <div class="prring"><svg viewBox="0 0 150 150"><circle cx="75" cy="75" r="${R}" class="bg"/><circle cx="75" cy="75" r="${R}" class="fg${p.state === 'PAUSE' ? ' pause' : ''}"
+        stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - (show ? pct : 0) / 100)}"/></svg>
+        <div class="c"><b>${show ? pct : '–'}<span>%</span></b>${p.layers && show ? `<i>${p.layer ?? 0} / ${p.layers}층</i>` : ''}</div></div>
+      ${run && p.remaining != null ? `<div class="prt"><b>${prLeft(p.remaining)}</b> 남음</div><div class="pre">완료 예정 ${eta}</div>`
+        : p.state === 'FINISH' ? '<div class="prt"><b>출력 완료</b></div>' : ''}
+      <div class="prchips"><span>노즐<b>${tmp(p.nozzle, run ? p.nozzle_target : 0)}</b></span><span>베드<b>${tmp(p.bed, run ? p.bed_target : 0)}</b></span></div>`;
+  } else {
+    html = `<div class="prcamw"><img class="prcam" alt="" ${prFrame ? `src="${prFrame}"` : ''}><span class="prcamwait">${prFrame ? '' : esc(prData.cam_msg || '카메라 연결 중…')}</span></div>
+    ${err}
+    ${run || p.state === 'FINISH' ? `<div class="prname">${nm}</div>
       <div class="prbar"><i style="width:${pct}%"></i></div>
       <div class="prline"><b>${pct}%</b>${run && p.remaining != null ? ` · ${prLeft(p.remaining)} 남음` : ''}${p.layers ? ` · ${p.layer ?? 0}/${p.layers}층` : ''}</div>` : ''}
     <div class="prtemp">노즐 <b>${p.nozzle != null ? Math.round(p.nozzle) + '°' : '-'}</b> · 베드 <b>${p.bed != null ? Math.round(p.bed) + '°' : '-'}</b>${p.chamber ? ` · 챔버 <b>${Math.round(p.chamber)}°</b>` : ''}</div>`;
+  }
   $('prbody').innerHTML = html;
 }
 /* 바로가기 */
