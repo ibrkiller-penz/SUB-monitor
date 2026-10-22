@@ -119,6 +119,7 @@
   #printer img.prcam { width: 100%; height: 100%; object-fit: cover; display: block; }
   #printer img.prcam:not([src]) { visibility: hidden; }
   .prcamwait { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 15px; text-align: center; padding: 8px; }
+  #printer.nocam .prname { font-size: 21px; margin-top: 6px; } #printer.nocam .prbar { height: 14px; border-radius: 7px; margin: 12px 0; } #printer.nocam .prline b { font-size: 34px; } #printer.nocam .prtemp { font-size: 17px; margin-top: 12px; }
   .prname { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .prbar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; margin: 6px 0; }
   .prbar i { display: block; height: 100%; background: var(--accent); }
@@ -329,7 +330,9 @@
   <div class="dragonRow"><span>바로가기 아이콘</span><button type="button" id="appsRescan">컴퓨터에서 다시 찾기</button><span class="hint" id="appsHint"></span></div>
   <label for="kmaKey">기상청 인증키 (공공데이터포털 단기예보)</label>
   <div class="dragonRow"><input type="password" id="kmaKey" placeholder="비우면 Open-Meteo 날씨" style="flex:1;min-width:0"><span class="hint" id="kmaHint"></span></div>
-  <label>3D 프린터 (뱀부랩, 같은 네트워크 · 프린터 설정 → 네트워크에서 확인)</label>
+  <label>3D 프린터 — 뱀부 계정 (출력 상태만, 카메라 없음)</label>
+  <div class="dragonRow"><input id="bbAcc" placeholder="뱀부 계정 이메일" style="width:230px"><input type="password" id="bbPw" placeholder="비밀번호 (저장 안 함)" style="width:170px"><input id="bbCode" placeholder="메일 인증 코드" style="width:130px;display:none"><button type="button" id="bbLogin">로그인</button><span class="hint" id="bbHint"></span></div>
+  <label>3D 프린터 — 같은 네트워크 직접 (카메라 포함 · 프린터 설정 → 네트워크)</label>
   <div class="dragonRow"><input id="prIp" placeholder="IP 예: 192.168.0.50" style="width:190px"><input type="password" id="prCode" placeholder="액세스 코드" style="width:140px"><input id="prSerial" placeholder="시리얼 번호" style="flex:1;min-width:0"></div>
   <label>날씨 효과</label>
   <div class="dragonRow"><label class="nchk"><input type="checkbox" id="wfxOn"> 사용</label>
@@ -574,7 +577,10 @@ function openSettings() {
   limitChecks($('modal').querySelector('.chk:not(#setSummary):not(#setOrient)'), MAX_PANELS); limitChecks($('setSummary'), 4);
   $('modal').querySelectorAll('input[name=orient]').forEach(i => i.checked = (document.body.classList.contains('portrait') ? 'portrait' : 'landscape') === i.value);
   $('wfxOn').checked = !window.WEATHER_FX || WEATHER_FX.on;
-  $('prIp').value = PRINTER.ip || ''; $('prSerial').value = PRINTER.serial || ''; $('prCode').value = ''; $('prCode').placeholder = PRINTER.ip ? '액세스 코드 (바꿀 때만)' : '액세스 코드';
+  const cl = PRINTER.mode === 'cloud';
+  $('bbAcc').value = PRINTER.account || ''; $('bbPw').value = ''; $('bbCode').value = ''; $('bbCode').style.display = 'none';
+  $('bbHint').textContent = cl ? `연결됨: ${PRINTER.name || PRINTER.serial}` : '';
+  $('prIp').value = cl ? '' : PRINTER.ip || ''; $('prSerial').value = cl ? '' : PRINTER.serial || ''; $('prCode').value = ''; $('prCode').placeholder = PRINTER.ip ? '액세스 코드 (바꿀 때만)' : '액세스 코드';
   $('kmaKey').value = ''; $('kmaHint').textContent = KMA_ON ? '등록됨 (바꿀 때만 입력)' : '';
   $('autoStart').checked = !!AUTOSTART; $('autoHint').textContent = AUTOSTART ? '켜져 있음' : '';
   $('nightOn').checked = NIGHT.on; $('nightStart').value = NIGHT.start; $('nightEnd').value = NIGHT.end;
@@ -840,7 +846,7 @@ async function loadPrinter() {
   renderPrinter(); if (window.onDataChange) onDataChange('printer');
 }
 async function loadPrinterFrame() {   // 카메라는 프린터 칸이 보이거나 상세가 열렸을 때만 (안 보면 ffmpeg 꺼짐)
-  if (!prData.configured || !pywebview.api.get_printer_frame) return;
+  if (!prData.configured || prData.camera === false || !pywebview.api.get_printer_frame) return;
   if (!panelsOn.includes('printer') && (typeof detailKind === 'undefined' || detailKind !== 'printer')) return;
   try { const f = await pywebview.api.get_printer_frame(); if (f && f.ok) prFrame = f.src; else if (f) prFrame = prFrame || ''; prData.cam_msg = f && !f.ok ? f.error : ''; } catch (e) {}
   document.querySelectorAll('img.prcam').forEach(i => { if (prFrame && i.src !== prFrame) i.src = prFrame; });
@@ -850,10 +856,10 @@ function renderPrinter() {
   const p = prData;
   if (!p.configured) { $('prState').textContent = ''; $('prbody').innerHTML = '<div class="muted">설정(⚙)에서 프린터를 연결하세요</div>'; return; }
   const st = PR_STATE[p.state] || p.state || (p.connected ? '' : '연결 안 됨');
-  $('prState').textContent = st;
+  $('prState').textContent = st; $('printer').classList.toggle('nocam', p.camera === false);
   const run = p.state === 'RUNNING' || p.state === 'PAUSE' || p.state === 'PREPARE';
   const pct = p.percent ?? 0;
-  const html = `<div class="prcamw"><img class="prcam" alt="" ${prFrame ? `src="${prFrame}"` : ''}><span class="prcamwait">${prFrame ? '' : esc(prData.cam_msg || '카메라 연결 중…')}</span></div>
+  const html = `${p.camera === false ? '' : `<div class="prcamw"><img class="prcam" alt="" ${prFrame ? `src="${prFrame}"` : ''}><span class="prcamwait">${prFrame ? '' : esc(prData.cam_msg || '카메라 연결 중…')}</span></div>`}
     ${!p.connected && p.error ? `<div class="err">${esc(p.error)}</div>` : ''}
     ${run || p.state === 'FINISH' ? `<div class="prname">${esc((p.name || '').replace(/\.(gcode|3mf)$/i, ''))}</div>
       <div class="prbar"><i style="width:${pct}%"></i></div>
@@ -976,7 +982,7 @@ window.addEventListener('pywebviewready', async () => {
     if (pywebview.api.set_autostart && $('autoStart').checked !== !!AUTOSTART) pywebview.api.set_autostart($('autoStart').checked).then(v => { AUTOSTART = !!v; });
     if (pywebview.api.set_weather_fx) pywebview.api.set_weather_fx($('wfxOn').checked);
     const pr = { ip: $('prIp').value.trim(), code: $('prCode').value.trim(), serial: $('prSerial').value.trim() };
-    if (pywebview.api.set_printer && (pr.ip !== (PRINTER.ip || '') || pr.serial !== (PRINTER.serial || '') || pr.code)) { await pywebview.api.set_printer(pr); PRINTER = { ip: pr.ip, serial: pr.serial }; setTimeout(loadPrinter, 3000); }
+    if (pywebview.api.set_printer && pr.ip && (pr.ip !== (PRINTER.ip || '') || pr.serial !== (PRINTER.serial || '') || pr.code)) { await pywebview.api.set_printer(pr); PRINTER = { ip: pr.ip, serial: pr.serial }; setTimeout(loadPrinter, 3000); }
     const kk = $('kmaKey').value.trim();
     if (kk && pywebview.api.set_kma_key) {
       const r = await pywebview.api.set_kma_key(kk);
@@ -990,6 +996,18 @@ window.addEventListener('pywebviewready', async () => {
     if (pywebview.api.set_orientation) await pywebview.api.set_orientation(orient);
     setOrientation(orient);
     if (name && (!tt || tt.teacher !== name)) { await pywebview.api.set_teacher(name); ttSel = null; ttWant = name; ttRetry = 0; loadTimetable(); }
+  };
+  $('bbLogin').onclick = async () => {   // 뱀부 계정 로그인 (메일 인증 코드가 오면 코드 칸을 보여 줌)
+    if (!pywebview.api.printer_cloud_login) return;
+    const acc = $('bbAcc').value.trim(), pw = $('bbPw').value, code = $('bbCode').value.trim();
+    if (!acc || (!pw && !code)) { $('bbHint').textContent = '이메일과 비밀번호를 넣으세요'; return; }
+    $('bbHint').textContent = '로그인 중…';
+    const r = await pywebview.api.printer_cloud_login(acc, pw, code, '');
+    if (r && r.need_code) { $('bbCode').style.display = ''; $('bbCode').focus(); $('bbHint').textContent = '메일로 온 인증 코드를 넣고 다시 로그인'; return; }
+    if (!r || !r.ok) { $('bbHint').textContent = '실패: ' + ((r && r.error) || ''); return; }
+    $('bbPw').value = ''; $('bbCode').value = ''; $('bbCode').style.display = 'none';
+    PRINTER = { mode: 'cloud', name: r.name, account: acc }; $('bbHint').textContent = `연결됨: ${r.name}`;
+    setTimeout(loadPrinter, 3000);
   };
   $('pcMini').onclick = () => { if (window.openDetail) openDetail('pc'); };
   loadWeather(); loadEvents(); loadSystem(); loadTimetable(); loadMessages(); loadLaunchers();

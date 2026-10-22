@@ -247,8 +247,8 @@ function viewPrinter() {
   const kv = (k, v) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
   let eta = '';
   if (run && p.remaining != null) { const t = new Date(Date.now() + p.remaining * 60000); eta = `${t.getHours()}:${pad(t.getMinutes())}`; }
-  return { title: `3D 프린터 · ${PR_STATE[p.state] || p.state || (p.connected ? '' : '연결 안 됨')}`, html: `<div class="dgrid prd">
-    <div class="dcard prcamw big"><img class="prcam" alt="" ${prFrame ? `src="${prFrame}"` : ''}><span class="prcamwait">${prFrame ? '' : esc(p.cam_msg || '카메라 연결 중…')}</span></div>
+  return { title: `3D 프린터 · ${PR_STATE[p.state] || p.state || (p.connected ? '' : '연결 안 됨')}`, html: `<div class="dgrid prd${p.camera === false ? ' nocam' : ''}">
+    <div class="dcard prcamw big"><img class="prcam" alt="" ${prFrame ? `src="${prFrame}"` : ''}><span class="prcamwait">${p.camera === false ? `<span><b class="prbig">${pct}%</b><br>${run && p.remaining != null ? prLeft(p.remaining) + ' 남음' : esc(PR_STATE[p.state] || '')}</span>` : prFrame ? '' : esc(p.cam_msg || '카메라 연결 중…')}</span></div>
     <div class="dcard"><div class="dc-t">출력<b>${pct}%</b></div>
       <div class="prname big">${esc((p.name || '-').replace(/\.(gcode|3mf)$/i, ''))}</div>
       <div class="prbar big"><i style="width:${pct}%"></i></div>

@@ -28,15 +28,58 @@ def find_ffmpeg():
     return shutil.which("ffmpeg")
 
 
+API = "https://api.bambulab.com"
+CLOUD_MQTT = "us.mqtt.bambulab.com"
+UA = {"User-Agent": "bambu_network_agent/01.09.05.01", "Content-Type": "application/json"}
+
+
+def _api(method, path, token=None, **kw):
+    import requests
+    h = dict(UA)
+    if token:
+        h["Authorization"] = "Bearer " + token
+    r = requests.request(method, API + path, headers=h, timeout=15, **kw)
+    try:
+        j = r.json()
+    except Exception:
+        raise RuntimeError(f"뱀부 서버 응답 오류 (HTTP {r.status_code})") from None
+    if r.status_code >= 400:
+        raise RuntimeError(j.get("error") or j.get("message") or f"HTTP {r.status_code}")
+    return j
+
+
+def cloud_login(account, password="", code=""):
+    """뱀부 계정 로그인. 메일 인증이 필요하면 코드를 보내고 {"need_code": True}.
+    성공하면 {"token", "uid", "devices": [{serial, name, online, model}]} — 비밀번호는 저장하지 않는다."""
+    body = {"account": account, "code": code} if code else {"account": account, "password": password}
+    j = _api("POST", "/v1/user-service/user/login", json=body)
+    if not j.get("accessToken"):
+        if j.get("loginType") == "verifyCode":
+            _api("POST", "/v1/user-service/user/sendemail/code", json={"email": account, "type": "codeLogin"})
+            return {"need_code": True}
+        if j.get("loginType") == "tfa":
+            raise RuntimeError("2단계 인증(OTP) 계정은 아직 지원하지 않습니다")
+        raise RuntimeError(j.get("error") or "로그인 실패")
+    tok = j["accessToken"]
+    uid = _api("GET", "/v1/design-user-service/my/preference", token=tok).get("uid")
+    devs = _api("GET", "/v1/iot-service/api/user/bind", token=tok).get("devices") or []
+    return {"token": tok, "uid": str(uid), "devices": [
+        {"serial": d.get("dev_id"), "name": d.get("name"), "online": d.get("online"),
+         "model": d.get("dev_product_name") or d.get("dev_model_name")} for d in devs]}
+
+
 class Printer:
-    def __init__(self, ip, code, serial, log=print):
-        self.ip, self.code, self.serial, self.log = ip.strip(), code.strip(), serial.strip().upper(), log
+    """ip·code(액세스 코드) 로 같은 네트워크 직접, 또는 cloud={uid, token} 이면 뱀부 클라우드 MQTT(상태만, 카메라 없음)."""
+    def __init__(self, ip, code, serial, log=print, cloud=None):
+        self.ip, self.code, self.serial, self.log = (ip or "").strip(), (code or "").strip(), serial.strip().upper(), log
+        self.cloud = cloud
         self.state, self.connected, self.error, self.updated = {}, False, "", 0
         self.frame, self.frame_at, self.cam_error = None, 0, ""
         self._want_cam, self._ff, self._stop = 0, None, False
         self._mqtt = None
         threading.Thread(target=self._mqtt_loop, daemon=True).start()
-        threading.Thread(target=self._cam_loop, daemon=True).start()
+        if not cloud:
+            threading.Thread(target=self._cam_loop, daemon=True).start()
 
     def stop(self):
         self._stop = True
@@ -60,14 +103,18 @@ class Printer:
                 except AttributeError:
                     c = mqtt.Client()
                 self._mqtt = c
-                c.username_pw_set("bblp", self.code)
+                if self.cloud:
+                    c.username_pw_set("u_" + self.cloud["uid"], self.cloud["token"])
+                else:
+                    c.username_pw_set("bblp", self.code)
                 ctx = ssl.create_default_context()
-                ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE   # 프린터는 자체 서명 인증서
+                if not self.cloud:
+                    ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE   # 프린터는 자체 서명 인증서
                 c.tls_set_context(ctx)
                 c.on_connect = self._on_connect
                 c.on_message = self._on_message
                 c.on_disconnect = lambda *a: setattr(self, "connected", False)
-                c.connect(self.ip, 8883, keepalive=60)
+                c.connect(CLOUD_MQTT if self.cloud else self.ip, 8883, keepalive=60)
                 c.loop_forever()
             except Exception as e:
                 self.connected, self.error = False, f"연결 실패: {e}"
@@ -76,7 +123,7 @@ class Printer:
 
     def _on_connect(self, c, userdata, flags, rc, *a):
         ok = (getattr(rc, "value", rc) == 0)
-        self.connected, self.error = ok, "" if ok else f"접속 거부({rc}) — 액세스 코드 확인"
+        self.connected, self.error = ok, "" if ok else (f"접속 거부({rc}) — 설정에서 뱀부 계정 다시 로그인" if self.cloud else f"접속 거부({rc}) — 액세스 코드 확인")
         if ok:
             c.subscribe(f"device/{self.serial}/report")
             c.publish(f"device/{self.serial}/request", json.dumps({"pushing": {"sequence_id": "0", "command": "pushall"}}))
@@ -109,11 +156,13 @@ class Printer:
             "chamber": s.get("chamber_temper"),
             "name": s.get("subtask_name") or s.get("gcode_file", ""),
             "speed": s.get("spd_lvl"),
-            "cam_error": self.cam_error,
+            "cam_error": self.cam_error, "camera": not self.cloud,
         }
 
     # ---------- 카메라 (RTSPS → ffmpeg → JPEG) ----------
     def get_frame(self):
+        if self.cloud:
+            return {"ok": False, "error": "계정 연결은 카메라 없음"}
         self._want_cam = time.time()
         if not self.frame:
             return {"ok": False, "error": self.cam_error or "카메라 연결 중…"}

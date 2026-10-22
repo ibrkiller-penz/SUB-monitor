@@ -153,8 +153,10 @@ class Api:
             self.printer.stop()
             self.printer = None
         p = self.cfg.get("printer") or {}
-        if p.get("ip") and p.get("code") and p.get("serial"):
-            from bambu import Printer
+        from bambu import Printer
+        if p.get("mode") == "cloud" and p.get("token") and p.get("serial"):
+            self.printer = Printer("", "", p["serial"], log=log, cloud={"uid": p["uid"], "token": p["token"]})
+        elif p.get("ip") and p.get("code") and p.get("serial"):
             self.printer = Printer(p["ip"], p["code"], p["serial"], log=log)
 
     def get_printer(self):
@@ -175,6 +177,24 @@ class Api:
         save_config(self.cfg)
         self._start_printer()
         return {"ok": True}
+
+    def printer_cloud_login(self, account, password="", code="", serial=""):
+        """설정의 '뱀부 계정 로그인'. 메일 인증 코드가 필요하면 need_code. 토큰만 저장(비밀번호 저장 안 함)."""
+        import bambu
+        try:
+            r = bambu.cloud_login(str(account or "").strip(), str(password or ""), str(code or "").strip())
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:160]}
+        if r.get("need_code"):
+            return {"ok": False, "need_code": True}
+        devs = r["devices"]
+        if not devs:
+            return {"ok": False, "error": "계정에 연결된 프린터가 없습니다"}
+        d = next((x for x in devs if x["serial"] == serial), devs[0])
+        self.cfg["printer"] = {"mode": "cloud", "token": r["token"], "uid": r["uid"], "serial": d["serial"], "name": d["name"] or "", "account": account}
+        save_config(self.cfg)
+        self._start_printer()
+        return {"ok": True, "name": d["name"], "devices": devs}
 
     def _cpu_sampler(self):
         """cpu_percent(None)은 호출 간격이 들쭉날쭉하면 0%가 나오므로, 전용 스레드에서 1초 간격으로 잰다."""
@@ -207,7 +227,7 @@ class Api:
             "dragon_min": int(self.cfg.get("dragon_min", 10)),
             "weather_fx": bool(self.cfg.get("weather_fx", True)),
             "kma_key": bool(self.cfg.get("kma_key")),
-            "printer": {k: v for k, v in (self.cfg.get("printer") or {}).items() if k != "code"},
+            "printer": {k: v for k, v in (self.cfg.get("printer") or {}).items() if k not in ("code", "token")},
             "autostart": self.get_autostart(),
             "night": self.cfg.get("night", {"on": True, "start": "22:00", "end": "08:00"}),
             "dragon_video": self._dragon_video(),

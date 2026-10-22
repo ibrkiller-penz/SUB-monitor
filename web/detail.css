@@ -194,3 +194,5 @@ body.portrait .dgrid.sch { grid-template-columns: 1fr !important; }
 .prname.big { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
 .prbar.big { height: 12px; border-radius: 6px; background: rgba(255,255,255,.12); overflow: hidden; margin: 6px 0 10px; }
 .prbar.big i { display: block; height: 100%; background: var(--accent); }
+.prd.nocam .prcamwait { color: var(--text); font-size: 30px; line-height: 1.4; }
+.prd.nocam .prbig { font-size: 120px; font-weight: 600; color: var(--accent); }
