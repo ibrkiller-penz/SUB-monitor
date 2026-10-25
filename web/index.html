@@ -271,6 +271,22 @@
   #modal .nchk { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text); font-size: 17px; }
   #modal .nchk input { width: 20px; height: 20px; accent-color: var(--accent); }
   /* 야간 모드: 화면 전체를 검게. 누르면 잠시 켜짐 */
+  #pralert { position: absolute; inset: 0; z-index: 90; display: none; align-items: center; justify-content: center; background: rgba(12,4,2,.93); backdrop-filter: blur(6px); }
+  #pralert.on { display: flex; }
+  #pralert::before { content: ""; position: absolute; inset: 0; border: 10px solid var(--pa); animation: paflash 1.2s ease-in-out infinite; pointer-events: none; }
+  #pralert.done { background: rgba(2,12,6,.93); } #pralert.done::before { animation: none; opacity: .7; }
+  #pralert { --pa: #ff6a4d; } #pralert.pause { --pa: #ffb020; } #pralert.done { --pa: #4fd27a; }
+  #pralert .box { width: 100%; box-sizing: border-box; display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto auto auto auto; column-gap: 34px; align-items: center; max-width: 1700px; padding: 0 40px; }
+  #pralert .ic { grid-row: 1 / 5; width: 150px; height: 150px; border-radius: 50%; background: var(--pa); display: grid; place-items: center; font-size: 96px; font-weight: 700; color: #111; box-shadow: 0 0 60px var(--pa); animation: papulse 1.2s ease-in-out infinite; }
+  #pralert.done .ic { animation: none; }
+  #pralert .ttl, #pralert .nm, #pralert .why, #pralert .meta { grid-column: 2; min-width: 0; }
+  #pralert .ttl { font-size: 64px; font-weight: 700; color: var(--pa); line-height: 1.1; }
+  #pralert .nm { font-size: 30px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 6px; }
+  #pralert .why { font-size: 26px; color: #ffd9cf; margin-top: 6px; } #pralert.done .why { color: #cdf3d8; }
+  #pralert .meta { font-size: 22px; color: rgba(255,255,255,.7); margin-top: 8px; }
+  #pralert button { all: unset; grid-row: 1 / 5; grid-column: 3; cursor: pointer; padding: 26px 48px; border-radius: 22px; background: var(--pa); color: #111; font-size: 34px; font-weight: 700; }
+  @keyframes paflash { 50% { opacity: .15; } }
+  @keyframes papulse { 50% { transform: scale(.92); opacity: .75; } }
   #night { position: absolute; inset: 0; z-index: 80; background: #000; display: none; cursor: pointer; }
   #night.on { display: block; }
   #setPanels label.ord { background: rgba(255,255,255,.06); border-radius: 10px; padding: 3px 4px; }
@@ -369,6 +385,7 @@
   <div class="btns"><button id="setReload">새로고침</button><button id="setCancel">취소</button><button class="pri" id="setSave">저장</button></div>
 </div></div>
 <div id="night" title="누르면 5분간 켜짐"></div>
+<div id="pralert"><div class="box"><div class="ic"></div><div class="ttl"></div><div class="nm"></div><div class="why"></div><div class="meta"></div><button type="button" id="praOk">확인</button></div></div>
 <div id="appToast"></div>
 <div id="detail"><div class="dhead"><button id="dback">← 허브로</button><span id="dtitle"></span><span id="dclock"></span></div><div id="dbody"></div></div>
 <div id="root">
@@ -863,9 +880,53 @@ async function loadMessages() {
 let prData = { configured: false }, prFrame = '';
 const PR_STATE = { IDLE: '대기', PREPARE: '준비 중', RUNNING: '출력 중', PAUSE: '일시정지', FINISH: '완료', FAILED: '실패', SLICING: '슬라이싱' };
 const prLeft = m => m == null ? '' : m >= 60 ? `${Math.floor(m / 60)}시간 ${m % 60}분` : `${m}분`;
+/* 일시정지·실패·완료 전체 화면 알림 (확인 누를 때까지) */
+const PR_STAGE = { 6: '필라멘트가 떨어졌습니다', 16: '사용자가 일시정지했습니다', 17: '앞 덮개가 떨어졌습니다', 20: '노즐 온도 이상', 21: '베드 온도 이상',
+  23: '모터 스텝이 밀렸습니다', 26: 'AMS 연결이 끊겼습니다', 27: '핫엔드 냉각 팬 속도 낮음', 28: '챔버 온도 제어 오류', 30: 'G-code 일시정지 명령',
+  32: '노즐에 필라멘트가 엉켰습니다', 33: '커터 오류', 34: '첫 레이어 이상 감지', 35: '노즐 막힘' };
+let prPrev = null, prAlertKey = '', prBeepT = null;
+try { prAlertKey = localStorage.getItem('prAck') || ''; } catch (e) {}
+function prBeep(kind) {
+  try {
+    const A = window._ac = window._ac || new (window.AudioContext || window.webkitAudioContext)(); A.resume && A.resume();
+    const seq = kind === 'done' ? [[784, 0], [1047, .18], [1319, .36]] : [[880, 0], [660, .28], [880, .56], [660, .84]];
+    seq.forEach(([f, t]) => { const o = A.createOscillator(), g = A.createGain(); o.frequency.value = f; o.type = 'sine';
+      g.gain.setValueAtTime(0, A.currentTime + t); g.gain.linearRampToValueAtTime(.25, A.currentTime + t + .02); g.gain.exponentialRampToValueAtTime(.001, A.currentTime + t + .26);
+      o.connect(g).connect(A.destination); o.start(A.currentTime + t); o.stop(A.currentTime + t + .3); });
+  } catch (e) {}
+}
+function showPrAlert(p) {
+  const kind = p.state === 'FINISH' ? 'done' : p.state === 'PAUSE' ? 'pause' : 'fail', el = $('pralert');
+  el.className = 'on ' + kind; window.PR_ALERT = true;
+  el.querySelector('.ic').innerHTML = kind === 'done' ? '<svg viewBox="0 0 24 24" width="92" height="92" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : '!';
+  el.querySelector('.ttl').textContent = kind === 'done' ? '출력이 끝났습니다' : kind === 'pause' ? '프린터가 일시정지되었습니다' : '출력에 실패했습니다';
+  el.querySelector('.nm').textContent = (p.name || '').replace(/\.(gcode|3mf)$/i, '');
+  const why = PR_STAGE[p.stage] || (p.print_error ? `오류 코드 ${Number(p.print_error).toString(16).toUpperCase()}` : '') || (p.hms && p.hms.length ? `HMS 경고 ${p.hms.length}건` : '');
+  el.querySelector('.why').textContent = kind === 'done' ? '결과물을 꺼내 주세요' : why ? `원인: ${why}` : '프린터 화면이나 Bambu Studio 에서 상태를 확인하세요';
+  const d = new Date();
+  el.querySelector('.meta').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())} · ${kind === 'done' ? '100%' : `${p.percent ?? 0}% · ${p.layer ?? 0}/${p.layers ?? '-'}층`} · 노즐 ${p.nozzle != null ? Math.round(p.nozzle) + '°' : '-'} · 베드 ${p.bed != null ? Math.round(p.bed) + '°' : '-'}`;
+  clearInterval(prBeepT); prBeep(kind);
+  if (kind !== 'done') prBeepT = setInterval(() => prBeep(kind), 30000);   // 확인할 때까지 30초마다
+}
+function hidePrAlert(ack) {
+  $('pralert').className = ''; window.PR_ALERT = false; clearInterval(prBeepT);
+  if (ack) { try { localStorage.setItem('prAck', prAlertKey); } catch (e) {} }
+}
+function checkPrAlert(p) {
+  const st = p.connected ? p.state : null, prev = prPrev;
+  if (st) prPrev = st;
+  if (!st) return;
+  const key = `${st}|${p.name || ''}|${p.layer ?? ''}`;
+  const alarm = st === 'PAUSE' || st === 'FAILED';
+  if ($('pralert').classList.contains('on') && !alarm && st !== 'FINISH') { hidePrAlert(false); return; }   // 다시 출력 시작하면 자동으로 닫힘
+  const fire = (alarm && (prev !== st)) || (st === 'FINISH' && prev && prev !== 'FINISH');   // 완료는 출력 중에서 넘어올 때만
+  let acked = ''; try { acked = localStorage.getItem('prAck') || ''; } catch (e) {}
+  if (fire && key !== acked) { prAlertKey = key; showPrAlert(p); }
+}
 async function loadPrinter() {
   if (!pywebview.api.get_printer) return;
   try { prData = await pywebview.api.get_printer() || prData; } catch (e) {}
+  if (prData.configured) checkPrAlert(prData);
   renderPrinter(); if (window.onDataChange) onDataChange('printer');
 }
 async function loadPrinterFrame() {   // 카메라는 프린터 칸이 보이거나 상세가 열렸을 때만 (안 보면 ffmpeg 꺼짐)
@@ -1061,6 +1122,7 @@ window.addEventListener('pywebviewready', async () => {
   });
   setInterval(loadSystem, 2000);
   setInterval(loadMessages, 10 * 1000);
+  $('praOk').onclick = () => hidePrAlert(true);
   loadPrinter(); setInterval(loadPrinter, 5000); setInterval(loadPrinterFrame, 1000);
   setInterval(loadWeather, 15 * 60 * 1000);
   setInterval(loadEvents, 10 * 60 * 1000);

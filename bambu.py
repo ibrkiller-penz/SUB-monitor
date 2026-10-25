@@ -163,6 +163,8 @@ class Printer:
             "chamber": s.get("chamber_temper"),
             "name": s.get("subtask_name") or s.get("gcode_file", ""),
             "speed": s.get("spd_lvl"),
+            "stage": s.get("stg_cur"), "print_error": s.get("print_error") or 0,
+            "hms": [h for h in (s.get("hms") or []) if isinstance(h, dict)],
             "cam_error": self.cam_error, "camera": not self.cloud,
         }
 
