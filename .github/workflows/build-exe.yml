@@ -26,7 +26,7 @@ jobs:
           python -c "import launcher, time, json; L = launcher.Launchers([{'id':'edge','name':'Edge','exe':['msedge.exe'],'keys':['Microsoft Edge']},{'id':'chrome','name':'Chrome','exe':['chrome.exe'],'keys':['Google Chrome']}] + launcher.DEFAULT_LAUNCHERS, log=print); L.refresh(force=True); time.sleep(1); [time.sleep(1) for _ in range(170) if L._busy]; print(json.dumps(L.found, ensure_ascii=False, indent=1)); print([(a['id'], a['found'], len(a['icon'])) for a in L.list()])"
       - name: Build
         run: |
-          pyinstaller --noconfirm --clean --onedir --windowed --name SUBmonitor --icon app.ico --add-data "web;web" --collect-all webview --hidden-import notify --hidden-import tt_worker --hidden-import launcher --hidden-import kma --hidden-import bambu --collect-submodules paho app.py
+          pyinstaller --noconfirm --clean --onedir --windowed --name SUBmonitor --icon app.ico --add-data "web;web" --collect-all webview --hidden-import notify --hidden-import tt_worker --hidden-import launcher --hidden-import kma --hidden-import bambu --hidden-import winmon --collect-submodules paho app.py
           Copy-Item config.json dist\SUBmonitor\config.json
           $ProgressPreference = 'SilentlyContinue'
           Invoke-WebRequest "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile ff.zip

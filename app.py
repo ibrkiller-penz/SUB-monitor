@@ -20,6 +20,7 @@ import webview
 from notify import MessageWatcher
 from launcher import Launchers
 import kma
+import winmon
 
 
 def _find_nvidia_smi():
@@ -77,7 +78,7 @@ def log(msg):
 
 
 LOCAL_CONFIG = CONFIG_PATH.with_name("config.local.json")   # 이 PC·이 교사만의 설정 (git 에 안 올라감)
-LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary", "dragon_min", "night", "weather_fx", "apps_added", "kma_key", "printer")
+LOCAL_KEYS = ("teacher_name", "panels", "ical_urls", "udb", "orientation", "summary", "dragon_min", "night", "weather_fx", "apps_added", "kma_key", "printer", "monitor")
 
 
 def load_config():
@@ -195,6 +196,22 @@ class Api:
         save_config(self.cfg)
         self._start_printer()
         return {"ok": True, "name": d["name"], "devices": devs}
+
+    # ---- 표시할 모니터 (winmon.py) ----
+    def get_monitors(self):
+        mons = winmon.monitors()
+        cur = getattr(self, "_mon", None) or {}
+        return {"list": [{"id": m["id"], "name": m["name"]} for m in mons], "want": self.cfg.get("monitor", ""), "current": cur.get("id", "")}
+
+    def set_monitor(self, mid):
+        """설정에서 모니터를 고르면 저장하고 바로 그 모니터로 옮긴다. 빈 값 = 자동(띠 모니터)."""
+        self.cfg["monitor"] = str(mid or "")
+        save_config(self.cfg)
+        m = winmon.pick(winmon.monitors(), self.cfg["monitor"])
+        if m:
+            self._mon = m
+            return {"ok": winmon.place("SUBmonitor", m), "name": m["name"]}
+        return {"ok": False, "error": "띠 모니터를 못 찾음 — 목록에서 직접 고르세요"}
 
     def _cpu_sampler(self):
         """cpu_percent(None)은 호출 간격이 들쭉날쭉하면 0%가 나오므로, 전용 스레드에서 1초 간격으로 잰다."""
@@ -890,10 +907,14 @@ def pick_screen(cfg):
 def main():
     cfg = load_config()
     api = Api(cfg)
-    screen = pick_screen(cfg)
-    fullscreen = cfg.get("display", {}).get("fullscreen", True) and screen is not None
     portrait = cfg.get("orientation") == "portrait"
-    if screen is not None:
+    mon = winmon.pick(winmon.monitors(), cfg.get("monitor", ""))   # Windows: 고른 모니터 또는 띠 모니터를 직접 찾음
+    api._mon = mon
+    screen = None if mon else pick_screen(cfg)
+    fullscreen = cfg.get("display", {}).get("fullscreen", True) and screen is not None
+    if mon:
+        win_w, win_h = mon["w"], mon["h"]
+    elif screen is not None:
         win_w, win_h = screen.width, screen.height          # 보조모니터 전체
     else:
         win_w, win_h = (470, 1000) if portrait else (1920, 480)   # 일반 창 (화면이 스스로 축소됨)
@@ -904,17 +925,26 @@ def main():
         width=win_w,
         height=win_h,
         background_color="#0b0f17",
-        # 보조모니터를 찾으면 그 화면에 테두리 없이 전체화면, 못 찾으면 일반 창
-        frameless=screen is not None,
+        # 보조모니터를 찾으면 그 화면에 테두리 없이 꽉 차게, 못 찾으면 일반 창
+        frameless=bool(mon) or screen is not None,
         easy_drag=False,
         fullscreen=fullscreen,
         screen=screen,
     )
-    if screen is not None and hasattr(screen, "x"):
+    if mon:
+        kwargs.update(x=mon["x"], y=mon["y"])
+    elif screen is not None and hasattr(screen, "x"):
         kwargs.update(x=screen.x, y=screen.y)
     log(f"start screens={[(s.width, s.height) for s in webview.screens]} picked={'yes' if screen else 'no'} pywebview={getattr(webview, '__version__', '?')}")
     win = webview.create_window(**kwargs)
     win.events.loaded += lambda: log("main window loaded")
+    if mon:   # pywebview 위치가 배율 때문에 어긋나도 Win32 로 그 모니터에 딱 맞춤
+        def _place():
+            for wait in (0.3, 1.0, 3.0):
+                time.sleep(wait)
+                ok = winmon.place("SUBmonitor", api._mon)
+            log(f"placed on {api._mon.get('name')} ok={ok}")
+        win.events.shown += lambda: threading.Thread(target=_place, daemon=True).start()
     if not api._tt_fresh(api._tt_cache()):
         api._ensure_worker(force=True)   # 시간표 캐시가 없거나 오래됐으면 지금 긁어온다
     # 화면 파일이 바뀌면(새 버전) WebView2 프로필을 새로 써서 예전 화면이 캐시에서 뜨지 않게 한다

@@ -344,6 +344,8 @@
     <label><input type="radio" name="orient" value="landscape"> 가로 (1920×440)</label>
     <label><input type="radio" name="orient" value="portrait"> 세로 (440×1920)</label>
   </div>
+  <label for="setMon">표시할 모니터</label>
+  <div class="dragonRow"><select id="setMon" style="flex:1;min-width:0"></select><span class="hint" id="monHint"></span></div>
   <label>화면에 표시할 항목 · 순서 (◀ ▶ 로 왼쪽/오른쪽 이동)</label>
   <div class="chk" id="setPanels">
     <label class="ord"><button type="button" class="mv" data-mv="-1">◀</button><input type="checkbox" value="weather"> 날씨<button type="button" class="mv" data-mv="1">▶</button></label>
@@ -610,7 +612,14 @@ function limitChecks(box, max) {   // 체크 개수 제한: max 개가 되면 �
   inputs.forEach(i => { i.disabled = !i.checked && n >= max; i.parentElement.classList.toggle('dis', i.disabled); });
 }
 let KMA_ON = false, PRINTER = {};
+async function fillMonitors() {
+  if (!pywebview.api.get_monitors) { $('setMon').innerHTML = '<option value="">자동</option>'; return; }
+  const r = await pywebview.api.get_monitors(); MON_WANT = r.want || '';
+  $('setMon').innerHTML = '<option value="">자동 (가로·세로 띠 모니터 찾기)</option>' + (r.list || []).map(m => `<option value="${esc(m.id)}" ${m.id === r.want ? 'selected' : ''}>${esc(m.name)}${m.id === r.current ? ' ← 지금' : ''}</option>`).join('');
+}
+let MON_WANT = '';
 function openSettings() {
+  fillMonitors();
   const list = (tt && tt.teachers) || teacherList;
   const cur = tt ? tt.teacher : '';
   $('setTeacher').innerHTML = list.map(t => `<option ${t === cur ? 'selected' : ''}>${esc(t)}</option>`).join('');
@@ -1075,6 +1084,8 @@ window.addEventListener('pywebviewready', async () => {
     if (window.weatherFxOn) weatherFxOn($('wfxOn').checked);
     if (pywebview.api.set_autostart && $('autoStart').checked !== !!AUTOSTART) pywebview.api.set_autostart($('autoStart').checked).then(v => { AUTOSTART = !!v; });
     if (pywebview.api.set_weather_fx) pywebview.api.set_weather_fx($('wfxOn').checked);
+    const mw = $('setMon').value;
+    if (pywebview.api.set_monitor && mw !== MON_WANT) { MON_WANT = mw; pywebview.api.set_monitor(mw); }
     const pr = { ip: $('prIp').value.trim(), code: $('prCode').value.trim(), serial: $('prSerial').value.trim() };
     if (pywebview.api.set_printer && pr.ip && (pr.ip !== (PRINTER.ip || '') || pr.serial !== (PRINTER.serial || '') || pr.code)) { await pywebview.api.set_printer(pr); PRINTER = { ip: pr.ip, serial: pr.serial }; setTimeout(loadPrinter, 3000); }
     const kk = $('kmaKey').value.trim();
