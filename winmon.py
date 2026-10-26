@@ -3,6 +3,8 @@
 모니터가 여러 대면 pywebview 전체화면이 엉뚱한 모니터에 뜨는 일이 있어서,
 EnumDisplayMonitors 로 모니터 사각형을 받아 SetWindowPos 로 창을 그 사각형에 꼭 맞춘다.
 두 호출 모두 이 스레드만 모니터별 DPI 인식(_Aware)으로 바꿔 실제 픽셀 좌표로 맞춘다(배율이 다른 모니터가 섞여도 안 어긋남).
+크기는 여기서 맞추지 않고, 창을 그 모니터로 옮긴 다음 pywebview 전체화면(예전 방식)을 켠다 —
+전체화면은 '창이 있는 모니터'에서 켜지므로 크기·작업 표시줄 숨김은 Windows 가 맞춘다.
 """
 import ctypes
 import os
@@ -111,16 +113,19 @@ def _place(title, m):
     put(hwnd, GWL_STYLE, style & ~WS_CAPTION & ~WS_THICKFRAME)
     u.ShowWindow(hwnd, 9)   # SW_RESTORE (최대화·최소화 풀기)
     SWP_FRAMECHANGED, SWP_SHOWWINDOW = 0x0020, 0x0040
-    # 맨 위(topmost): 이 모니터에도 작업 표시줄이 있으면 창 위로 올라오므로 그보다 위에 둔다
-    return bool(u.SetWindowPos(hwnd, -1, m["x"], m["y"], m["w"], m["h"], SWP_FRAMECHANGED | SWP_SHOWWINDOW))
+    return bool(u.SetWindowPos(hwnd, 0, m["x"], m["y"], m["w"], m["h"], SWP_FRAMECHANGED | SWP_SHOWWINDOW))
 
 
-def keep_top(title):
-    """작업 표시줄·시작 메뉴를 누르면 그쪽이 위로 올라오니 주기적으로 다시 맨 위로 (포커스는 안 가져옴)."""
-    if os.name != "nt":
-        return
+def on_monitor(title, m):
+    """창이 지금 모니터 m 위에 있는지 (MonitorFromWindow 의 장치 이름 비교)."""
+    if os.name != "nt" or not m:
+        return True
     u = ctypes.windll.user32
     hwnd = u.FindWindowW(None, title)
-    if hwnd and not u.IsIconic(hwnd):
-        SWP_NOSIZE, SWP_NOMOVE, SWP_NOACTIVATE = 0x0001, 0x0002, 0x0010
-        u.SetWindowPos(hwnd, -1, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE)
+    if not hwnd or u.IsIconic(hwnd):
+        return True
+    u.MonitorFromWindow.restype = wintypes.HMONITOR
+    hmon = u.MonitorFromWindow(hwnd, 2)   # MONITOR_DEFAULTTONEAREST
+    mi = _MI()
+    mi.cbSize = ctypes.sizeof(_MI)
+    return bool(u.GetMonitorInfoW(hmon, ctypes.byref(mi))) and mi.szDevice == m["id"]

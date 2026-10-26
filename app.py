@@ -203,6 +203,25 @@ class Api:
         cur = getattr(self, "_mon", None) or {}
         return {"list": [{"id": m["id"], "name": m["name"]} for m in mons], "want": self.cfg.get("monitor", ""), "current": cur.get("id", "")}
 
+    def _fullscreen_on(self, m):
+        """전체화면이면 잠깐 풀고 → 창을 모니터 m 으로 옮기고 → 다시 전체화면."""
+        w = getattr(self, "_win", None)
+        if not w or not m:
+            return False
+        try:
+            if getattr(self, "_fs", False):
+                w.toggle_fullscreen()
+                self._fs = False
+                time.sleep(0.4)
+            ok = winmon.place("SUBmonitor", m)
+            time.sleep(0.4)
+            w.toggle_fullscreen()
+            self._fs = True
+            return ok
+        except Exception as e:
+            log(f"fullscreen failed: {e}")
+            return False
+
     def set_monitor(self, mid):
         """설정에서 모니터를 고르면 저장하고 바로 그 모니터로 옮긴다. 빈 값 = 자동(띠 모니터)."""
         self.cfg["monitor"] = str(mid or "")
@@ -210,7 +229,7 @@ class Api:
         m = winmon.pick(winmon.monitors(), self.cfg["monitor"])
         if m:
             self._mon = m
-            return {"ok": winmon.place("SUBmonitor", m), "name": m["name"]}
+            return {"ok": self._fullscreen_on(m), "name": m["name"]}
         return {"ok": False, "error": "띠 모니터를 못 찾음 — 목록에서 직접 고르세요"}
 
     def _cpu_sampler(self):
@@ -938,20 +957,18 @@ def main():
     log(f"start screens={[(s.width, s.height) for s in webview.screens]} picked={'yes' if screen else 'no'} pywebview={getattr(webview, '__version__', '?')}")
     win = webview.create_window(**kwargs)
     win.events.loaded += lambda: log("main window loaded")
-    if mon:   # pywebview 위치가 배율 때문에 어긋나도 Win32 로 그 모니터에 딱 맞춤
+    api._win = win
+    if mon:   # 창을 먼저 그 모니터로 옮긴 뒤 전체화면(예전 방식) — 전체화면은 창이 있는 모니터에서 켜짐
         def _place():
-            for wait in (0.3, 1.0, 3.0):
-                time.sleep(wait)
-                ok = winmon.place("SUBmonitor", api._mon)
-            log(f"placed on {api._mon.get('name')} {api._mon} ok={ok} fit={winmon.is_placed('SUBmonitor', api._mon)}")
-            while True:   # 배율이 다른 모니터로 옮겨지며 크기가 바뀌거나, 모니터를 다시 꽂으면 다시 맞춤 + 작업 표시줄 위로
-                time.sleep(5)
+            time.sleep(0.5)
+            api._fullscreen_on(api._mon)
+            log(f"fullscreen on {api._mon.get('name')} {api._mon} here={winmon.on_monitor('SUBmonitor', api._mon)}")
+            while True:   # 모니터를 뺐다 꽂거나 다른 모니터로 밀려나면 다시
+                time.sleep(30)
                 try:
-                    winmon.keep_top("SUBmonitor")
-                    if not winmon.is_placed("SUBmonitor", api._mon):
-                        mons = winmon.monitors()
-                        api._mon = winmon.pick(mons, api.cfg.get("monitor", "")) or api._mon
-                        winmon.place("SUBmonitor", api._mon)
+                    if not winmon.on_monitor("SUBmonitor", api._mon):
+                        api._mon = winmon.pick(winmon.monitors(), api.cfg.get("monitor", "")) or api._mon
+                        api._fullscreen_on(api._mon)
                 except Exception as e:
                     log(f"replace failed: {e}")
         win.events.shown += lambda: threading.Thread(target=_place, daemon=True).start()
