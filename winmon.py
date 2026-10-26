@@ -111,4 +111,16 @@ def _place(title, m):
     put(hwnd, GWL_STYLE, style & ~WS_CAPTION & ~WS_THICKFRAME)
     u.ShowWindow(hwnd, 9)   # SW_RESTORE (최대화·최소화 풀기)
     SWP_FRAMECHANGED, SWP_SHOWWINDOW = 0x0020, 0x0040
-    return bool(u.SetWindowPos(hwnd, 0, m["x"], m["y"], m["w"], m["h"], SWP_FRAMECHANGED | SWP_SHOWWINDOW))
+    # 맨 위(topmost): 이 모니터에도 작업 표시줄이 있으면 창 위로 올라오므로 그보다 위에 둔다
+    return bool(u.SetWindowPos(hwnd, -1, m["x"], m["y"], m["w"], m["h"], SWP_FRAMECHANGED | SWP_SHOWWINDOW))
+
+
+def keep_top(title):
+    """작업 표시줄·시작 메뉴를 누르면 그쪽이 위로 올라오니 주기적으로 다시 맨 위로 (포커스는 안 가져옴)."""
+    if os.name != "nt":
+        return
+    u = ctypes.windll.user32
+    hwnd = u.FindWindowW(None, title)
+    if hwnd and not u.IsIconic(hwnd):
+        SWP_NOSIZE, SWP_NOMOVE, SWP_NOACTIVATE = 0x0001, 0x0002, 0x0010
+        u.SetWindowPos(hwnd, -1, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE)

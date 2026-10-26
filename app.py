@@ -944,9 +944,10 @@ def main():
                 time.sleep(wait)
                 ok = winmon.place("SUBmonitor", api._mon)
             log(f"placed on {api._mon.get('name')} {api._mon} ok={ok} fit={winmon.is_placed('SUBmonitor', api._mon)}")
-            while True:   # 배율이 다른 모니터로 옮겨지며 크기가 바뀌거나, 모니터를 다시 꽂으면 다시 맞춤
-                time.sleep(10)
+            while True:   # 배율이 다른 모니터로 옮겨지며 크기가 바뀌거나, 모니터를 다시 꽂으면 다시 맞춤 + 작업 표시줄 위로
+                time.sleep(5)
                 try:
+                    winmon.keep_top("SUBmonitor")
                     if not winmon.is_placed("SUBmonitor", api._mon):
                         mons = winmon.monitors()
                         api._mon = winmon.pick(mons, api.cfg.get("monitor", "")) or api._mon
