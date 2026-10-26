@@ -943,7 +943,16 @@ def main():
             for wait in (0.3, 1.0, 3.0):
                 time.sleep(wait)
                 ok = winmon.place("SUBmonitor", api._mon)
-            log(f"placed on {api._mon.get('name')} ok={ok}")
+            log(f"placed on {api._mon.get('name')} {api._mon} ok={ok} fit={winmon.is_placed('SUBmonitor', api._mon)}")
+            while True:   # 배율이 다른 모니터로 옮겨지며 크기가 바뀌거나, 모니터를 다시 꽂으면 다시 맞춤
+                time.sleep(10)
+                try:
+                    if not winmon.is_placed("SUBmonitor", api._mon):
+                        mons = winmon.monitors()
+                        api._mon = winmon.pick(mons, api.cfg.get("monitor", "")) or api._mon
+                        winmon.place("SUBmonitor", api._mon)
+                except Exception as e:
+                    log(f"replace failed: {e}")
         win.events.shown += lambda: threading.Thread(target=_place, daemon=True).start()
     if not api._tt_fresh(api._tt_cache()):
         api._ensure_worker(force=True)   # 시간표 캐시가 없거나 오래됐으면 지금 긁어온다
