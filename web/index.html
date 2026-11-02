@@ -331,7 +331,7 @@
     .spark .lbl { font-size: 12px; white-space: nowrap; gap: 6px; } .spark .lbl span { overflow: hidden; text-overflow: ellipsis; }
   }
   /* 세로 모드: 패널 높이를 가로 폭 비율(--w)로 나누면 내용이 잘림 → 내용 높이대로 두고 남는 칸만 늘림 (스타일 끝에 있어야 위 규칙을 덮어씀) */
-  body.portrait #root > .panel { flex: 0 0 auto; }
+  body.portrait #root > .panel { flex: 0 1 auto; min-height: 0; }   /* 내용이 많아 합이 넘치면 조금씩 줄어 화면 밖으로 밀려나지 않게 */
   body.portrait #root > #eventsPanel, body.portrait #root > #msg, body.portrait #root > #school, body.portrait #root > #pc { flex: 1 1 0; min-height: 150px; }
   body.portrait #root > #msg.empty { flex: 0 0 auto; min-height: 0; }
   body.portrait #clock { padding: 18px 16px 50px; position: relative; }   /* PC 한 줄(#pcMini)을 시계 칸 아래에 (화면 맨 아래 바로가기와 안 겹치게) */

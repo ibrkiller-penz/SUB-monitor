@@ -150,7 +150,7 @@ body.portrait .dcard.span2 { grid-column: auto; }
 body.portrait .dcol, body.portrait .dside { grid-template-rows: auto; grid-auto-rows: minmax(0, 1fr); }
 body.portrait .wt { grid-template-columns: 56px repeat(5, 1fr); gap: 3px; }
 body.portrait .wt-p { font-size: 13px; padding-left: 2px; } body.portrait .wt-p small { display: none; }
-body.portrait .wt-c { padding: 2px 5px; } body.portrait .wt-c b { font-size: 13px; } body.portrait .wt-c small { display: none; }
+body.portrait .wt-c { padding: 2px 4px; align-items: center; justify-content: center; text-align: center; } body.portrait .wt-c b { font-size: 13px; white-space: normal; flex: 1 1 auto; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; line-height: 1.15; } body.portrait .wt-c small { display: none; }   /* 세로: 과목명을 줄바꿈해 다 보이게 */
 body.portrait .wt-h { font-size: 14px; } body.portrait .wt-h em { display: none; }
 body.portrait .tclock .bt { font-size: 96px; }
 body.portrait .evform { grid-template-columns: 1fr 1fr; }
@@ -196,3 +196,4 @@ body.portrait .dgrid.sch { grid-template-columns: 1fr !important; }
 .prbar.big i { display: block; height: 100%; background: var(--accent); }
 .prd.nocam .prcamwait { color: var(--text); font-size: 30px; line-height: 1.4; }
 .prd.nocam .prbig { font-size: 120px; font-weight: 600; color: var(--accent); }
+body.portrait .dgrid.today .dcard { overflow: hidden; }   /* 하루 흐름 칸이 몇 px 넘치던 것 */
