@@ -330,6 +330,25 @@
     .mi .b { font-size: 16px; } .ring .v b { font-size: 17px; } .ring .v span { font-size: 12px; } .ring-row { gap: 6px 4px; }
     .spark .lbl { font-size: 12px; white-space: nowrap; gap: 6px; } .spark .lbl span { overflow: hidden; text-overflow: ellipsis; }
   }
+  /* 세로 모드: 패널 높이를 가로 폭 비율(--w)로 나누면 내용이 잘림 → 내용 높이대로 두고 남는 칸만 늘림 (스타일 끝에 있어야 위 규칙을 덮어씀) */
+  body.portrait #root > .panel { flex: 0 0 auto; }
+  body.portrait #root > #eventsPanel, body.portrait #root > #msg, body.portrait #root > #school, body.portrait #root > #pc { flex: 1 1 0; min-height: 150px; }
+  body.portrait #root > #msg.empty { flex: 0 0 auto; min-height: 0; }
+  body.portrait #clock { padding: 18px 16px 50px; position: relative; }   /* PC 한 줄(#pcMini)을 시계 칸 아래에 (화면 맨 아래 바로가기와 안 겹치게) */
+  body.portrait #todayBox { margin-top: 12px; }
+  body.portrait #cal { display: none; }   /* 달력은 일정 상세 화면에서 */
+  body.portrait #root > #apps { flex: 0 0 52px !important; padding: 6px 86px 6px 10px !important; }   /* 오른쪽은 ⚙·✕ 자리 */
+  body.portrait #appsList { justify-content: space-between; height: 100%; align-items: center; }
+  /* 프린터(계정 방식): 원을 왼쪽, 글자를 오른쪽에 — 높이 절반 */
+  body.portrait #printer.nocam #prbody { display: grid; grid-template-columns: 132px 1fr; grid-template-rows: auto auto auto 1fr; column-gap: 14px; row-gap: 4px; align-items: center; text-align: left; }
+  body.portrait #printer.nocam .prring { grid-row: 1 / 5; grid-column: 1; width: 132px; height: 132px; margin: 0; }
+  body.portrait #printer.nocam .prring .c b { font-size: 38px; }
+  body.portrait #printer.nocam .prn { grid-column: 2; min-height: 0; -webkit-line-clamp: 1; font-size: 18px; }
+  body.portrait #printer.nocam .prst { grid-column: 2; justify-self: start; }
+  body.portrait #printer.nocam .prt { grid-column: 2; }
+  body.portrait #printer.nocam .prchips { grid-column: 2; margin-top: 2px; }
+  body.portrait #printer.nocam .prchips span { flex-direction: row; justify-content: space-between; align-items: baseline; padding: 4px 8px; }
+  body.portrait #printer.nocam .prchips b { font-size: 16px; }
 </style>
 <link rel="stylesheet" href="detail.css">
 </head>
