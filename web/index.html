@@ -334,21 +334,23 @@
   body.portrait #root > .panel { flex: 0 1 auto; min-height: 0; }   /* 내용이 많아 합이 넘치면 조금씩 줄어 화면 밖으로 밀려나지 않게 */
   body.portrait #root > #eventsPanel, body.portrait #root > #msg, body.portrait #root > #school, body.portrait #root > #pc { flex: 1 1 0; min-height: 150px; }
   body.portrait #root > #msg.empty { flex: 0 0 auto; min-height: 0; }
-  body.portrait #clock { padding: 18px 16px 50px; position: relative; }   /* PC 한 줄(#pcMini)을 시계 칸 아래에 (화면 맨 아래 바로가기와 안 겹치게) */
+  body.portrait #clock { padding: 10px 16px 44px; position: relative; justify-content: flex-start; }   /* 날씨 위 빈 공간 줄임 */
+  body.portrait #pcMini { bottom: 6px; }   /* PC 한 줄(#pcMini)을 시계 칸 아래에 (화면 맨 아래 바로가기와 안 겹치게) */
   body.portrait #todayBox { margin-top: 12px; }
   body.portrait #cal { display: none; }   /* 달력은 일정 상세 화면에서 */
   body.portrait #root > #apps { flex: 0 0 52px !important; padding: 6px 86px 6px 10px !important; }   /* 오른쪽은 ⚙·✕ 자리 */
   body.portrait #appsList { justify-content: space-between; height: 100%; align-items: center; }
-  /* 프린터(계정 방식): 원을 왼쪽, 글자를 오른쪽에 — 높이 절반 */
-  body.portrait #printer.nocam #prbody { display: grid; grid-template-columns: 132px 1fr; grid-template-rows: auto auto auto 1fr; column-gap: 14px; row-gap: 4px; align-items: center; text-align: left; }
-  body.portrait #printer.nocam .prring { grid-row: 1 / 5; grid-column: 1; width: 132px; height: 132px; margin: 0; }
-  body.portrait #printer.nocam .prring .c b { font-size: 38px; }
-  body.portrait #printer.nocam .prn { grid-column: 2; min-height: 0; -webkit-line-clamp: 1; font-size: 18px; }
-  body.portrait #printer.nocam .prst { grid-column: 2; justify-self: start; }
-  body.portrait #printer.nocam .prt { grid-column: 2; }
-  body.portrait #printer.nocam .prchips { grid-column: 2; margin-top: 2px; }
-  body.portrait #printer.nocam .prchips span { flex-direction: row; justify-content: space-between; align-items: baseline; padding: 4px 8px; }
-  body.portrait #printer.nocam .prchips b { font-size: 16px; }
+  /* 프린터(계정 방식) 세로: 얇은 가로 막대 */
+  body.portrait #printer.nocam #prbody { display: flex; flex-direction: column; align-items: stretch; text-align: left; gap: 6px; }
+  .phb-top { display: flex; align-items: baseline; gap: 10px; }
+  .phb-nm { flex: 1; min-width: 0; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .phb-pct { font-size: 30px; font-weight: 600; line-height: 1; } .phb-pct small { font-size: 16px; color: var(--muted); margin-left: 1px; }
+  .phb-bar { height: 12px; border-radius: 6px; background: rgba(255,255,255,.12); overflow: hidden; }
+  .phb-bar i { display: block; height: 100%; background: var(--accent); box-shadow: 0 0 10px var(--accent); transition: width 1s ease; }
+  .phb-bar.pause i { background: var(--muted); box-shadow: none; }
+  .phb-bot { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--muted); white-space: nowrap; }
+  .phb-bot span { overflow: hidden; text-overflow: ellipsis; } .phb-bot .phb-t { flex: none; }
+  .phb-ly { font-size: 14px; color: var(--muted); flex: none; } .phb-bot b { color: var(--text); font-size: 16px; font-weight: 600; }
 </style>
 <link rel="stylesheet" href="detail.css">
 </head>
@@ -962,14 +964,23 @@ function renderPrinter() {
   const p = prData;
   if (!p.configured) { $('prState').textContent = ''; $('prbody').innerHTML = '<div class="muted">설정(⚙)에서 프린터를 연결하세요</div>'; return; }
   const st = PR_STATE[p.state] || p.state || (p.connected ? '' : '연결 안 됨');
-  $('prState').textContent = p.camera === false ? '' : st; $('printer').classList.toggle('nocam', p.camera === false);
+  const port = document.body.classList.contains('portrait');
+  $('prState').textContent = p.camera === false && !port ? '' : st; $('printer').classList.toggle('nocam', p.camera === false);
   const run = p.state === 'RUNNING' || p.state === 'PAUSE' || p.state === 'PREPARE';
   const pct = p.percent ?? 0;
   const nm = esc((p.name || '').replace(/\.(gcode|3mf)$/i, ''));
   const tmp = (v, t) => v != null ? `${Math.round(v)}°${t ? `<small>/${Math.round(t)}</small>` : ''}` : '-';
   const err = !p.connected && p.error ? `<div class="err">${esc(p.error)}</div>` : '';
   let html;
-  if (p.camera === false) {   // 계정 방식(카메라 없음): 원형 진행률 + 남은 시간·완료 시각 + 온도 칩
+  if (p.camera === false && port) {   // 세로 모드: 얇은 가로 막대 (이름·막대·% / 남은 시간·완료·온도)
+    const show = run || p.state === 'FINISH';
+    const eta = run && p.remaining != null ? (t => `${t.getHours()}:${pad(t.getMinutes())}`)(new Date(Date.now() + p.remaining * 60000)) : '';
+    html = `${!p.connected && p.error ? `<div class="err">${esc(p.error)}</div>` : ''}
+      <div class="phb-top"><span class="phb-nm">${show ? nm : '출력 대기 중'}</span>${p.layers && show ? `<span class="phb-ly">${p.layer ?? 0}/${p.layers}층</span>` : ''}<b class="phb-pct">${show ? pct + '<small>%</small>' : ''}</b></div>
+      <div class="phb-bar${p.state === 'PAUSE' ? ' pause' : ''}"><i style="width:${show ? pct : 0}%"></i></div>
+      <div class="phb-bot"><span>${run && p.remaining != null ? `<b>${prLeft(p.remaining)}</b> 남음 · ${eta} 완료` : p.state === 'FINISH' ? '<b>출력 완료</b>' : ''}</span>
+        <span class="phb-t">노즐 <b>${p.nozzle != null ? Math.round(p.nozzle) + '°' : '-'}</b> 베드 <b>${p.bed != null ? Math.round(p.bed) + '°' : '-'}</b></span></div>`;
+  } else if (p.camera === false) {   // 계정 방식(카메라 없음): 원형 진행률 + 남은 시간·완료 시각 + 온도 칩
     const R = 62, C = 2 * Math.PI * R, show = run || p.state === 'FINISH';
     const eta = run && p.remaining != null ? (t => `${t.getHours()}:${pad(t.getMinutes())}`)(new Date(Date.now() + p.remaining * 60000)) : '';
     html = `<div class="prn${!p.connected && p.error ? ' perr' : ''}">${!p.connected && p.error ? esc(p.error) : show ? nm : '출력 대기 중'}</div>
