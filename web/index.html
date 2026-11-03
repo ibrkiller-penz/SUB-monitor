@@ -243,7 +243,7 @@
   #cal .g { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 15px; row-gap: 1px; }
   #cal .g span { position: relative; line-height: 21px; color: var(--text); opacity: .85; }
   #cal .g .wk { color: var(--muted); font-size: 14px; }
-  #cal .g .sun { color: #f3a5a0; } #cal .g .sat { color: #a9cdf5; }
+  #cal .g .sun { color: #f3a5a0; display: block; padding: 0; font-size: inherit; justify-content: initial; }   /* 일출 줄 .sun 스타일이 일요일 칸에 걸려 아래로 밀리던 것 */ #cal .g .sat { color: #a9cdf5; }
   #cal .g .out { opacity: .4; }
   #cal .g .td { background: var(--accent); color: #1a120c; border-radius: 6px; font-weight: 600; opacity: 1; }
   #cal .g .has::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--accent); }
