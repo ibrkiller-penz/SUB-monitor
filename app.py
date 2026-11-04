@@ -448,10 +448,17 @@ class Api:
                 log(f"tt refresher error: {e}")
 
     def _tt_reap(self):
-        """끝난 워커 정리: 캐시가 새로 써졌으면 성공, 아니면 실패 횟수 증가(재시도 간격 2분→4→8…최대 30분)."""
+        """끝난 워커 정리: 캐시가 새로 써졌으면 성공, 아니면 실패 횟수 증가(재시도 간격 2분→4→8…최대 30분).
+        4분 넘게 안 끝나는 워커는 멈춘 것으로 보고 하위 프로세스(WebView2)까지 강제로 끈다
+        (멈춘 워커가 시간표용 브라우저 폴더를 붙잡으면 다음 워커도 계속 멈췄음)."""
         p = self.tt_proc
-        if p is None or p.poll() is None:
+        if p is None:
             return
+        if p.poll() is None:
+            if time.time() - self._tt_spawn_at < 240:
+                return
+            log(f"tt_worker pid={p.pid} stuck — killing")
+            self._kill_tree(p)
         self.tt_proc = None
         path = self._tt_path()
         ok = path.exists() and path.stat().st_mtime >= self._tt_spawn_at - 1
@@ -578,12 +585,25 @@ class Api:
             log(f"tt_worker start failed: {e}")
             self.tt_proc = None
 
+    @staticmethod
+    def _kill_tree(p):
+        """워커와 그 하위 프로세스(WebView2)까지 끈다. terminate() 만 하면 msedgewebview2 가 남는다."""
+        try:
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True, timeout=15,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            else:
+                p.kill()
+        except Exception:
+            pass
+        try:
+            p.wait(timeout=5)
+        except Exception:
+            pass
+
     def stop_worker(self):
         if self.tt_proc and self.tt_proc.poll() is None:
-            try:
-                self.tt_proc.terminate()
-            except Exception:
-                pass
+            self._kill_tree(self.tt_proc)
         self.tt_proc = None
 
     @timed

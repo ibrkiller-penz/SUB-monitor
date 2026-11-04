@@ -10,6 +10,8 @@ app.py 가 필요할 때(캐시 없음·오래됨·교사 변경·새로고침)�
 """
 import json
 import sys
+import shutil
+import os
 import threading
 import time
 from pathlib import Path
@@ -100,7 +102,7 @@ def main():
     extract_js = (BASE / "web" / "tt_extract.js").read_text(encoding="utf-8")
     extract_js = extract_js.replace("__TEACHER__", "REQ_TEACHER").replace("__WEEK__", "REQ_WEEK")
     inject = TT_INJECT.replace("__EXTRACT__", extract_js.strip().rstrip(";")).replace("__TEACHER_JSON__", json.dumps(teacher, ensure_ascii=False))
-    log(f"start url={url} teacher={teacher}")
+    log(f"start url={url} teacher={teacher} pid={os.getpid()}")
 
     bridge = Bridge()
     win = webview.create_window("시간표 불러오는 중…", url=url, js_api=bridge,
@@ -125,11 +127,23 @@ def main():
                 win.destroy()
             except Exception:
                 pass
+            time.sleep(10)   # 창이 안 닫히고 멈춰 있으면 프로세스째 끝낸다
+            log("force exit")
+            os._exit(3)
 
     win.events.loaded += on_loaded
     threading.Thread(target=watchdog, daemon=True).start()
     # 대시보드와 다른 WebView2 프로필을 써야 두 프로세스가 충돌하지 않는다
-    webview.start(private_mode=False, storage_path=str(DATA_DIR / "tt_profile"))
+    # 실행마다 새 폴더: 이전 워커의 WebView2 가 남아 폴더를 잠가도 이번 실행은 막히지 않게 (하루 지난 폴더는 정리)
+    runs = DATA_DIR / "tt_runs"
+    runs.mkdir(parents=True, exist_ok=True)
+    for old in runs.iterdir():
+        try:
+            if time.time() - old.stat().st_mtime > 86400:
+                shutil.rmtree(old, ignore_errors=True)
+        except Exception:
+            pass
+    webview.start(private_mode=False, storage_path=str(runs / f"{int(time.time())}_{os.getpid()}"))
     log("exit" if bridge.done else "exit without data")
     sys.exit(0 if bridge.done else 2)
 
