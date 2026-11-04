@@ -29,7 +29,12 @@ jobs:
           pyinstaller --noconfirm --clean --onedir --windowed --name SUBmonitor --icon app.ico --add-data "web;web" --collect-all webview --hidden-import notify --hidden-import tt_worker --hidden-import launcher --hidden-import kma --hidden-import bambu --hidden-import winmon --collect-submodules paho app.py
           Copy-Item config.json dist\SUBmonitor\config.json
           $ProgressPreference = 'SilentlyContinue'
-          Invoke-WebRequest "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile ff.zip
+          # ffmpeg 받기: gyan.dev 가 가끔 503 → 3번 재시도 후 GitHub(BtbN) 빌드로
+          $ok = $false
+          foreach ($u in @("https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip", "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip", "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip", "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip")) {
+            try { Invoke-WebRequest $u -OutFile ff.zip -TimeoutSec 300; $ok = $true; break } catch { Write-Host "ffmpeg 받기 실패: $u"; Start-Sleep 10 }
+          }
+          if (-not $ok) { throw "ffmpeg 를 받지 못함" }
           Expand-Archive ff.zip -DestinationPath ff
           Copy-Item (Get-ChildItem ff -Recurse -Filter ffmpeg.exe | Select-Object -First 1).FullName dist\SUBmonitor\ffmpeg.exe
           Copy-Item README.md dist\SUBmonitor\README.md
