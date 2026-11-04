@@ -13,7 +13,9 @@ function closeDetail() { detailKind = null; document.body.classList.remove('deta
 function bumpIdle() { clearTimeout(idleT); if (detailKind) idleT = setTimeout(closeDetail, DETAIL_IDLE); }
 const VIEW_DEPS = { today: ['timetable', 'events'], weather: ['weather'], timetable: ['timetable'], events: ['events'], school: ['events'], pc: ['system'], messages: ['messages'], printer: ['printer'] };
 let schoolDept = '';
-function onDataChange(kind) { if (detailKind && (!kind || VIEW_DEPS[detailKind].includes(kind))) renderDetail(); }
+function onDataChange(kind) {
+  if (document.activeElement && document.activeElement.closest && document.activeElement.closest('.evform')) return;   // 일정 입력 중엔 다시 그리지 않음 (글자가 지워짐)
+  if (detailKind && (!kind || VIEW_DEPS[detailKind].includes(kind))) renderDetail(); }
 let evDraft = { title: '', date: '', time: '', all_day: false }, evMsg = '';
 
 function renderDetail() {
@@ -70,7 +72,7 @@ function viewToday() {
   const list = todays.length ? todays.map(e => { const s = new Date(e.start), en = e.end ? new Date(e.end) : s;
     return `<div class="dli ${!e.all_day && d >= s && d < en ? 'now' : ''}"><span class="t">${e.all_day ? '종일' : pad(s.getHours()) + ':' + pad(s.getMinutes())}</span><span class="n">${esc(e.title)}</span>${e.tag ? `<small class="tag">${esc(e.tag)}</small>` : ''}</div>`; }).join('')
     : '<div class="dli muted">오늘 일정 없음</div>';
-  const title = tt && tt.days[tt.today].title && isSchoolDay ? `<div class="tchip hl" style="margin-top:8px">📌 ${esc(tt.days[tt.today].title)}</div>` : '';
+  const title = tt && tt.days && tt.days[tt.today] && tt.days[tt.today].title && isSchoolDay ? `<div class="tchip hl" style="margin-top:8px">📌 ${esc(tt.days[tt.today].title)}</div>` : '';
   const big = `<div class="dcard tclock"><div class="bt">${pad(d.getHours() % 12 || 12)}<span>:</span>${pad(d.getMinutes())}</div>
     <div class="bs">${d.getHours() < 12 ? '오전' : '오후'} · ${pad(d.getSeconds())}초</div>
     <div class="bd">${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일</div>${title}</div>`;
@@ -318,7 +320,10 @@ window.addEventListener('DOMContentLoaded', () => {
     const w = e.target.closest('[data-wk]'); if (w) { const k = Number(w.dataset.wk); if (k === 0) { ttWeekSel = null; ttRetry = 0; loadTimetable(); } else changeWeek(k); }
   });
   document.addEventListener('pointerdown', bumpIdle);
+  let procBusy = false;
   setInterval(() => {
-    if (detailKind === 'pc' && window.pywebview) pywebview.api.get_processes().then(p => { procs = p || []; });
+    if (procBusy || detailKind !== 'pc' || !window.pywebview) return;
+    procBusy = true;
+    pywebview.api.get_processes().then(p => { procs = p || []; }).catch(() => {}).finally(() => { procBusy = false; });
   }, 5000);
 });

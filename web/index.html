@@ -565,8 +565,11 @@ function rainAlert(d) {   // 앞으로 12시간 비 예보: "15시부터 비 70%
 }
 async function loadWeather() {
   const d = await pywebview.api.get_weather();
+  if (!d || d.error || !d.current || !(d.hourly && d.hourly.time) || !(d.daily && d.daily.time)) {   // 일부만 온 날씨로는 그리지 않음 (예전 값 유지)
+    if (!weatherData) $('wbody').innerHTML = `<div class="err">날씨 오류: ${esc((d && d.error) || '데이터 부족')}</div>`;
+    return;
+  }
   weatherData = d; if (window.onDataChange) onDataChange('weather');
-  if (d.error) { $('wbody').innerHTML = `<div class="err">날씨 오류: ${esc(d.error)}</div>`; return; }
   $('wname').textContent = weatherName + (d.source ? ' · ' + d.source : '');
   const c = d.current, [ic, desc] = wmo(c.weather_code, c.is_day), air = d.air || {};
   if (window.updateWeatherFx) updateWeatherFx(c.weather_code, c.is_day, c.wind_speed_10m);   // 비·눈·구름 효과
@@ -802,6 +805,7 @@ function renderTodayBox() {
 let eventsCache = [], eventsErr = null;
 async function loadEvents() {
   const r = await pywebview.api.get_events();
+  if (!r) return;
   if (r.error && !r.events) { $('events').innerHTML = `<div class="muted" style="font-size:17px;line-height:1.6">${esc(r.error)}</div>`; renderCal(); return; }
   eventsCache = r.events || []; eventsErr = r.error;
   renderEvents();
@@ -894,6 +898,7 @@ function spark(arr, max, color, Hh = 34) {
 const speed = b => b > 1048576 ? (b / 1048576).toFixed(1) + 'MB/s' : (b / 1024).toFixed(0) + 'KB/s';
 async function loadSystem() {
   const s = await pywebview.api.get_system();
+  if (!s) return;
   let h = '<div class="ring-row">' + ring(s.cpu, 'CPU') + ring(s.ram, 'RAM');
   h += s.gpu ? ring(s.gpu.load, `GPU ${Math.round(s.gpu.temp)}°`) : '';
   h += s.battery != null ? ring(s.battery, '배터리') : ring(s.disk, '디스크');
@@ -915,7 +920,7 @@ async function loadSystem() {
 let msgData = { count: 0, items: [], source: 'none', error: '' };
 const timeAgo = iso => { const m = Math.round((Date.now() - new Date(iso)) / 60000); return m < 1 ? '방금' : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.floor(m / 60)}시간 전` : `${Math.floor(m / 1440)}일 전`; };
 async function loadMessages() {
-  msgData = await pywebview.api.get_messages() || msgData;
+  msgData = Object.assign({ count: 0, items: [] }, (await pywebview.api.get_messages()) || msgData);
   renderMessages();
   if (window.onDataChange) onDataChange('messages');
 }
@@ -950,10 +955,11 @@ function checkPrAlert(p) {
   const st = p.connected ? p.state : null, prev = prPrev;
   if (st) prPrev = st;
   if (!st) return;
+  if (st === 'RUNNING' || st === 'PREPARE') { try { localStorage.removeItem('prAck'); } catch (e) {} }   // 새 출력이 시작되면 예전 확인 기록은 지움 (같은 파일 다시 출력해도 알림)
   const key = `${st}|${p.name || ''}|${p.layer ?? ''}`;
-  const alarm = st === 'PAUSE' || st === 'FAILED';
+  const alarm = st === 'PAUSE' || (st === 'FAILED' && Number(p.print_error) !== 50348044);   // 50348044(0x0300400C) = 사용자가 취소 → 실패 알림 아님
   if ($('pralert').classList.contains('on') && !alarm && st !== 'FINISH') { hidePrAlert(false); return; }   // 다시 출력 시작하면 자동으로 닫힘
-  const fire = (alarm && (prev !== st)) || (st === 'FINISH' && prev && prev !== 'FINISH');   // 완료는 출력 중에서 넘어올 때만
+  const fire = prev != null && ((alarm && prev !== st) || (st === 'FINISH' && ['RUNNING', 'PREPARE', 'PAUSE'].includes(prev)));   // 켤 때 이미 멈춰 있던 건 안 띄움, 완료는 출력 중에서 넘어올 때만
   let acked = ''; try { acked = localStorage.getItem('prAck') || ''; } catch (e) {}
   if (fire && key !== acked) { prAlertKey = key; showPrAlert(p); }
 }
@@ -1061,7 +1067,8 @@ function fitAll() {
 }
 if (document.fonts) document.fonts.ready.then(fitAll);
 window.addEventListener('resize', fitAll);
-new MutationObserver(() => { cancelAnimationFrame(window._fitT); window._fitT = requestAnimationFrame(fitAll); })   // 그리기 전에 정리 → 넘친 항목이 잠깐 보였다 사라지는 깜빡임 없음
+new MutationObserver(recs => { if (recs.every(r => r.target.closest && r.target.closest('#time, #ampm, #dclock, .bt, .bs, .prcamwait'))) return;   // 매초 바뀌는 시계만이면 넘침 정리 안 함 (CPU 절약)
+  cancelAnimationFrame(window._fitT); window._fitT = requestAnimationFrame(fitAll); })   // 그리기 전에 정리 → 넘친 항목이 잠깐 보였다 사라지는 깜빡임 없음
   .observe(document.body, { childList: true, subtree: true });
 
 /* ---------- 무대 맞춤: 창/배율이 달라도 1920×440 디자인을 그대로 축소·확대 ---------- */
@@ -1082,9 +1089,10 @@ function fitStage() {
 addEventListener('resize', fitStage); fitStage();
 
 /* ---------- 시작 ---------- */
+const once = f => { let busy = false; return async () => { if (busy) return; busy = true; try { await f(); } catch (e) {} finally { busy = false; } }; };
 tickClock(); setInterval(tickClock, 1000);
 window.addEventListener('pywebviewready', async () => {
-  const cfg = await pywebview.api.get_config();
+  let cfg = {}; try { cfg = (await pywebview.api.get_config()) || {}; } catch (e) {}   // 설정을 못 읽어도 나머지는 돌게
   weatherName = cfg.weather_name; $('wname').textContent = cfg.weather_name; schoolUrl = cfg.school_url || '';
   if (cfg.max_panels) MAX_PANELS = cfg.max_panels;
   if (cfg.night) NIGHT = Object.assign(NIGHT, cfg.night);
@@ -1165,10 +1173,10 @@ window.addEventListener('pywebviewready', async () => {
     const r = await pywebview.api.launch_app(b.dataset.app);
     appToast(r && r.ok ? `${a ? a.name : ''} 실행` : (r && r.error) || '실행하지 못했습니다');
   });
-  setInterval(loadSystem, 2000);
-  setInterval(loadMessages, 10 * 1000);
+  setInterval(once(loadSystem), 2000);   // 앞 호출이 안 끝났으면 건너뜀 (멈췄을 때 호출이 쌓이지 않게)
+  setInterval(once(loadMessages), 10 * 1000);
   $('praOk').onclick = () => hidePrAlert(true);
-  loadPrinter(); setInterval(loadPrinter, 5000); setInterval(loadPrinterFrame, 1000);
+  loadPrinter(); setInterval(once(loadPrinter), 5000); setInterval(once(loadPrinterFrame), 1000);
   setInterval(loadWeather, 15 * 60 * 1000);
   setInterval(loadEvents, 10 * 60 * 1000);
   setInterval(loadTimetable, 60 * 1000);   // 사이트 변경사항(실시간 동기화) 반영

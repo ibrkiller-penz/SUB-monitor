@@ -176,14 +176,13 @@
           if (o !== b && !o.slide && Math.abs(o.x - b.x) < (b.r + o.r) * DROP && Math.abs(o.y - b.y) < (b.r + o.r) * DROP && o.r > 1.3) {
             b.r = Math.min(8, Math.sqrt(b.r * b.r + o.r * o.r * .5)); beads.splice(j, 1); if (j < i) i--; }
         }
-        b.sp = null;
       }
       if (b.trail.length > 2) {   // 흘러간 자리의 젖은 자국 (아주 옅게)
         ctx.strokeStyle = 'rgba(230,240,255,.07)'; ctx.lineWidth = Math.max(.8, b.r * .5 * DROP);
         ctx.beginPath(); b.trail.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
       }
       if (b.life > 150) b.fade -= dt * .25;
-      if (!b.sp || Math.abs(b.r - b.spR) > .35 || Math.abs(b.y - b.spY) > 14) { b.sp = dropSprite(b); b.spR = b.r; b.spY = b.y; }   // 굴절 모습은 조금씩 움직일 때마다 갱신
+      if (!b.sp || Math.abs(b.r - b.spR) > .6 || Math.abs(b.y - b.spY) > (b.slide ? 24 : 40)) { b.sp = dropSprite(b); b.spR = b.r; b.spY = b.y; }   // 굴절 모습은 조금씩 움직일 때마다 갱신
       ctx.globalAlpha = Math.max(0, b.a * b.fade);
       ctx.drawImage(b.sp, b.x - b.sp.width / 2, b.y - b.sp.height / 2);
       ctx.globalAlpha = 1;

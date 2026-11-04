@@ -7,6 +7,7 @@
 주간(4일 이후)·일출·일몰·미세먼지는 Open-Meteo 값을 그대로 둔다.
 """
 import math
+import re
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -65,11 +66,21 @@ def _code(pty, sky=1, rain=0.0, lgt=0):
     return {1: 0, 3: 2, 4: 3}.get(sky, 1)
 
 
-def _num(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0   # "강수없음" 등
+def _num(v, miss=0.0):
+    """숫자만 뽑는다: "1.0mm", "30.0~50.0mm", "1mm 미만" → 앞 숫자. 기상청 결측(±900 이상)·"강수없음"은 miss."""
+    m = re.search(r"-?\d+(\.\d+)?", str(v if v is not None else ""))
+    if not m:
+        return miss
+    x = float(m.group())
+    return miss if abs(x) >= 900 else x
+
+
+NET = ("ConnectionError", "ConnectTimeout", "ReadTimeout", "Timeout", "SSLError", "ChunkedEncodingError")
+
+
+def _down(errs):
+    """앞 단계가 네트워크 오류였으면 나머지 기상청 호출은 건너뜀 (서버가 죽었을 때 3분씩 매달리지 않게)."""
+    return any(e.endswith(NET) for e in errs)
 
 
 def check(key, lat, lon):
@@ -107,9 +118,13 @@ def overlay(data, key, lat, lon, now=None, land="11H20000", ta="11H20201"):
 
     # 초단기실황: 매시 정각 관측, 40분쯤부터 조회 가능
     try:
+        if _down(errs):
+            raise RuntimeError("건너뜀")
         base = (now - timedelta(minutes=45)).replace(minute=0, second=0, microsecond=0)
         v = {i["category"]: i["obsrValue"] for i in _get(key, "getUltraSrtNcst", base, nx, ny, 10)}
-        t, om_t = _num(v.get("T1H")), c.get("temperature_2m")
+        t, om_t = _num(v.get("T1H"), None), c.get("temperature_2m")
+        if t is None:
+            raise RuntimeError("기온 결측")   # Open-Meteo 현재값을 그대로 둔다
         if om_t is not None and c.get("apparent_temperature") is not None:
             c["apparent_temperature"] = c["apparent_temperature"] + (t - om_t)
         else:
@@ -127,6 +142,8 @@ def overlay(data, key, lat, lon, now=None, land="11H20000", ta="11H20201"):
 
     # 단기예보: 02·05·08·11·14·17·20·23시 발표(10분 뒤 조회). 3일치 1000줄 정도
     try:
+        if _down(errs):
+            raise RuntimeError("건너뜀")
         t0 = now - timedelta(minutes=15)
         h = max(x for x in (-1, 2, 5, 8, 11, 14, 17, 20, 23) if x <= t0.hour)
         base = (t0.replace(hour=23) - timedelta(days=1)) if h < 0 else t0.replace(hour=h)
@@ -146,6 +163,8 @@ def overlay(data, key, lat, lon, now=None, land="11H20000", ta="11H20201"):
 
     # 중기예보: 4~10일 뒤 (06·18시 발표). 단기예보가 채운 날은 건드리지 않음
     try:
+        if _down(errs):
+            raise RuntimeError("건너뜀")
         _merge_mid(data, key, now, short, land, ta)
     except Exception as e:
         errs.append(f"중기예보 {e}")
@@ -252,14 +271,14 @@ def _merge_mid(data, key, now, short, land, ta):
 
     def get(op, reg):
         r = None
-        for n in range(3):
+        for n in range(2):
             try:
                 r = requests.get(URL.replace("VilageFcstInfoService_2.0", "MidFcstInfoService") + op, params={
                     "serviceKey": key, "pageNo": 1, "numOfRows": 10, "dataType": "JSON",
                     "regId": reg, "tmFc": base.strftime("%Y%m%d%H%M")}, timeout=10)
                 break
             except requests.RequestException as e:
-                if n == 2:
+                if n == 1:
                     raise RuntimeError(type(e).__name__) from None
         if r.status_code != 200:
             raise RuntimeError("인증키 오류" if r.status_code in (401, 403) else f"HTTP {r.status_code}")
@@ -303,14 +322,14 @@ def airkorea(key, station):
     """에어코리아 측정소별 실시간 측정정보 (같은 공공데이터포털 인증키).
     최근 몇 시간 중 값이 있는 첫 줄의 PM10·PM2.5 (점검 중이면 '-' 로 옴)."""
     r = None
-    for n in range(3):
+    for n in range(2):
         try:
             r = requests.get("https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty", params={
                 "serviceKey": key, "returnType": "json", "numOfRows": 4, "pageNo": 1,
                 "stationName": station, "dataTerm": "DAILY", "ver": "1.3"}, timeout=10)
             break
         except requests.RequestException as e:
-            if n == 2:
+            if n == 1:
                 raise RuntimeError(type(e).__name__) from None
     if r.status_code != 200:
         raise RuntimeError("인증키 오류" if r.status_code in (401, 403) else f"HTTP {r.status_code}")

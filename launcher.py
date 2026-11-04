@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 
 IS_WIN = sys.platform == "win32"
@@ -205,6 +206,11 @@ class Launchers:
             return
         if not force and all((ICON_DIR / f"{it['id']}.png").exists() and (self.found.get(it["id"]) or {}).get("how") for it in self.items):
             return
+        try:   # 못 찾은 프로그램이 있어도 일주일 안에 찾아봤으면 자동으로 다시 디스크를 뒤지지 않음 (켤 때마다 최대 3분)
+            if not force and FOUND.exists() and time.time() - FOUND.stat().st_mtime < 7 * 86400:
+                return
+        except OSError:
+            pass
         self._busy = True
 
         def work():

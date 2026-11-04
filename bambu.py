@@ -21,6 +21,24 @@ from pathlib import Path
 NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 
 
+def _shutting_down():
+    """Windows 종료·로그오프 중이면 새 프로세스(ffmpeg)를 띄우지 않는다 (종료 오류 창 방지)."""
+    if os.name != "nt":
+        return False
+    try:
+        import ctypes
+        return bool(ctypes.windll.user32.GetSystemMetrics(0x2000))
+    except Exception:
+        return False
+
+
+def _deep(d, u):
+    """MQTT 부분 갱신을 중첩 dict 까지 합친다 (device·ams 같은 하위 묶음이 통째로 바뀌어 노즐 온도가 사라지지 않게)."""
+    for k, v in u.items():
+        d[k] = _deep(dict(d[k]), v) if isinstance(v, dict) and isinstance(d.get(k), dict) else v
+    return d
+
+
 def find_ffmpeg():
     here = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
     for p in (Path(sys.executable).parent / "ffmpeg.exe", here / "ffmpeg.exe", Path(__file__).parent / "ffmpeg.exe"):
@@ -89,11 +107,7 @@ class Printer:
             threading.Thread(target=self._cam_loop, daemon=True).start()
 
     def stop(self):
-        self._stop = True
-        try:
-            self._mqtt and self._mqtt.disconnect()
-        except Exception:
-            pass
+        self._stop = True   # MQTT 루프가 1초 안에 보고 스스로 끊는다
         self._kill_ff()
 
     # ---------- 상태 (MQTT) ----------
@@ -121,8 +135,19 @@ class Printer:
                 c.on_connect = self._on_connect
                 c.on_message = self._on_message
                 c.on_disconnect = lambda *a: setattr(self, "connected", False)
-                c.connect(CLOUD_MQTT if self.cloud else self.ip, 8883, keepalive=60)
-                c.loop_forever()
+                c.on_connect_fail = lambda *a: setattr(self, "error", "연결 실패 — 프린터·네트워크 확인")
+                # connect_async + loop_start: 접속 중에 stop() 이 와도 이 루프가 확실히 끊고 나간다
+                c.connect_async(CLOUD_MQTT if self.cloud else self.ip, 8883, keepalive=60)
+                c.loop_start()
+                try:
+                    while not self._stop:
+                        time.sleep(1)
+                finally:
+                    try:
+                        c.disconnect()
+                    except Exception:
+                        pass
+                    c.loop_stop()
             except Exception as e:
                 self.connected, self.error = False, f"연결 실패: {e}"
             if not self._stop:
@@ -141,7 +166,7 @@ class Printer:
         except Exception:
             return
         if isinstance(p, dict):
-            self.state.update(p)
+            self.state = _deep(dict(self.state), p)   # 새 dict 로 바꿔 끼워 읽는 쪽과 충돌 없게
             self.updated = time.time()
 
     def status(self):
@@ -182,14 +207,30 @@ class Printer:
         if p:
             try:
                 p.kill()
+                p.wait(timeout=5)
             except Exception:
                 pass
 
+    def _ff_watch(self, p, t0):
+        """화면이 30초 넘게 안 오면(프린터 절전·와이파이 끊김으로 읽기가 멈춤) ffmpeg 를 끈다."""
+        while p.poll() is None and not self._stop:
+            time.sleep(5)
+            if time.time() - max(self.frame_at, t0) > 30:
+                try:
+                    p.kill()
+                except Exception:
+                    pass
+                return
+
     def _cam_loop(self):
+        fails = 0
         while not self._stop:
             if time.time() - self._want_cam > 20:   # 아무도 안 보면 끈다
                 self._kill_ff()
                 time.sleep(1)
+                continue
+            if _shutting_down():
+                time.sleep(5)
                 continue
             ff = find_ffmpeg()
             if not ff:
@@ -199,16 +240,18 @@ class Printer:
             url = f"rtsps://bblp:{self.code}@{self.ip}:322/streaming/live/1"
             try:
                 self._ff = subprocess.Popen(
-                    [ff, "-hide_banner", "-loglevel", "error", "-rtsp_transport", "tcp", "-i", url,
+                    [ff, "-hide_banner", "-loglevel", "error", "-rtsp_transport", "tcp", "-timeout", "10000000", "-i", url,
                      "-an", "-vf", "fps=2,scale=960:-2", "-q:v", "6", "-f", "image2pipe", "-vcodec", "mjpeg", "-"],
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
                 threading.Thread(target=self._ff_err, args=(self._ff,), daemon=True).start()
+                threading.Thread(target=self._ff_watch, args=(self._ff, time.time()), daemon=True).start()
                 self._read_jpegs(self._ff)
             except Exception as e:
                 self.cam_error = f"카메라 오류: {e}"
             self._kill_ff()
+            fails = fails + 1 if time.time() - self.frame_at > 30 else 0   # 프린터가 꺼져 있으면 점점 길게 쉼 (최대 5분)
             if not self._stop:
-                time.sleep(5)
+                time.sleep(min(5 * 2 ** fails, 300))
 
     def _ff_err(self, p):
         try:

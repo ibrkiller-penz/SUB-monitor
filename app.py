@@ -223,27 +223,32 @@ class Api:
         self._cpu = 0.0
         threading.Thread(target=self._cpu_sampler, daemon=True).start()
         self.printer = None
+        self._pr_lock = threading.Lock()
         self._start_printer()
 
     # ---- 3D 프린터 (bambu.py, 같은 네트워크 직접) ----
     def _start_printer(self):
-        if self.printer:
-            self.printer.stop()
-            self.printer = None
+        with self._pr_lock:   # 설정 저장·로그인이 동시에 오면 프린터 연결이 두 개 생겨 하나가 안 꺼짐
+            old, self.printer = self.printer, None
+            if old:
+                old.stop()
+            self._start_printer_locked()
+
+    def _start_printer_locked(self):
         p = self.cfg.get("printer") or {}
         from bambu import Printer
         if p.get("mode") == "cloud" and p.get("token") and p.get("serial"):
-            self.printer = Printer("", "", p["serial"], log=log, cloud={"uid": p["uid"], "token": p["token"]})
+            self.printer = Printer("", "", p["serial"], log=log, cloud={"uid": str(p.get("uid", "")), "token": p["token"]})
         elif p.get("ip") and p.get("code") and p.get("serial"):
             self.printer = Printer(p["ip"], p["code"], p["serial"], log=log)
 
     def get_printer(self):
-        if not self.printer:
-            return {"configured": False}
-        return self.printer.status()
+        p = self.printer
+        return p.status() if p else {"configured": False}
 
     def get_printer_frame(self):
-        return self.printer.get_frame() if self.printer else {"ok": False, "error": "프린터 설정 없음"}
+        p = self.printer
+        return p.get_frame() if p else {"ok": False, "error": "프린터 설정 없음"}
 
     def set_printer(self, p):
         """설정의 프린터 IP·액세스 코드·시리얼. 코드를 비워 두면 예전 코드를 그대로 쓴다."""
@@ -786,7 +791,9 @@ class Api:
                         land=w.get("kma_mid_land", "11H20000"), ta=w.get("kma_mid_ta", "11H20201"))
             if data.get("kma_error"):
                 log(f"kma: {data['kma_error']}")
-            try:   # 미세먼지는 에어코리아 측정소 실측값으로
+            try:   # 미세먼지는 에어코리아 측정소 실측값으로 (공공데이터포털이 안 되면 건너뜀)
+                if any(n in (data.get("kma_error") or "") for n in kma.NET):
+                    raise RuntimeError("공공데이터포털 연결 안 됨")
                 data["air"] = kma.airkorea(key, w.get("air_station", "명장동"))
             except Exception as e:
                 log(f"airkorea: {e}")
@@ -1106,6 +1113,8 @@ def main():
     finally:
         api._closing = True
         api.stop_worker()
+        if api.printer:
+            api.printer.stop()   # ffmpeg 가 앱보다 오래 남지 않게
         log("exit")
 
 

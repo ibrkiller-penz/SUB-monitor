@@ -53,7 +53,9 @@
     const octx = out.getContext('2d', { willReadFrequently: true });
     running = true;
     let started = false, mode = '';
-    const cleanup = () => { dim.remove(); v.remove(); out.remove(); dust.remove(); running = false; };
+    let wd = 0;
+    const cleanup = () => { clearTimeout(wd); dim.remove(); v.remove(); out.remove(); dust.remove(); running = false; };
+    wd = setTimeout(cleanup, DURATION + 8000);   // 영상이 안 열리거나 그리다 오류가 나도 화면이 어두운 채 멈추지 않게
     v.onerror = () => { cleanup(); CFG.video = ''; fly(); };
     v.onloadeddata = () => {
       if (started) return; started = true;
@@ -133,6 +135,7 @@
     const t0 = performance.now();
     running = true;
     cv.style.opacity = '1';
+    setTimeout(() => { if (running && performance.now() - t0 > DURATION + 3000) { cv.style.opacity = '0'; ctx.clearRect(0, 0, W, H); running = false; } }, DURATION + 5000);   // 그리다 오류가 나도 멈춘 채 남지 않게
 
     const wave = (s, t) => mid + amp * Math.sin(s / 170 - t * 2.6) + amp * 0.22 * Math.sin(s / 67 + t * 1.5);
     const pt = (s, t) => portrait ? [wave(s, t), L + 260 - s] : [L + 260 - s, wave(s, t)];

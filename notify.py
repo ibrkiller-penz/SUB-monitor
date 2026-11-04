@@ -12,6 +12,7 @@ import glob
 import os
 import re
 import sqlite3
+from contextlib import closing
 import sys
 import time
 import zlib
@@ -70,6 +71,7 @@ class UdbReader:
         self.cols = {k: v for k, v in (cfg.get("columns") or {}).items() if v}
         self.unread_only = cfg.get("unread_only", True)
         self.error = ""
+        self._cfg_path = cfg.get("path") or ""
         if not self.path:
             self.path = self.find()
 
@@ -85,7 +87,10 @@ class UdbReader:
             path = os.path.join(path, "*.udb")
         if any(c in path for c in "*?["):
             hits = [h for h in glob.glob(path) if os.path.isfile(h)]
-            return max(hits, key=os.path.getmtime) if hits else ""
+            try:
+                return max(hits, key=os.path.getmtime) if hits else ""
+            except OSError:   # 고르는 사이 파일 이름이 바뀐 경우
+                return hits[0] if hits else ""
         return path
 
     @staticmethod
@@ -93,9 +98,12 @@ class UdbReader:
         for base in UDB_SEARCH:
             if base and os.path.isdir(base):
                 hits = glob.glob(os.path.join(base, "**", "*.udb"), recursive=True) + glob.glob(os.path.join(base, "**", "*.db"), recursive=True)
-                hits = [h for h in hits if os.path.getsize(h) > 10_000]
-                if hits:
-                    return max(hits, key=os.path.getmtime)
+                try:
+                    hits = [h for h in hits if os.path.getsize(h) > 10_000]
+                    if hits:
+                        return max(hits, key=os.path.getmtime)
+                except OSError:
+                    continue
         return ""
 
     def _conn(self):
@@ -124,10 +132,12 @@ class UdbReader:
         return f"({col} IN (0, '0', 'N', 'n', '') OR {col} IS NULL)"
 
     def poll(self, limit=20):
+        if not self.path or not os.path.exists(self.path):   # 켤 때 없었거나 바뀐 경우 다시 찾는다
+            self.path = self.resolve(self._cfg_path) or self.find()
         if not self.path or not os.path.exists(self.path):
             self.error = "UDB 파일을 찾지 못함 (config.json > udb.path 지정)"
             return []
-        with self._conn() as con:
+        with closing(self._conn()) as con:
             cols, names = self._resolve_cols(con)
             if "content" not in cols and "title" not in cols:
                 self.error = f"{self.table} 컬럼을 해석하지 못함: {names}"
@@ -207,7 +217,9 @@ class MessageWatcher:
     def _poll_listener(self):
         import asyncio
         from winsdk.windows.ui.notifications import NotificationKinds, KnownNotificationBindings
-        notifs = asyncio.run(self._listener.get_notifications_async(NotificationKinds.TOAST))
+        async def _get():   # Windows 알림 조회가 응답 없으면 3초 뒤 포기 (스레드가 쌓이지 않게)
+            return await asyncio.wait_for(self._listener.get_notifications_async(NotificationKinds.TOAST), 3)
+        notifs = asyncio.run(_get())
         found = []
         for n in notifs:
             try:
