@@ -34,8 +34,10 @@ def cache_path(teacher):
 def log(msg):
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
+        if LOG_FILE.exists() and LOG_FILE.stat().st_size > 1_000_000:
+            os.replace(LOG_FILE, LOG_FILE.with_suffix(".log.1"))
         with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(f"{time.strftime('%H:%M:%S')} {msg}\n")
+            f.write(f"{time.strftime('%m-%d %H:%M:%S')} {msg}\n")
     except Exception:
         pass
 
@@ -75,7 +77,14 @@ class Bridge:
             CACHE_DIR.mkdir(parents=True, exist_ok=True)
             tmp = out.with_suffix(".tmp")
             tmp.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
-            tmp.replace(out)
+            for i in range(5):   # 앱이 그 순간 캐시를 읽고 있으면 Windows 가 바꿔치기를 막음 → 잠깐 뒤 다시
+                try:
+                    tmp.replace(out)
+                    break
+                except PermissionError:
+                    if i == 4:
+                        raise
+                    time.sleep(0.3)
             log(f"cache saved teacher={d.get('teacher')} weeks={len(d.get('weeks') or [])}")
         except Exception as e:
             log(f"push write failed: {e}")
@@ -127,23 +136,35 @@ def main():
                 win.destroy()
             except Exception:
                 pass
-            time.sleep(10)   # 창이 안 닫히고 멈춰 있으면 프로세스째 끝낸다
-            log("force exit")
-            os._exit(3)
+        time.sleep(10)   # 여기까지 안 끝났으면(성공 후 창 닫기가 멈춘 경우도) WebView2 하위 프로세스까지 끄고 끝낸다
+        log("force exit")
+        try:
+            import psutil
+            for c in psutil.Process().children(recursive=True):
+                try:
+                    c.kill()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        os._exit(0 if bridge.done else 3)
 
     win.events.loaded += on_loaded
     threading.Thread(target=watchdog, daemon=True).start()
     # 대시보드와 다른 WebView2 프로필을 써야 두 프로세스가 충돌하지 않는다
-    # 실행마다 새 폴더: 이전 워커의 WebView2 가 남아 폴더를 잠가도 이번 실행은 막히지 않게 (하루 지난 폴더는 정리)
+    # 실행마다 새 폴더: 이전 워커의 WebView2 가 남아 폴더를 잠가도 이번 실행은 막히지 않게 (1시간 지난 폴더는 정리)
     runs = DATA_DIR / "tt_runs"
     runs.mkdir(parents=True, exist_ok=True)
     for old in runs.iterdir():
         try:
-            if time.time() - old.stat().st_mtime > 86400:
+            if time.time() - old.stat().st_mtime > 3600:
                 shutil.rmtree(old, ignore_errors=True)
         except Exception:
             pass
-    webview.start(private_mode=False, storage_path=str(runs / f"{int(time.time())}_{os.getpid()}"))
+    run_dir = runs / f"{int(time.time())}_{os.getpid()}"
+    webview.start(private_mode=False, storage_path=str(run_dir))
+    time.sleep(1)
+    shutil.rmtree(run_dir, ignore_errors=True)   # 실행마다 수십 MB → 끝나면 바로 지움
     log("exit" if bridge.done else "exit without data")
     sys.exit(0 if bridge.done else 2)
 

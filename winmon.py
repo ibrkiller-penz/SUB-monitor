@@ -33,6 +33,21 @@ class _Aware:
                 pass
 
 
+def _hwnd(title):
+    """이 프로세스의 창만 찾는다 (탐색기에서 'SUBmonitor' 폴더를 열면 그 창 제목도 같아서 엉뚱한 창을 옮겼음)."""
+    u = ctypes.windll.user32
+    u.FindWindowExW.restype = wintypes.HWND
+    pid = wintypes.DWORD()
+    h = None
+    while True:
+        h = u.FindWindowExW(None, h, None, title)
+        if not h:
+            return None
+        u.GetWindowThreadProcessId(h, ctypes.byref(pid))
+        if pid.value == os.getpid():
+            return h
+
+
 class _MI(ctypes.Structure):
     _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT), ("rcWork", wintypes.RECT),
                 ("dwFlags", wintypes.DWORD), ("szDevice", wintypes.WCHAR * 32)]
@@ -87,7 +102,7 @@ def is_placed(title, m):
         return True
     u = ctypes.windll.user32
     with _Aware():
-        hwnd = u.FindWindowW(None, title)
+        hwnd = _hwnd(title)
         if not hwnd or u.IsIconic(hwnd):
             return True
         r = wintypes.RECT()
@@ -97,7 +112,7 @@ def is_placed(title, m):
 
 def _place(title, m):
     u = ctypes.windll.user32
-    hwnd = u.FindWindowW(None, title)
+    hwnd = _hwnd(title)
     if not hwnd:
         return False
     GWL_STYLE, WS_CAPTION, WS_THICKFRAME = -16, 0x00C00000, 0x00040000
@@ -121,7 +136,7 @@ def on_monitor(title, m):
     if os.name != "nt" or not m:
         return True
     u = ctypes.windll.user32
-    hwnd = u.FindWindowW(None, title)
+    hwnd = _hwnd(title)
     if not hwnd or u.IsIconic(hwnd):
         return True
     u.MonitorFromWindow.restype = wintypes.HMONITOR

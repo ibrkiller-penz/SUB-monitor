@@ -130,8 +130,10 @@ def log(msg):
     """문제 추적용 로그 (~/.lesown_dashboard/app.log)."""
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
+        if LOG_FILE.exists() and LOG_FILE.stat().st_size > 2_000_000:   # 2MB 넘으면 하나만 남기고 돌림
+            os.replace(LOG_FILE, LOG_FILE.with_suffix(".log.1"))
         with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(f"{time.strftime('%H:%M:%S')} {msg}\n")
+            f.write(f"{time.strftime('%m-%d %H:%M:%S')} {msg}\n")
     except Exception:
         pass
 
@@ -157,7 +159,21 @@ def load_config():
         pass
     except Exception as e:
         log(f"config.local.json read failed: {e}")
+        try:   # 깨진 개인 설정은 덮어쓰기 전에 따로 보관 (교사 이름·인증키·프린터 토큰을 잃지 않게)
+            shutil.copyfile(LOCAL_CONFIG, LOCAL_CONFIG.with_suffix(".bad"))
+        except Exception:
+            pass
     return cfg
+
+
+_SAVE_LOCK = threading.Lock()
+
+
+def write_atomic(path, text):
+    """임시 파일에 쓴 뒤 바꿔치기 — 쓰는 도중 전원이 꺼져도 파일이 비지 않는다."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def save_config(cfg):
@@ -169,8 +185,8 @@ def save_config(cfg):
         base = {}
     # 공용 기본값과 같은 항목은 저장하지 않는다 → 나중에 기본값이 바뀌면 그대로 따라감
     local = {k: cfg[k] for k in LOCAL_KEYS if k in cfg and cfg[k] != base.get(k)}
-    with open(LOCAL_CONFIG, "w", encoding="utf-8") as f:
-        json.dump(local, f, ensure_ascii=False, indent=2)
+    with _SAVE_LOCK:
+        write_atomic(LOCAL_CONFIG, json.dumps(local, ensure_ascii=False, indent=2))
 
 
 def timed(fn):
@@ -193,7 +209,9 @@ class Api:
         self._tt_spawn_at = 0.0   # 마지막으로 띄운 시각
         self._tt_next = 0.0       # 이 시각 전에는 다시 띄우지 않음 (실패 시 점점 길어짐)
         self._tt_fail = 0
-        self._tt_lock = threading.Lock()
+        self._tt_lock = threading.RLock()
+        self._fs_lock = threading.Lock()
+        self._closing = False
         self._tt_mem = (None, 0.0, None)   # (경로, mtime, 캐시 내용)
         threading.Thread(target=self._tt_refresher, daemon=True).start()
         self._gpu = (0.0, None)   # (마지막 조회 시각, 값) — nvidia-smi 는 10초마다만
@@ -267,6 +285,10 @@ class Api:
         w = getattr(self, "_win", None)
         if not w or not m:
             return False
+        with self._fs_lock:   # 설정 변경과 30초 확인이 동시에 켜고 끄면 전체화면 상태가 뒤집힘
+            return self._fullscreen_toggle(w, m)
+
+    def _fullscreen_toggle(self, w, m):
         try:
             if getattr(self, "_fs", False):
                 w.toggle_fullscreen()
@@ -458,10 +480,10 @@ class Api:
         return self.watcher.clear()
 
     # ---- 시간표 (tt_worker.py 가 긁어 둔 로컬 캐시) ----
-    def _tt_path(self):
+    def _tt_path(self, teacher=None):
         """현재 설정된 교사의 캐시 파일 (교사별로 따로 저장 → 바꿨다 돌아와도 바로 뜸)."""
         from tt_worker import cache_path
-        return cache_path(self.cfg.get("teacher_name") or "")
+        return cache_path(self.cfg.get("teacher_name") or "" if teacher is None else teacher)
 
     def _tt_cache(self):
         """현재 교사의 캐시 파일을 읽는다 (바뀐 경우에만 다시 파싱)."""
@@ -500,7 +522,8 @@ class Api:
         while True:
             time.sleep(30)
             try:
-                self._tt_reap()
+                with self._tt_lock:
+                    self._tt_reap()
                 if not self._tt_fresh(self._tt_cache()):
                     self._ensure_worker()
             except Exception as e:
@@ -518,8 +541,9 @@ class Api:
                 return
             log(f"tt_worker pid={p.pid} stuck — killing")
             self._kill_tree(p)
-        self.tt_proc = None
-        path = self._tt_path()
+        if self.tt_proc is p:
+            self.tt_proc = None
+        path = self._tt_path(getattr(self, "_tt_teacher", None))
         ok = path.exists() and path.stat().st_mtime >= self._tt_spawn_at - 1
         if ok:
             self._tt_fail = 0
@@ -631,10 +655,11 @@ class Api:
         return True
 
     def start_worker(self):
-        if shutting_down():   # PC 종료 중엔 새 프로세스를 띄우지 않음 (오류 창 방지)
+        if self._closing or shutting_down():   # 앱 종료·PC 종료 중엔 새 프로세스를 띄우지 않음 (오류 창 방지)
             return
         exe = sys.executable
         teacher = self.cfg.get("teacher_name") or ""
+        self._tt_teacher = teacher
         # exe 로 묶인 경우(PyInstaller)에는 같은 exe 를 --tt-worker 모드로 다시 띄운다
         cmd = [exe, "--tt-worker", self.cfg["timetable_url"], teacher] if getattr(sys, "frozen", False) \
             else [exe, str(BASE / "tt_worker.py"), self.cfg["timetable_url"], teacher]
@@ -648,24 +673,32 @@ class Api:
 
     @staticmethod
     def _kill_tree(p):
-        """워커와 그 하위 프로세스(WebView2)까지 끈다. terminate() 만 하면 msedgewebview2 가 남는다."""
+        """워커와 그 하위 프로세스(WebView2)까지 끈다. terminate() 만 하면 msedgewebview2 가 남는다.
+        taskkill.exe 대신 psutil 로 — 새 프로세스를 띄우지 않으므로 PC 종료 중에도 안전."""
         try:
-            if os.name == "nt":
-                subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True, timeout=15,
-                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-            else:
-                p.kill()
+            kids = psutil.Process(p.pid).children(recursive=True)
+        except Exception:
+            kids = []
+        for c in kids:
+            try:
+                c.kill()
+            except Exception:
+                pass
+        try:
+            p.kill()
         except Exception:
             pass
         try:
+            psutil.wait_procs(kids, timeout=5)
             p.wait(timeout=5)
         except Exception:
             pass
 
     def stop_worker(self):
-        if self.tt_proc and self.tt_proc.poll() is None:
-            self._kill_tree(self.tt_proc)
-        self.tt_proc = None
+        with self._tt_lock:
+            if self.tt_proc and self.tt_proc.poll() is None:
+                self._kill_tree(self.tt_proc)
+            self.tt_proc = None
 
     @timed
     def get_system(self):
@@ -813,10 +846,14 @@ class Api:
 
     def _save_local(self, items):
         self.LOCAL_EVENTS.parent.mkdir(parents=True, exist_ok=True)
-        self.LOCAL_EVENTS.write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
+        write_atomic(self.LOCAL_EVENTS, json.dumps(items, ensure_ascii=False, indent=1))
 
     def add_event(self, ev):
         """ev: {title, date 'YYYY-MM-DD', time 'HH:MM' | '', all_day}"""
+        with _SAVE_LOCK:
+            return self._add_event(ev)
+
+    def _add_event(self, ev):
         items = self._load_local()
         import uuid
         ev = {"id": uuid.uuid4().hex[:12], "title": str(ev.get("title", "")).strip()[:80],
@@ -828,8 +865,9 @@ class Api:
         return True
 
     def delete_event(self, ev_id):
-        items = [x for x in self._load_local() if x.get("id") != ev_id]
-        self._save_local(items)
+        with _SAVE_LOCK:
+            items = [x for x in self._load_local() if x.get("id") != ev_id]
+            self._save_local(items)
         return True
 
     def _local_events(self, start, end):
@@ -1047,9 +1085,10 @@ def main():
             while True:   # 모니터를 뺐다 꽂거나 다른 모니터로 밀려나면 다시
                 time.sleep(30)
                 try:
-                    if not winmon.on_monitor("SUBmonitor", api._mon):
-                        api._mon = winmon.pick(winmon.monitors(), api.cfg.get("monitor", "")) or api._mon
-                        api._fullscreen_on(api._mon)
+                    m = winmon.pick(winmon.monitors(), api.cfg.get("monitor", ""))   # 띠 모니터가 빠지면 아무것도 안 함 (주 모니터를 덮지 않게)
+                    if m and not winmon.on_monitor("SUBmonitor", m):
+                        api._mon = m
+                        api._fullscreen_on(m)
                 except Exception as e:
                     log(f"replace failed: {e}")
         win.events.shown += lambda: threading.Thread(target=_place, daemon=True).start()
@@ -1059,9 +1098,13 @@ def main():
     import hashlib
     ver = hashlib.md5(b"".join((BASE / "web" / f).read_bytes() for f in ("index.html", "detail.js", "detail.css", "dragon.js", "weatherfx.js"))).hexdigest()[:8]
     log(f"web version {ver}")
+    for old in (DATA_DIR / "profile").glob("*"):   # 예전 버전의 WebView2 프로필(100MB+)은 지운다
+        if old.name != ver:
+            shutil.rmtree(old, ignore_errors=True)
     try:
         webview.start(private_mode=False, storage_path=str(DATA_DIR / "profile" / ver), debug="--debug" in sys.argv)
     finally:
+        api._closing = True
         api.stop_worker()
         log("exit")
 
