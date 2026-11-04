@@ -340,6 +340,14 @@
   body.portrait #cal { display: none; }   /* 달력은 일정 상세 화면에서 */
   body.portrait #root > #apps { flex: 0 0 52px !important; padding: 6px 86px 6px 10px !important; }   /* 오른쪽은 ⚙·✕ 자리 */
   body.portrait #appsList { justify-content: space-between; height: 100%; align-items: center; }
+  /* 프린터 알림 세로: 아이콘 → 제목 → 파일·원인·정보 → 확인 버튼, 위에서 아래로 가운데 정렬 */
+  body.portrait #pralert .box { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; padding: 0 28px; }
+  body.portrait #pralert .ic { width: 150px; height: 150px; font-size: 96px; margin-bottom: 10px; }
+  body.portrait #pralert .ttl { font-size: 46px; line-height: 1.25; word-break: keep-all; }
+  body.portrait #pralert .nm { font-size: 26px; white-space: normal; word-break: keep-all; }
+  body.portrait #pralert .why { font-size: 24px; word-break: keep-all; }
+  body.portrait #pralert .meta { font-size: 20px; word-break: keep-all; line-height: 1.6; white-space: pre-line; }
+  body.portrait #pralert button { margin-top: 26px; align-self: stretch; text-align: center; padding: 26px 0; font-size: 36px; }
   /* 프린터(계정 방식) 세로: 얇은 가로 막대 */
   body.portrait #printer.nocam #prbody { display: flex; flex-direction: column; align-items: stretch; text-align: left; gap: 6px; }
   .phb-top { display: flex; align-items: baseline; gap: 10px; }
@@ -930,7 +938,9 @@ function showPrAlert(p) {
   const why = PR_STAGE[p.stage] || (p.print_error ? `오류 코드 ${Number(p.print_error).toString(16).toUpperCase()}` : '') || (p.hms && p.hms.length ? `HMS 경고 ${p.hms.length}건` : '');
   el.querySelector('.why').textContent = kind === 'done' ? '결과물을 꺼내 주세요' : why ? `원인: ${why}` : '프린터 화면이나 Bambu Studio 에서 상태를 확인하세요';
   const d = new Date();
-  el.querySelector('.meta').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())} · ${kind === 'done' ? '100%' : `${p.percent ?? 0}% · ${p.layer ?? 0}/${p.layers ?? '-'}층`} · 노즐 ${p.nozzle != null ? Math.round(p.nozzle) + '°' : '-'} · 베드 ${p.bed != null ? Math.round(p.bed) + '°' : '-'}`;
+  const parts = [`${pad(d.getHours())}:${pad(d.getMinutes())}`, kind === 'done' ? '100%' : `${p.percent ?? 0}% · ${p.layer ?? 0}/${p.layers ?? '-'}층`,
+    `노즐 ${p.nozzle != null ? Math.round(p.nozzle) + '°' : '-'} · 베드 ${p.bed != null ? Math.round(p.bed) + '°' : '-'}`];
+  el.querySelector('.meta').textContent = parts.join(document.body.classList.contains('portrait') ? '\n' : ' · ');   // 세로: 항목별로 줄바꿈
 }
 function hidePrAlert(ack) {
   $('pralert').className = ''; window.PR_ALERT = false;
