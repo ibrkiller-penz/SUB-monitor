@@ -1105,9 +1105,7 @@ def main():
     import hashlib
     ver = hashlib.md5(b"".join((BASE / "web" / f).read_bytes() for f in ("index.html", "detail.js", "detail.css", "dragon.js", "weatherfx.js"))).hexdigest()[:8]
     log(f"web version {ver}")
-    for old in (DATA_DIR / "profile").glob("*"):   # 예전 버전의 WebView2 프로필(100MB+)은 지운다
-        if old.name != ver:
-            shutil.rmtree(old, ignore_errors=True)
+    # (예전 버전 프로필을 지우던 코드는 뺐음 — 대량 삭제를 백신이 랜섬웨어 행동으로 탐지)
     try:
         webview.start(private_mode=False, storage_path=str(DATA_DIR / "profile" / ver), debug="--debug" in sys.argv)
     finally:

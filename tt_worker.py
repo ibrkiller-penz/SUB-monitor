@@ -152,19 +152,21 @@ def main():
     win.events.loaded += on_loaded
     threading.Thread(target=watchdog, daemon=True).start()
     # 대시보드와 다른 WebView2 프로필을 써야 두 프로세스가 충돌하지 않는다
-    # 실행마다 새 폴더: 이전 워커의 WebView2 가 남아 폴더를 잠가도 이번 실행은 막히지 않게 (1시간 지난 폴더는 정리)
-    runs = DATA_DIR / "tt_runs"
-    runs.mkdir(parents=True, exist_ok=True)
-    for old in runs.iterdir():
-        try:
-            if time.time() - old.stat().st_mtime > 3600:
-                shutil.rmtree(old, ignore_errors=True)
-        except Exception:
-            pass
-    run_dir = runs / f"{int(time.time())}_{os.getpid()}"
-    webview.start(private_mode=False, storage_path=str(run_dir))
-    time.sleep(1)
-    shutil.rmtree(run_dir, ignore_errors=True)   # 실행마다 수십 MB → 끝나면 바로 지움
+    # 고정 폴더 두 개(a·b)를 번갈아: 예전 워커의 WebView2 가 남아 a 를 잠그고 있으면 b 를 쓴다.
+    # (실행마다 새 폴더를 만들고 지우던 방식은 파일 수백 개를 한꺼번에 지워 백신(AhnLab)이 랜섬웨어 행동으로 탐지했음 → 파일을 지우지 않음)
+    prof = DATA_DIR / "tt_profile"
+    try:
+        import psutil
+        used = " ".join(" ".join(p.info["cmdline"] or []) for p in psutil.process_iter(["name", "cmdline"])
+                        if (p.info["name"] or "").lower().startswith("msedgewebview2"))
+        for cand in (DATA_DIR / "tt_profile", DATA_DIR / "tt_profile_b"):
+            if str(cand).lower() not in used.lower():
+                prof = cand
+                break
+    except Exception:
+        pass
+    log(f"profile {prof.name}")
+    webview.start(private_mode=False, storage_path=str(prof))
     log("exit" if bridge.done else "exit without data")
     sys.exit(0 if bridge.done else 2)
 
