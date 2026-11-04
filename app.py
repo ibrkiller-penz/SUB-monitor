@@ -39,9 +39,68 @@ def _find_nvidia_smi():
 NVIDIA_SMI = _find_nvidia_smi()
 
 
+def shutting_down():
+    """Windows 가 종료·로그오프 중이면 True — 이때 새 프로세스를 띄우면 오류 창이 뜬다."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        return bool(ctypes.windll.user32.GetSystemMetrics(0x2000))   # SM_SHUTTINGDOWN
+    except Exception:
+        return False
+
+
+class _Nvml:
+    """NVIDIA 드라이버의 nvml.dll 을 직접 불러 GPU 사용률·온도를 읽는다.
+    예전엔 10초마다 nvidia-smi.exe 를 새로 띄웠는데, PC 를 끌 때 그 실행이 종료와 겹쳐 오류 창이 떴다."""
+    def __init__(self):
+        self.h = None
+        if sys.platform != "win32":
+            return
+        import ctypes
+        for path in ("nvml.dll", str(Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "NVIDIA Corporation" / "NVSMI" / "nvml.dll")):
+            try:
+                self.lib = ctypes.CDLL(path)
+                break
+            except OSError:
+                self.lib = None
+        if not self.lib or self.lib.nvmlInit_v2() != 0:
+            return
+        h = ctypes.c_void_p()
+        if self.lib.nvmlDeviceGetHandleByIndex_v2(0, ctypes.byref(h)) == 0:
+            self.h = h
+            buf = ctypes.create_string_buffer(96)
+            self.name = buf.value.decode(errors="ignore") if self.lib.nvmlDeviceGetName(h, buf, 96) == 0 else "GPU"
+
+    def read(self):
+        import ctypes
+
+        class Util(ctypes.Structure):
+            _fields_ = [("gpu", ctypes.c_uint), ("memory", ctypes.c_uint)]
+        u, t = Util(), ctypes.c_uint()
+        if self.lib.nvmlDeviceGetUtilizationRates(self.h, ctypes.byref(u)) != 0:
+            return None
+        self.lib.nvmlDeviceGetTemperature(self.h, 0, ctypes.byref(t))   # 0 = GPU 코어
+        return {"load": int(u.gpu), "temp": int(t.value), "name": self.name}
+
+
+_NVML = None
+
+
 def read_gpu():
-    """nvidia-smi 를 콘솔 창 없이 호출한다 (GPUtil 은 창이 깜빡여서 직접 호출)."""
-    if not NVIDIA_SMI:
+    """GPU 사용률·온도. NVML(새 프로세스 없음) 우선, 안 되면 nvidia-smi(종료 중에는 안 부름)."""
+    global _NVML
+    if _NVML is None:
+        try:
+            _NVML = _Nvml()
+        except Exception:
+            _NVML = False
+    if _NVML and _NVML.h:
+        try:
+            return _NVML.read()
+        except Exception:
+            pass
+    if not NVIDIA_SMI or shutting_down():
         return None
     kw = {}
     if sys.platform == "win32":
@@ -572,6 +631,8 @@ class Api:
         return True
 
     def start_worker(self):
+        if shutting_down():   # PC 종료 중엔 새 프로세스를 띄우지 않음 (오류 창 방지)
+            return
         exe = sys.executable
         teacher = self.cfg.get("teacher_name") or ""
         # exe 로 묶인 경우(PyInstaller)에는 같은 exe 를 --tt-worker 모드로 다시 띄운다
@@ -618,7 +679,7 @@ class Api:
         mem = psutil.virtual_memory()
         disk = psutil.disk_usage("C:\\" if sys.platform == "win32" else "/")
         gpu = self._gpu[1]
-        if NVIDIA_SMI and now - self._gpu[0] > 10:   # nvidia-smi 호출은 10초마다
+        if now - self._gpu[0] > 5:   # GPU 는 5초마다 (NVML 직접, 없으면 nvidia-smi)
             try:
                 gpu = read_gpu()
             except Exception:

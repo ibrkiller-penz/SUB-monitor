@@ -39,7 +39,7 @@ Windows PC 옆에 두는 가로 스트립 디스플레이용 Python(pywebview) �
 - `.github/workflows/build-exe.yml`: main 푸시마다 windows-latest에서 PyInstaller(onedir) 빌드 → `latest` 릴리스에 `SUBmonitor-win.zip` 첨부. 로컬은 `build_exe.bat`.
 - exe 안에서는 `app.py --tt-worker <url> <교사>`로 같은 exe를 시간표 워커로 재실행한다(`sys.frozen`). `config.json`은 exe 옆에서 읽고, `config.local.json`도 exe 옆에 생긴다.
 
-- GPU는 `nvidia-smi`를 `CREATE_NO_WINDOW`로 직접 호출(`read_gpu`). GPUtil은 windowed exe에서 10초마다 콘솔 창이 깜빡여서 제거함. 외부 명령은 항상 창 없이 실행할 것.
+- GPU는 드라이버의 `nvml.dll`을 ctypes 로 직접 읽음(`_Nvml`, 새 프로세스 없음). 없을 때만 `nvidia-smi`(CREATE_NO_WINDOW). 예전처럼 10초마다 nvidia-smi.exe 를 띄우면 PC 끌 때 종료와 겹쳐 오류 창이 떴음 → `shutting_down()`(SM_SHUTTINGDOWN) 이면 nvidia-smi·시간표 워커를 안 띄움. GPUtil은 windowed exe에서 콘솔 창이 깜빡여서 제거함. 외부 명령은 항상 창 없이 실행할 것.
 
 - `web/weatherfx.js` — 날씨 연출(화면 맨 앞 z40, pointer-events 없음). Open-Meteo `weather_code`·`is_day`·`wind_speed_10m` → 구름(노이즈 뭉게구름, 위쪽 가장자리에 둥둥)/비(빗줄기+유리창 물방울: 배경 사진을 뒤집어 비추는 렌즈 굴절, 진한 테두리·아래 빛 띠, 일부 길쭉한 방울, 촘촘하게 맺히고 큰 방울만 가끔 흘러내리며 작은 방울을 남김)/뇌우(번개)/눈(3겹+패널 위 쌓임+성에)/안개/맑은 낮(빛내림: 화면 위 바깥 구름 뒤 해에서 가는 빛줄기 26가닥이 부채꼴로 내려옴, 줄기마다 사인 합으로 밝기가 천천히 변하고 부채가 미세하게 기울어짐, 매 프레임 1/4 해상도+blur 후 screen 합성; 해 위치는 7시 왼쪽→17시 오른쪽, 색은 정오 이후 금빛)/맑은 밤(별 반짝임 + 20~60초마다 별똥별: 빛나는 머리·가늘게 사라지는 꼬리, 방향·속도 무작위)/바람(25km/h↑ 낙엽, 40km/h↑ 강풍 줄기). 설정에서 끄기·30초 미리보기(`previewWeatherFx`). 모델 "현재 날씨"가 부슬비를 놓치는 문제 → app.py `_infer_drizzle`: 15분 강수(최근 30분·다음 15분)가 있거나, 구름 60%↑이면서 이번 시간 강수확률 80%↑이면 weather_code 를 51(1mm↑이면 61)로 바꿈(weather_code_model 에 원값).
 - `web/dragon.js` — 화면 보호 용. 기본은 `web/dragon.webm`(클링 황금용 영상을 정면 구간만 편집·1.25배속·왕복·초록 키잉한 투명 webm) + 금빛 후광·금가루. exe 옆 dragon.mp4/webm 이 있으면 그걸 씀(초록이면 실시간 키잉). 없으면 캔버스 그림 용.
